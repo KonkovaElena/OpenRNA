@@ -5,10 +5,15 @@ export const caseStatuses = [
   "WORKFLOW_REQUESTED",
   "WORKFLOW_RUNNING",
   "WORKFLOW_COMPLETED",
+  "WORKFLOW_CANCELLED",
   "WORKFLOW_FAILED",
   "QC_PASSED",
   "QC_FAILED",
-  "ON_HOLD",
+  "AWAITING_REVIEW",
+  "APPROVED_FOR_HANDOFF",
+  "REVISION_REQUESTED",
+  "REVIEW_REJECTED",
+  "HANDOFF_PENDING",
 ] as const;
 
 export type CaseStatus = (typeof caseStatuses)[number];
@@ -21,11 +26,59 @@ export const sampleTypes = ["TUMOR_DNA", "NORMAL_DNA", "TUMOR_RNA", "FOLLOW_UP"]
 
 export type SampleType = (typeof sampleTypes)[number];
 
+export const sourceArtifactSemanticTypes = [
+  "tumor-dna-fastq",
+  "normal-dna-fastq",
+  "tumor-rna-fastq",
+  "follow-up-fastq",
+] as const;
+
+export type SourceArtifactSemanticType = (typeof sourceArtifactSemanticTypes)[number];
+
+export const derivedArtifactSemanticTypes = [
+  "somatic-vcf",
+  "filtered-maf",
+  "hla-calls",
+  "alignment-bam",
+  "annotated-vcf",
+  "expression-matrix",
+  "hla-calls-raw",
+  "qc-summary-json",
+  "run-manifest-artifact",
+  "board-evidence-bundle",
+] as const;
+
+export type DerivedArtifactSemanticType = (typeof derivedArtifactSemanticTypes)[number];
+
+export const workflowFailureCategories = [
+  "executor_error",
+  "pipeline_error",
+  "timeout",
+  "infrastructure_error",
+  "unknown",
+] as const;
+
+export type WorkflowFailureCategory = (typeof workflowFailureCategories)[number];
+
+export const sourceArtifactSemanticTypeBySampleType: Readonly<Record<SampleType, SourceArtifactSemanticType>> = {
+  TUMOR_DNA: "tumor-dna-fastq",
+  NORMAL_DNA: "normal-dna-fastq",
+  TUMOR_RNA: "tumor-rna-fastq",
+  FOLLOW_UP: "follow-up-fastq",
+};
+
+export function isCompatibleSourceArtifactSemanticType(
+  sampleType: SampleType,
+  semanticType: SourceArtifactSemanticType,
+): boolean {
+  return sourceArtifactSemanticTypeBySampleType[sampleType] === semanticType;
+}
+
 export const assayTypes = ["WES", "WGS", "RNA_SEQ", "PANEL", "OTHER"] as const;
 
 export type AssayType = (typeof assayTypes)[number];
 
-export const artifactClasses = ["SOURCE", "DERIVED", "BOARD_PACKET", "PAYLOAD"] as const;
+export const artifactClasses = ["SOURCE", "DERIVED", "BOARD_PACKET", "HANDOFF_PACKET", "PAYLOAD"] as const;
 
 export type ArtifactClass = (typeof artifactClasses)[number];
 
@@ -36,11 +89,17 @@ export const caseAuditEventTypes = [
   "workflow.requested",
   "workflow.started",
   "workflow.completed",
+  "workflow.cancelled",
   "workflow.failed",
   "qc.evaluated",
   "hla.consensus.produced",
   "artifact.derived",
+  "candidate.rank-generated",
+  "payload.generated",
+  "outcome.recorded",
   "board.packet.generated",
+  "review.outcome.recorded",
+  "handoff.packet.generated",
 ] as const;
 
 export type CaseAuditEventType = (typeof caseAuditEventTypes)[number];
@@ -67,7 +126,7 @@ export interface ArtifactRecord {
   artifactId: string;
   artifactClass: ArtifactClass;
   sampleId: string;
-  semanticType: string;
+  semanticType: SourceArtifactSemanticType;
   schemaVersion: number;
   artifactHash: string;
   storageUri?: string;
@@ -131,6 +190,11 @@ export interface CaseRecord {
   hlaConsensus?: HlaConsensusRecord;
   qcGates: QcGateRecord[];
   boardPackets: BoardPacketRecord[];
+  reviewOutcomes: ReviewOutcomeRecord[];
+  handoffPackets: HandoffPacketRecord[];
+  neoantigenRanking?: RankingResult;
+  constructDesign?: ConstructDesignPackage;
+  outcomeTimeline: OutcomeTimelineEntry[];
 }
 
 export interface CreateCaseInput {
@@ -147,7 +211,7 @@ export interface RegisterSampleInput {
 
 export interface RegisterArtifactInput {
   sampleId: string;
-  semanticType: string;
+  semanticType: SourceArtifactSemanticType;
   schemaVersion: number;
   artifactHash: string;
   storageUri?: string;
@@ -186,6 +250,59 @@ export const qcGateOutcomes = ["PASSED", "FAILED", "WARN"] as const;
 
 export type QcGateOutcome = (typeof qcGateOutcomes)[number];
 
+export interface WorkflowTerminalMetadata {
+  durationMs: number;
+  executorVersion: string;
+  resourceSummary?: Record<string, unknown>;
+}
+
+// ─── Nextflow Executor Types (Wave 4) ───────────────────────────────
+
+export interface NextflowTerminalMetadata extends WorkflowTerminalMetadata {
+  nextflowSessionId: string;
+  nextflowRunName: string;
+  launchDir: string;
+  workDir: string;
+  pipelineRevision: string;
+  containerProvenance?: string;
+  traceUri?: string;
+  timelineUri?: string;
+  reportUri?: string;
+  outputManifestUri?: string;
+}
+
+export const nextflowRunStates = [
+  "submitted",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+  "unknown",
+] as const;
+
+export type NextflowRunState = (typeof nextflowRunStates)[number];
+
+export interface NextflowPollResult {
+  sessionId: string;
+  runName: string;
+  state: NextflowRunState;
+  exitCode?: number;
+  errorMessage?: string;
+  durationMs?: number;
+  traceUri?: string;
+  timelineUri?: string;
+  reportUri?: string;
+}
+
+export const nextflowExitCodeMapping: Readonly<Record<number, WorkflowFailureCategory>> = {
+  0: "unknown",         // should not be used for failures
+  1: "pipeline_error",  // general pipeline error
+  2: "pipeline_error",  // script error
+  137: "timeout",       // OOM kill / timeout
+  143: "timeout",       // SIGTERM
+  255: "infrastructure_error", // infrastructure / env error
+};
+
 export interface WorkflowRunRecord {
   runId: string;
   caseId: string;
@@ -193,25 +310,44 @@ export interface WorkflowRunRecord {
   status: WorkflowRunStatus;
   workflowName: string;
   referenceBundleId: string;
+  pinnedReferenceBundle?: ReferenceBundleManifest;
   executionProfile: string;
+  acceptedAt?: string;
   startedAt?: string;
   completedAt?: string;
   failureReason?: string;
-  runMetadata?: Record<string, unknown>;
+  failureCategory?: WorkflowFailureCategory;
+  terminalMetadata?: WorkflowTerminalMetadata;
+  manifest?: WorkflowRunManifest;
 }
 
 export interface RunArtifact {
   artifactId: string;
   runId: string;
   artifactClass: "DERIVED";
-  semanticType: string;
+  semanticType: DerivedArtifactSemanticType;
   artifactHash: string;
   producingStep: string;
   registeredAt: string;
 }
 
+// ─── Well-Known QC Metrics (Wave 5) ─────────────────────────────────
+
+export const wellKnownQcMetrics = [
+  "sample_identity_check",
+  "min_sequencing_quality",
+  "tumor_normal_pairing",
+  "callable_region_coverage",
+  "variant_calling_success",
+  "expression_support",
+  "hla_consensus_completeness",
+] as const;
+
+export type WellKnownQcMetric = (typeof wellKnownQcMetrics)[number];
+
 export interface QcResult {
   metric: string;
+  metricCategory?: WellKnownQcMetric;
   value: number;
   threshold: number;
   pass: boolean;
@@ -232,6 +368,26 @@ export interface HlaToolEvidence {
   rawOutput?: string;
 }
 
+// ─── HLA Disagreement (Wave 6) ──────────────────────────────────────
+
+export const hlaDisagreementResolutions = [
+  "toolA",
+  "toolB",
+  "majority",
+  "unresolved",
+] as const;
+
+export type HlaDisagreementResolution = (typeof hlaDisagreementResolutions)[number];
+
+export interface HlaDisagreementRecord {
+  locus: string;
+  toolA: string;
+  toolAAllele: string;
+  toolB: string;
+  toolBAllele: string;
+  resolution: HlaDisagreementResolution;
+}
+
 export interface HlaConsensusRecord {
   caseId: string;
   alleles: string[];
@@ -240,6 +396,14 @@ export interface HlaConsensusRecord {
   tieBreakNotes?: string;
   referenceVersion: string;
   producedAt: string;
+  disagreements?: HlaDisagreementRecord[];
+  confidenceDecomposition?: Record<string, number>;
+}
+
+export interface RetrievalProvenance {
+  uri: string;
+  retrievedAt: string;
+  integrityHash: string;
 }
 
 export interface ReferenceBundleManifest {
@@ -247,16 +411,321 @@ export interface ReferenceBundleManifest {
   genomeAssembly: string;
   annotationVersion: string;
   knownSitesVersion: string;
+  hlaDatabaseVersion: string;
   frozenAt: string;
+  transcriptSet?: string;
+  callerBundleVersion?: string;
+  pipelineRevision?: string;
+  retrievalProvenance?: RetrievalProvenance;
+}
+
+// ─── Well-Known Workflow Names (Wave 7) ─────────────────────────────
+
+export const wellKnownWorkflowNames = [
+  "dna-qc",
+  "somatic-calling",
+  "annotation",
+  "expression-support",
+  "hla-typing",
+  "combined-evidence",
+] as const;
+
+export type WellKnownWorkflowName = (typeof wellKnownWorkflowNames)[number];
+
+/** Maps each well-known workflow to the artifact semantic types it is expected to produce. */
+export const workflowArtifactContract: Readonly<Record<WellKnownWorkflowName, readonly DerivedArtifactSemanticType[]>> = {
+  "dna-qc":              ["alignment-bam", "qc-summary-json"],
+  "somatic-calling":     ["somatic-vcf", "filtered-maf"],
+  "annotation":          ["annotated-vcf"],
+  "expression-support":  ["expression-matrix"],
+  "hla-typing":          ["hla-calls", "hla-calls-raw"],
+  "combined-evidence":   ["board-evidence-bundle", "run-manifest-artifact"],
+};
+
+/** Maps each well-known workflow to workflows that must complete first. */
+export const workflowDependencies: Readonly<Record<WellKnownWorkflowName, readonly WellKnownWorkflowName[]>> = {
+  "dna-qc":              [],
+  "somatic-calling":     ["dna-qc"],
+  "annotation":          ["somatic-calling"],
+  "expression-support":  [],
+  "hla-typing":          [],
+  "combined-evidence":   ["annotation", "expression-support", "hla-typing"],
+};
+
+// ─── Evidence Lineage (Wave 7) ──────────────────────────────────────
+
+export interface EvidenceLineageEdge {
+  producerRunId: string;
+  producerWorkflow: string;
+  artifactId: string;
+  semanticType: DerivedArtifactSemanticType;
+  consumerRunId: string;
+  consumerWorkflow: string;
+}
+
+export interface EvidenceLineageGraph {
+  edges: EvidenceLineageEdge[];
+  roots: string[];          // runIds with no upstream dependencies
+  terminal: string[];       // runIds that are not consumed by any downstream
+}
+
+// ─── Neoantigen Ranking (Wave 8) ────────────────────────────────────
+
+export interface BindingAffinityEvidence {
+  ic50nM: number;
+  percentileRank: number;
+}
+
+export interface ExpressionSupportEvidence {
+  tpm: number;
+  variantAlleleFraction: number;
+}
+
+export interface ClonalityEvidence {
+  vaf: number;
+  isClonal: boolean;
+}
+
+export const selfFoldingRiskLevels = ["low", "medium", "high"] as const;
+export type SelfFoldingRisk = (typeof selfFoldingRiskLevels)[number];
+
+export interface ManufacturabilityEvidence {
+  gcContent: number;
+  selfFoldingRisk: SelfFoldingRisk;
+}
+
+export const toleranceRiskLevels = ["low", "medium", "high"] as const;
+export type ToleranceRisk = (typeof toleranceRiskLevels)[number];
+
+export interface SelfSimilarityEvidence {
+  closestSelfPeptide: string;
+  editDistance: number;
+  toleranceRisk: ToleranceRisk;
+}
+
+export interface NeoantigenCandidate {
+  candidateId: string;
+  peptideSequence: string;
+  hlaAllele: string;
+  bindingAffinity: BindingAffinityEvidence;
+  expressionSupport: ExpressionSupportEvidence;
+  clonality: ClonalityEvidence;
+  manufacturability: ManufacturabilityEvidence;
+  selfSimilarity: SelfSimilarityEvidence;
+  uncertaintyScore: number;
+}
+
+export interface RankingRationale {
+  candidateId: string;
+  rank: number;
+  compositeScore: number;
+  featureWeights: Record<string, number>;
+  featureScores: Record<string, number>;
+  uncertaintyContribution: number;
+  explanation: string;
+}
+
+export interface ConfidenceInterval {
+  lower: number;
+  upper: number;
+}
+
+export interface RankingResult {
+  caseId: string;
+  rankedCandidates: RankingRationale[];
+  ensembleMethod: string;
+  confidenceInterval: ConfidenceInterval;
+  rankedAt: string;
+}
+
+// ─── RNA Construct Design (Wave 9) ──────────────────────────────────
+
+export const deliveryModalities = ["conventional-mrna", "saRNA", "circRNA"] as const;
+export type DeliveryModality = (typeof deliveryModalities)[number];
+
+export interface CodonOptimizationMeta {
+  algorithm: string;
+  gcContentPercent: number;
+  caiScore: number;		// Codon Adaptation Index
+}
+
+export interface ManufacturabilityCheck {
+  checkName: string;
+  pass: boolean;
+  detail: string;
+  severity: "info" | "warning" | "blocking";
+}
+
+export interface ConstructDesignPackage {
+  constructId: string;
+  caseId: string;
+  version: number;
+  deliveryModality: DeliveryModality;
+  sequence: string;
+  designRationale: string;
+  candidateIds: string[];
+  codonOptimization: CodonOptimizationMeta;
+  manufacturabilityChecks: ManufacturabilityCheck[];
+  designedAt: string;
+}
+
+// ─── Outcomes & Learning Loop (Wave 10) ───────────────────────────
+
+export const administrationRoutes = ["intramuscular", "subcutaneous", "intravenous"] as const;
+export type AdministrationRoute = (typeof administrationRoutes)[number];
+
+export const clinicalResponseCategories = ["CR", "PR", "SD", "PD", "NE"] as const;
+export type ClinicalResponseCategory = (typeof clinicalResponseCategories)[number];
+
+export interface AdministrationRecord {
+  administrationId: string;
+  caseId: string;
+  constructId: string;
+  constructVersion: number;
+  administeredAt: string;
+  route: AdministrationRoute;
+  doseMicrograms: number;
+  batchId?: string;
+  notes?: string;
+}
+
+export interface ImmuneMonitoringRecord {
+  monitoringId: string;
+  caseId: string;
+  constructId: string;
+  constructVersion: number;
+  collectedAt: string;
+  assayType: string;
+  biomarker: string;
+  value: number;
+  unit: string;
+  baselineDelta?: number;
+  notes?: string;
+}
+
+export interface ClinicalFollowUpRecord {
+  followUpId: string;
+  caseId: string;
+  constructId: string;
+  constructVersion: number;
+  evaluatedAt: string;
+  responseCategory: ClinicalResponseCategory;
+  progressionFreeDays?: number;
+  overallSurvivalDays?: number;
+  notes?: string;
+}
+
+export const outcomeEntryTypes = ["administration", "immune-monitoring", "clinical-follow-up"] as const;
+export type OutcomeEntryType = (typeof outcomeEntryTypes)[number];
+
+export type OutcomeTimelineEntry =
+  | {
+      entryId: string;
+      caseId: string;
+      constructId: string;
+      constructVersion: number;
+      entryType: "administration";
+      occurredAt: string;
+      administration: AdministrationRecord;
+    }
+  | {
+      entryId: string;
+      caseId: string;
+      constructId: string;
+      constructVersion: number;
+      entryType: "immune-monitoring";
+      occurredAt: string;
+      immuneMonitoring: ImmuneMonitoringRecord;
+    }
+  | {
+      entryId: string;
+      caseId: string;
+      constructId: string;
+      constructVersion: number;
+      entryType: "clinical-follow-up";
+      occurredAt: string;
+      clinicalFollowUp: ClinicalFollowUpRecord;
+    };
+
+export interface FullTraceabilityRecord {
+  caseId: string;
+  rankedCandidateIds: string[];
+  constructId: string;
+  constructVersion: number;
+  constructCandidateIds: string[];
+  timeline: OutcomeTimelineEntry[];
+  administrations: AdministrationRecord[];
+  immuneMonitoringRecords: ImmuneMonitoringRecord[];
+  clinicalFollowUpRecords: ClinicalFollowUpRecord[];
+  reviewOutcomes: ReviewOutcomeRecord[];
+  handoffPackets: HandoffPacketRecord[];
+}
+
+// ─── Horizon Modality Gate (Wave 11) ───────────────────────────────
+
+export const modalityMaturityLevels = ["research", "preclinical", "clinical", "validated"] as const;
+export type ModalityMaturityLevel = (typeof modalityMaturityLevels)[number];
+
+export interface HorizonModality {
+  modality: DeliveryModality;
+  maturityLevel: ModalityMaturityLevel;
+  enabledByDefault: boolean;
+  isEnabled: boolean;
+  activationReason?: string;
+  activatedAt?: string;
+}
+
+// ─── Immutable Run Manifest (Wave 2) ────────────────────────────────
+
+export interface ManifestInputArtifact {
+  artifactId: string;
+  semanticType: string;
+  artifactHash: string;
+}
+
+export interface ManifestReferenceAsset {
+  assetKind: string;
+  uri: string;
+  checksum: string;
+}
+
+export interface ManifestReferenceBundle {
+  bundleId: string;
+  genomeAssembly: string;
+  assets: ManifestReferenceAsset[];
+}
+
+export interface ManifestSampleSnapshot {
+  sampleId: string;
+  sampleType: string;
+  assayType: string;
+}
+
+export interface WorkflowRunManifest {
+  manifestVersion: number;
+  executorKind: string;
+  workflowName: string;
+  workflowRevision: string;
+  configProfile: string;
+  submissionIntent: string;
+  acceptedAt: string;
+  inputArtifactSet: ManifestInputArtifact[];
+  pinnedReferenceBundle: ManifestReferenceBundle;
+  sampleSnapshot: ManifestSampleSnapshot;
+  hlaSnapshot?: Record<string, unknown>;
+  expectedOutputManifestUri?: string;
+  reportUri?: string;
+  traceUri?: string;
 }
 
 export interface StartWorkflowRunInput {
   runId: string;
+  manifest?: WorkflowRunManifest;
 }
 
 export interface CompleteWorkflowRunInput {
   derivedArtifacts?: Array<{
-    semanticType: string;
+    semanticType: DerivedArtifactSemanticType;
     artifactHash: string;
     producingStep: string;
   }>;
@@ -264,6 +733,7 @@ export interface CompleteWorkflowRunInput {
 
 export interface FailWorkflowRunInput {
   reason: string;
+  failureCategory?: WorkflowFailureCategory;
 }
 
 export interface RecordHlaConsensusInput {
@@ -277,6 +747,7 @@ export interface RecordHlaConsensusInput {
 export interface EvaluateQcGateInput {
   results: Array<{
     metric: string;
+    metricCategory?: WellKnownQcMetric;
     value: number;
     threshold: number;
     pass: boolean;
@@ -296,9 +767,16 @@ export interface BoardPacketCaseSummary {
 export interface BoardPacketSnapshot {
   caseSummary: BoardPacketCaseSummary;
   workflowRuns: WorkflowRunRecord[];
+  pinnedReferenceBundles: ReferenceBundleManifest[];
   derivedArtifacts: RunArtifact[];
   hlaConsensus: HlaConsensusRecord;
   latestQcGate: QcGateRecord;
+  hlaToolBreakdown?: HlaToolEvidence[];
+  hlaDisagreements?: HlaDisagreementRecord[];
+  bundleRetrievalProvenance?: RetrievalProvenance[];
+  evidenceLineage?: EvidenceLineageGraph;
+  neoantigenRanking?: RankingResult;
+  constructDesign?: ConstructDesignPackage;
 }
 
 export interface BoardPacketRecord {
@@ -317,4 +795,123 @@ export interface BoardPacketGenerationResult {
   case: CaseRecord;
   packet: BoardPacketRecord;
   created: boolean;
+}
+
+// ─── Wave 15: Review Outcome + Manufacturing Handoff ───────────────
+
+export const reviewDispositions = ["approved", "rejected", "revision-requested"] as const;
+export type ReviewDisposition = (typeof reviewDispositions)[number];
+
+export interface RecordReviewOutcomeInput {
+  packetId: string;
+  reviewerId: string;
+  reviewerRole?: string;
+  reviewDisposition: ReviewDisposition;
+  rationale: string;
+  comments?: string;
+}
+
+export interface ReviewOutcomeRecord {
+  reviewId: string;
+  caseId: string;
+  packetId: string;
+  reviewerId: string;
+  reviewerRole?: string;
+  reviewDisposition: ReviewDisposition;
+  rationale: string;
+  comments?: string;
+  reviewedAt: string;
+}
+
+export interface ReviewOutcomeResult {
+  case: CaseRecord;
+  reviewOutcome: ReviewOutcomeRecord;
+  created: boolean;
+}
+
+export interface GenerateHandoffPacketInput {
+  reviewId: string;
+  handoffTarget: string;
+  requestedBy: string;
+  turnaroundDays: number;
+  notes?: string;
+}
+
+export interface HandoffPacketBoardReference {
+  packetId: string;
+  boardRoute: string;
+  version: number;
+  packetHash: string;
+  createdAt: string;
+}
+
+export interface HandoffPacketSnapshot {
+  caseSummary: BoardPacketCaseSummary;
+  boardPacket: HandoffPacketBoardReference;
+  reviewOutcome: ReviewOutcomeRecord;
+  constructDesign: ConstructDesignPackage;
+  handoffTarget: string;
+  requestedBy: string;
+  turnaroundDays: number;
+  notes?: string;
+}
+
+export interface HandoffPacketRecord {
+  handoffId: string;
+  caseId: string;
+  reviewId: string;
+  packetId: string;
+  artifactClass: "HANDOFF_PACKET";
+  constructId: string;
+  constructVersion: number;
+  handoffTarget: string;
+  schemaVersion: number;
+  packetHash: string;
+  createdAt: string;
+  snapshot: HandoffPacketSnapshot;
+}
+
+export interface HandoffPacketGenerationResult {
+  case: CaseRecord;
+  handoff: HandoffPacketRecord;
+  created: boolean;
+}
+
+// ─── Workflow Output Manifest (Wave 5) ──────────────────────────────
+
+export interface OutputManifestDerivedArtifact {
+  artifactId: string;
+  semanticType: DerivedArtifactSemanticType;
+  artifactHash: string;
+  producingStep: string;
+  storageUri?: string;
+}
+
+export interface OutputManifestQcSummary {
+  outcome: QcGateOutcome;
+  results: QcResult[];
+  evaluatedAt: string;
+}
+
+export interface WorkflowOutputManifest {
+  outputManifestVersion: number;
+  runId: string;
+  caseId: string;
+  workflowName: string;
+  executionProfile: string;
+  completedAt: string;
+  durationMs: number;
+  derivedArtifacts: OutputManifestDerivedArtifact[];
+  qcSummary: OutputManifestQcSummary;
+  inputManifestReference: {
+    manifestVersion: number;
+    workflowRevision: string;
+    configProfile: string;
+  };
+  provenanceChain: {
+    referenceBundleId: string;
+    genomeAssembly: string;
+    executorVersion: string;
+    pipelineRevision?: string;
+  };
 }

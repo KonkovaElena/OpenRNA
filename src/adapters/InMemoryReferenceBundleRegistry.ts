@@ -7,6 +7,7 @@ const DEFAULT_BUNDLES: ReferenceBundleManifest[] = [
     genomeAssembly: "GRCh38",
     annotationVersion: "GENCODE v44",
     knownSitesVersion: "dbSNP 156",
+    hlaDatabaseVersion: "IMGT/HLA 3.55.0",
     frozenAt: "2026-01-15T00:00:00.000Z",
   },
   {
@@ -14,6 +15,7 @@ const DEFAULT_BUNDLES: ReferenceBundleManifest[] = [
     genomeAssembly: "GRCh37",
     annotationVersion: "GENCODE v19",
     knownSitesVersion: "dbSNP 151",
+    hlaDatabaseVersion: "IMGT/HLA 3.24.0",
     frozenAt: "2024-06-01T00:00:00.000Z",
   },
 ];
@@ -38,6 +40,14 @@ export class InMemoryReferenceBundleRegistry implements IReferenceBundleRegistry
 
   pinBundle(bundleId: string, runId: string): void {
     this.pins.set(runId, bundleId);
+  }
+
+  async registerBundle(bundle: ReferenceBundleManifest): Promise<ReferenceBundleManifest> {
+    if (this.bundles.has(bundle.bundleId)) {
+      throw new Error(`Bundle '${bundle.bundleId}' already registered`);
+    }
+    this.bundles.set(bundle.bundleId, bundle);
+    return bundle;
   }
 
   /** Test helper: check if a run is pinned. */

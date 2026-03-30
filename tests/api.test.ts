@@ -1,9 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import request from "supertest";
 import { createApp } from "../src/app";
 import { newDb } from "pg-mem";
 import { MemoryCaseStore } from "../src/store";
+import { PostgresCaseStore } from "../src/adapters/PostgresCaseStore";
 import { PostgresWorkflowDispatchSink } from "../src/adapters/PostgresWorkflowDispatchSink";
 
 function buildCaseInput(overrides: Record<string, unknown> = {}) {
@@ -42,6 +45,19 @@ function buildArtifact(sampleId: string, overrides: Record<string, unknown> = {}
   };
 }
 
+function buildSourceArtifact(sample: { sampleId: string; sampleType: string }) {
+  const semanticTypeBySampleType: Record<string, string> = {
+    TUMOR_DNA: "tumor-dna-fastq",
+    NORMAL_DNA: "normal-dna-fastq",
+    TUMOR_RNA: "tumor-rna-fastq",
+    FOLLOW_UP: "follow-up-fastq",
+  };
+
+  return buildArtifact(sample.sampleId, {
+    semanticType: semanticTypeBySampleType[sample.sampleType] ?? "tumor-dna-fastq",
+  });
+}
+
 function buildRequiredSampleInputs() {
   return [
     buildSample("TUMOR_DNA", "WES"),
@@ -62,7 +78,7 @@ async function registerWorkflowReadyInputs(app: ReturnType<typeof createApp>, ca
   for (const sample of samples) {
     const artifactResponse = await request(app)
       .post(`/api/cases/${caseId}/artifacts`)
-      .send(buildArtifact(sample.sampleId));
+      .send(buildSourceArtifact(sample));
     assert.equal(artifactResponse.status, 200);
     latestCase = artifactResponse.body.case;
   }
@@ -120,7 +136,7 @@ test("registering the required sample trio and source artifacts unlocks workflow
   for (const sample of samples) {
     latestArtifactResponse = await request(app)
       .post(`/api/cases/${caseId}/artifacts`)
-      .send(buildArtifact(sample.sampleId));
+      .send(buildSourceArtifact(sample));
     assert.equal(latestArtifactResponse.status, 200);
   }
 
@@ -158,7 +174,7 @@ test("workflow request is blocked when consent is missing even if samples are pr
   for (const sample of samples) {
     const artifactResponse = await request(app)
       .post(`/api/cases/${caseId}/artifacts`)
-      .send(buildArtifact(sample.sampleId));
+      .send(buildSourceArtifact(sample));
     assert.equal(artifactResponse.status, 200);
   }
 
@@ -377,6 +393,61 @@ test("workflow request persists a durable dispatch record when using the Postgre
     assert.equal(dispatches[0].idempotencyKey, "pg-dispatch-001");
     assert.equal(dispatches[0].correlationId, "corr-pg-dispatch-001");
     assert.equal(dispatches[0].status, "PENDING");
+  } finally {
+    await pool.end();
+  }
+});
+
+test("Postgres-backed case storage persists workflow-ready case state across a fresh app instance", async () => {
+  const db = newDb();
+  const { Pool } = db.adapters.createPg();
+  const pool = new Pool();
+
+  // Create normalized schema
+  const migrationSql = readFileSync(
+    join(__dirname, "..", "src", "migrations", "001_full_schema.sql"),
+    "utf8",
+  );
+  await pool.query(migrationSql.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
+
+  try {
+    const firstStore = new PostgresCaseStore(pool);
+    await firstStore.initialize();
+    const firstApp = createApp({ store: firstStore });
+
+    const createResponse = await request(firstApp).post("/api/cases").send(buildCaseInput());
+    const caseId = String(createResponse.body.case.caseId);
+
+    await registerWorkflowReadyInputs(firstApp, caseId);
+
+    const workflowResponse = await request(firstApp)
+      .post(`/api/cases/${caseId}/workflows`)
+      .set("x-idempotency-key", "pg-case-store-001")
+      .send({
+        workflowName: "somatic-dna-rna-v1",
+        referenceBundleId: "GRCh38-2026a",
+        executionProfile: "local-dev",
+        requestedBy: "operator@example.org",
+      });
+
+    assert.equal(workflowResponse.status, 200);
+    assert.equal(workflowResponse.body.case.status, "WORKFLOW_REQUESTED");
+
+    const secondStore = new PostgresCaseStore(pool);
+    await secondStore.initialize();
+    const secondApp = createApp({ store: secondStore });
+
+    const persistedCaseResponse = await request(secondApp).get(`/api/cases/${caseId}`);
+    assert.equal(persistedCaseResponse.status, 200);
+    assert.equal(persistedCaseResponse.body.case.status, "WORKFLOW_REQUESTED");
+    assert.equal(persistedCaseResponse.body.case.workflowRequests.length, 1);
+    assert.equal(persistedCaseResponse.body.case.samples.length, 3);
+    assert.equal(persistedCaseResponse.body.case.artifacts.length, 3);
+
+    const summaryResponse = await request(secondApp).get("/api/operations/summary");
+    assert.equal(summaryResponse.status, 200);
+    assert.equal(summaryResponse.body.summary.totalCases, 1);
+    assert.equal(summaryResponse.body.summary.statusCounts.WORKFLOW_REQUESTED, 1);
   } finally {
     await pool.end();
   }

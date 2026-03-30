@@ -1,4 +1,4 @@
-import type { HlaConsensusRecord } from "../types";
+import type { HlaConsensusRecord, HlaDisagreementRecord } from "../types";
 import type { IHlaConsensusProvider, HlaTypingInput } from "../ports/IHlaConsensusProvider";
 
 export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
@@ -22,6 +22,15 @@ export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
         ? inputs.reduce((sum, i) => sum + i.confidence, 0) / inputs.length
         : 0;
 
+    // Detect disagreements: compare alleles across tool pairs per locus
+    const disagreements = this.detectDisagreements(inputs);
+
+    // Per-tool confidence decomposition
+    const confidenceDecomposition: Record<string, number> = {};
+    for (const input of inputs) {
+      confidenceDecomposition[input.toolName] = input.confidence;
+    }
+
     const record: HlaConsensusRecord = {
       caseId,
       alleles: [...alleleSet].sort(),
@@ -34,6 +43,9 @@ export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
       confidenceScore: Math.round(avgConfidence * 1000) / 1000,
       referenceVersion,
       producedAt: new Date().toISOString(),
+      disagreements: disagreements.length > 0 ? disagreements : undefined,
+      confidenceDecomposition:
+        Object.keys(confidenceDecomposition).length > 0 ? confidenceDecomposition : undefined,
     };
 
     this.records.set(caseId, record);
@@ -47,5 +59,66 @@ export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
   /** Test helper: seed a consensus record directly. */
   seedConsensus(caseId: string, record: HlaConsensusRecord): void {
     this.records.set(caseId, record);
+  }
+
+  /**
+   * Extract HLA loci from allele strings (e.g. "HLA-A*02:01" → "HLA-A")
+   * and detect pairwise disagreements between tools at the same locus.
+   */
+  private detectDisagreements(inputs: HlaTypingInput[]): HlaDisagreementRecord[] {
+    if (inputs.length < 2) return [];
+
+    // Build per-tool locus → allele map
+    const toolLoci = new Map<string, Map<string, string>>();
+    for (const input of inputs) {
+      const locusMap = new Map<string, string>();
+      for (const allele of input.alleles) {
+        const locus = allele.includes("*") ? allele.split("*")[0] : allele;
+        locusMap.set(locus, allele);
+      }
+      toolLoci.set(input.toolName, locusMap);
+    }
+
+    const disagreements: HlaDisagreementRecord[] = [];
+    const toolNames = [...toolLoci.keys()];
+
+    for (let i = 0; i < toolNames.length; i++) {
+      for (let j = i + 1; j < toolNames.length; j++) {
+        const toolA = toolNames[i];
+        const toolB = toolNames[j];
+        const lociA = toolLoci.get(toolA)!;
+        const lociB = toolLoci.get(toolB)!;
+
+        // Check shared loci for disagreements
+        for (const [locus, alleleA] of lociA) {
+          const alleleB = lociB.get(locus);
+          if (alleleB && alleleA !== alleleB) {
+            // Resolve: majority wins if ≥3 tools, else unresolved for 2 tools
+            let resolution: HlaDisagreementRecord["resolution"] = "unresolved";
+            if (inputs.length >= 3) {
+              const countA = [...toolLoci.values()].filter(
+                (m) => m.get(locus) === alleleA,
+              ).length;
+              const countB = [...toolLoci.values()].filter(
+                (m) => m.get(locus) === alleleB,
+              ).length;
+              if (countA > countB) resolution = "majority";
+              else if (countB > countA) resolution = "majority";
+            }
+
+            disagreements.push({
+              locus,
+              toolA,
+              toolAAllele: alleleA,
+              toolB,
+              toolBAllele: alleleB,
+              resolution,
+            });
+          }
+        }
+      }
+    }
+
+    return disagreements;
   }
 }

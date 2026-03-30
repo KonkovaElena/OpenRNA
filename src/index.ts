@@ -1,12 +1,16 @@
 import { createServer } from "node:http";
 import { createApp } from "./app";
+import { loadConfig } from "./config";
 import { MemoryCaseStore } from "./store";
 import { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatchSink";
+import { InMemoryWorkflowRunner } from "./adapters/InMemoryWorkflowRunner";
+import { PostgresCaseStore } from "./adapters/PostgresCaseStore";
 import { PostgresWorkflowDispatchSink } from "./adapters/PostgresWorkflowDispatchSink";
+import { PostgresWorkflowRunner } from "./adapters/PostgresWorkflowRunner";
 import { Pool } from "pg";
 
-function createDispatchSink() {
-  const connectionString = process.env.WORKFLOW_DISPATCH_DATABASE_URL;
+function createDispatchSink(config: ReturnType<typeof loadConfig>) {
+  const connectionString = config.workflowDispatchDatabaseUrl;
   if (!connectionString) {
     return {
       sink: new InMemoryWorkflowDispatchSink(),
@@ -16,7 +20,7 @@ function createDispatchSink() {
 
   const pool = new Pool({ connectionString });
   const sink = new PostgresWorkflowDispatchSink(pool, {
-    tableName: process.env.WORKFLOW_DISPATCH_TABLE_NAME ?? "workflow_dispatches",
+    tableName: config.workflowDispatchTableName,
   });
 
   return {
@@ -25,19 +29,46 @@ function createDispatchSink() {
   };
 }
 
+function createDurableAdapters(
+  config: ReturnType<typeof loadConfig>,
+  dispatchSink: InMemoryWorkflowDispatchSink | PostgresWorkflowDispatchSink,
+) {
+  const connectionString = config.caseStoreDatabaseUrl;
+  if (!connectionString) {
+    return {
+      store: new MemoryCaseStore(undefined, dispatchSink) as MemoryCaseStore | PostgresCaseStore,
+      runner: new InMemoryWorkflowRunner() as InMemoryWorkflowRunner | PostgresWorkflowRunner,
+      shutdown: async () => {},
+    };
+  }
+
+  const pool = new Pool({ connectionString });
+  const store = new PostgresCaseStore(pool, undefined, dispatchSink);
+  const runner = new PostgresWorkflowRunner(pool);
+
+  return {
+    store,
+    runner,
+    shutdown: async () => store.close(),
+  };
+}
+
 async function bootstrap() {
-  const port = Number(process.env.PORT ?? 4010);
-  const dispatch = createDispatchSink();
+  const config = loadConfig();
+  const dispatch = createDispatchSink(config);
   if (dispatch.sink instanceof PostgresWorkflowDispatchSink) {
     await dispatch.sink.initialize();
   }
-  const store = new MemoryCaseStore(undefined, dispatch.sink);
-  const app = createApp({ store });
+  const durable = createDurableAdapters(config, dispatch.sink);
+  if (durable.store instanceof PostgresCaseStore) {
+    await durable.store.initialize();
+  }
+  const app = createApp({ store: durable.store, workflowRunner: durable.runner });
   const server = createServer(app);
 
   const shutdown = async () => {
     server.close(() => {
-      void dispatch.shutdown();
+      void Promise.all([dispatch.shutdown(), durable.shutdown()]);
     });
   };
 
@@ -48,9 +79,13 @@ async function bootstrap() {
     void shutdown();
   });
 
-  server.listen(port, () => {
-    process.stdout.write(`personalized-mrna-control-plane listening on http://localhost:${port}\n`);
+  server.listen(config.port, () => {
+    process.stdout.write(`personalized-mrna-control-plane listening on http://localhost:${config.port}\n`);
   });
 }
 
-void bootstrap();
+void bootstrap().catch((error) => {
+  const message = error instanceof Error ? error.message : String(error);
+  process.stderr.write(`${message}\n`);
+  process.exitCode = 1;
+});

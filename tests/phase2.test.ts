@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
 import { createApp } from "../src/app";
+import { MemoryCaseStore } from "../src/store";
 import { InMemoryReferenceBundleRegistry } from "../src/adapters/InMemoryReferenceBundleRegistry";
+import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
+import type { DerivedArtifactSemanticType, WorkflowRunRecord } from "../src/types";
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -30,16 +33,27 @@ function buildSample(sampleType: string, assayType: string) {
   };
 }
 
-function buildArtifact(sampleId: string, overrides: Record<string, unknown> = {}) {
+function buildArtifact(sampleId: string, semanticType: string, overrides: Record<string, unknown> = {}) {
   return {
     sampleId,
-    semanticType: "tumor-dna-fastq",
+    semanticType,
     schemaVersion: 1,
     artifactHash: `sha256:${sampleId}-artifact-phase2`,
     storageUri: `artifact://${sampleId}-fastq`,
     mediaType: "application/gzip",
     ...overrides,
   };
+}
+
+function buildSourceArtifact(sample: { sampleId: string; sampleType: string }) {
+  const semanticTypeBySampleType: Record<string, string> = {
+    TUMOR_DNA: "tumor-dna-fastq",
+    NORMAL_DNA: "normal-dna-fastq",
+    TUMOR_RNA: "tumor-rna-fastq",
+    FOLLOW_UP: "follow-up-fastq",
+  };
+
+  return buildArtifact(sample.sampleId, semanticTypeBySampleType[sample.sampleType] ?? "source-fastq");
 }
 
 function buildRequiredSampleInputs() {
@@ -61,7 +75,7 @@ async function registerWorkflowReadyInputs(app: ReturnType<typeof createApp>, ca
   for (const sample of samples) {
     const artifactRes = await request(app)
       .post(`/api/cases/${caseId}/artifacts`)
-      .send(buildArtifact(sample.sampleId));
+      .send(buildSourceArtifact(sample));
     assert.equal(artifactRes.status, 200);
   }
 }
@@ -150,7 +164,280 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>, caseOver
   return { caseId, runId };
 }
 
+class RecordingWorkflowRunner implements IWorkflowRunner {
+  public readonly startRequests: WorkflowRunRequest[] = [];
+
+  public readonly completeRequests: Array<{
+    runId: string;
+    derivedArtifacts?: Array<{
+      semanticType: DerivedArtifactSemanticType;
+      artifactHash: string;
+      producingStep: string;
+    }>;
+  }> = [];
+
+  private readonly runs = new Map<string, WorkflowRunRecord>();
+
+  async startRun(request: WorkflowRunRequest): Promise<WorkflowRunRecord> {
+    this.startRequests.push(structuredClone(request));
+
+    const requestedRunId = (request as WorkflowRunRequest & { runId?: string }).runId ?? "runner-generated-run-id";
+    const run: WorkflowRunRecord = {
+      runId: requestedRunId,
+      caseId: request.caseId,
+      requestId: request.requestId,
+      status: "RUNNING",
+      workflowName: request.workflowName,
+      referenceBundleId: request.referenceBundleId,
+      executionProfile: request.executionProfile,
+      startedAt: "2026-03-29T10:00:00.000Z",
+      terminalMetadata: {
+        durationMs: 0,
+        executorVersion: "1.0.0-test",
+      },
+      ...(request.manifest ? { manifest: structuredClone(request.manifest) } : {}),
+    };
+
+    this.runs.set(run.runId, run);
+    return structuredClone(run);
+  }
+
+  async getRun(runId: string): Promise<WorkflowRunRecord> {
+    const run = this.runs.get(runId);
+    assert.ok(run, `run ${runId} must exist in recording runner`);
+    return structuredClone(run);
+  }
+
+  async cancelRun(runId: string): Promise<WorkflowRunRecord> {
+    const run = await this.getRun(runId);
+    const cancelledRun: WorkflowRunRecord = {
+      ...run,
+      status: "CANCELLED",
+      completedAt: "2026-03-29T10:20:00.000Z",
+    };
+    this.runs.set(runId, cancelledRun);
+    return structuredClone(cancelledRun);
+  }
+
+  async listRunsByCaseId(caseId: string): Promise<WorkflowRunRecord[]> {
+    return [...this.runs.values()]
+      .filter((run) => run.caseId === caseId)
+      .map((run) => structuredClone(run));
+  }
+
+  async completeRun(
+    runId: string,
+    derivedArtifacts?: Array<{
+      semanticType: DerivedArtifactSemanticType;
+      artifactHash: string;
+      producingStep: string;
+    }>,
+  ): Promise<WorkflowRunRecord> {
+    this.completeRequests.push({
+      runId,
+      derivedArtifacts: derivedArtifacts ? structuredClone(derivedArtifacts) : undefined,
+    });
+
+    const run = await this.getRun(runId);
+    const completedRun: WorkflowRunRecord = {
+      ...run,
+      status: "COMPLETED",
+      completedAt: "2026-03-29T10:15:00.000Z",
+      terminalMetadata: {
+        durationMs: 1200,
+        executorVersion: "1.0.0-test",
+      },
+    };
+
+    this.runs.set(runId, completedRun);
+    return structuredClone(completedRun);
+  }
+
+  async failRun(runId: string, reason: string, failureCategory?: import("../src/types").WorkflowFailureCategory): Promise<WorkflowRunRecord> {
+    const run = await this.getRun(runId);
+    const failedRun: WorkflowRunRecord = {
+      ...run,
+      status: "FAILED",
+      failureReason: reason,
+      failureCategory: failureCategory ?? "unknown",
+      completedAt: "2026-03-29T10:20:00.000Z",
+      terminalMetadata: {
+        durationMs: 500,
+        executorVersion: "1.0.0-test",
+      },
+    };
+
+    this.runs.set(runId, failedRun);
+    return structuredClone(failedRun);
+  }
+}
+
 // ─── Workflow Run Lifecycle ─────────────────────────────────────────
+
+test("starting a workflow run delegates to the configured workflow runner and preserves the route runId", async () => {
+  const workflowRunner = new RecordingWorkflowRunner();
+  const app = createApp({ workflowRunner } as never);
+  const caseId = await createCaseAtWorkflowRequested(app);
+
+  const startRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/run-seam-001/start`)
+    .send({});
+
+  assert.equal(startRes.status, 200);
+  assert.equal(workflowRunner.startRequests.length, 1);
+
+  const delegatedStartRequest = workflowRunner.startRequests[0] as WorkflowRunRequest & { runId?: string };
+  assert.equal(delegatedStartRequest.runId, "run-seam-001");
+  assert.equal(startRes.body.case.workflowRuns[0].runId, "run-seam-001");
+  assert.equal(startRes.body.case.workflowRuns[0].startedAt, "2026-03-29T10:00:00.000Z");
+  assert.equal(startRes.body.case.workflowRuns[0].terminalMetadata.executorVersion, "1.0.0-test");
+});
+
+test("completing a workflow run uses the configured workflow runner terminal metadata", async () => {
+  const workflowRunner = new RecordingWorkflowRunner();
+  const app = createApp({ workflowRunner } as never);
+  const caseId = await createCaseAtWorkflowRequested(app);
+
+  const startRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/run-seam-002/start`)
+    .send({});
+  assert.equal(startRes.status, 200);
+
+  const completeRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/run-seam-002/complete`)
+    .send({
+      derivedArtifacts: [
+        { semanticType: "somatic-vcf", artifactHash: "sha256:runner-vcf", producingStep: "mutect2" },
+      ],
+    });
+
+  assert.equal(completeRes.status, 200);
+  assert.equal(workflowRunner.completeRequests.length, 1);
+  assert.equal(workflowRunner.completeRequests[0].runId, "run-seam-002");
+  assert.equal(completeRes.body.case.workflowRuns[0].completedAt, "2026-03-29T10:15:00.000Z");
+  assert.equal(completeRes.body.case.workflowRuns[0].terminalMetadata.executorVersion, "1.0.0-test");
+});
+
+test("replaying workflow start for the same runId is idempotent and does not duplicate run history", async () => {
+  const app = createApp();
+  const caseId = await createCaseAtWorkflowRequested(app);
+
+  const firstStartRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/run-replay-start-001/start`)
+    .send({});
+
+  assert.equal(firstStartRes.status, 200);
+
+  const secondStartRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/run-replay-start-001/start`)
+    .send({});
+
+  assert.equal(secondStartRes.status, 200);
+  assert.equal(secondStartRes.body.case.workflowRuns.length, 1);
+  assert.equal(secondStartRes.body.case.workflowRuns[0].runId, "run-replay-start-001");
+  assert.equal(
+    secondStartRes.body.case.workflowRuns[0].startedAt,
+    firstStartRes.body.case.workflowRuns[0].startedAt,
+  );
+  assert.equal(
+    secondStartRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "workflow.started").length,
+    1,
+  );
+  assert.equal(
+    secondStartRes.body.case.timeline.filter((event: { type: string }) => event.type === "workflow_started").length,
+    1,
+  );
+});
+
+test("replaying workflow completion does not duplicate derived artifacts or terminal audit events", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithRunningWorkflow(app);
+  const completionPayload = {
+    derivedArtifacts: [
+      { semanticType: "somatic-vcf", artifactHash: "sha256:replay-complete", producingStep: "mutect2" },
+    ],
+  };
+
+  const firstCompleteRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/complete`)
+    .send(completionPayload);
+
+  assert.equal(firstCompleteRes.status, 200);
+
+  const secondCompleteRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/complete`)
+    .send(completionPayload);
+
+  assert.equal(secondCompleteRes.status, 200);
+  assert.equal(secondCompleteRes.body.case.derivedArtifacts.length, 1);
+  assert.equal(
+    secondCompleteRes.body.case.workflowRuns[0].completedAt,
+    firstCompleteRes.body.case.workflowRuns[0].completedAt,
+  );
+  assert.equal(
+    secondCompleteRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "workflow.completed").length,
+    1,
+  );
+  assert.equal(
+    secondCompleteRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "artifact.derived").length,
+    1,
+  );
+});
+
+test("replaying workflow cancellation does not duplicate terminal history", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithRunningWorkflow(app);
+
+  const firstCancelRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/cancel`)
+    .send({});
+
+  assert.equal(firstCancelRes.status, 200);
+
+  const secondCancelRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/cancel`)
+    .send({});
+
+  assert.equal(secondCancelRes.status, 200);
+  assert.equal(secondCancelRes.body.case.workflowRuns.length, 1);
+  assert.equal(secondCancelRes.body.case.workflowRuns[0].status, "CANCELLED");
+  assert.equal(
+    secondCancelRes.body.case.workflowRuns[0].completedAt,
+    firstCancelRes.body.case.workflowRuns[0].completedAt,
+  );
+  assert.equal(
+    secondCancelRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "workflow.cancelled").length,
+    1,
+  );
+});
+
+test("replaying workflow failure does not duplicate terminal history", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithRunningWorkflow(app);
+
+  const firstFailRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/fail`)
+    .send({ reason: "executor lost node" });
+
+  assert.equal(firstFailRes.status, 200);
+
+  const secondFailRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/fail`)
+    .send({ reason: "executor lost node" });
+
+  assert.equal(secondFailRes.status, 200);
+  assert.equal(secondFailRes.body.case.workflowRuns.length, 1);
+  assert.equal(secondFailRes.body.case.workflowRuns[0].status, "FAILED");
+  assert.equal(secondFailRes.body.case.workflowRuns[0].failureReason, "executor lost node");
+  assert.equal(
+    secondFailRes.body.case.workflowRuns[0].completedAt,
+    firstFailRes.body.case.workflowRuns[0].completedAt,
+  );
+  assert.equal(
+    secondFailRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "workflow.failed").length,
+    1,
+  );
+});
 
 test("starting a workflow run advances the case from WORKFLOW_REQUESTED to WORKFLOW_RUNNING", async () => {
   const app = createApp();
@@ -189,6 +476,42 @@ test("completing a workflow run produces WORKFLOW_COMPLETED status and records d
   assert.ok(completeRes.body.case.derivedArtifacts[0].registeredAt, "registeredAt should be set");
 });
 
+test("completing a workflow run reuses one terminal timestamp across run, timeline, audit, and case metadata", async () => {
+  let tick = 0;
+  const clock = {
+    nowIso: () => new Date(Date.UTC(2026, 0, 1, 0, 0, tick++)).toISOString(),
+  };
+  const app = createApp({ store: new MemoryCaseStore(clock) });
+  const { caseId, runId } = await createCaseWithRunningWorkflow(app);
+
+  const completeRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/complete`)
+    .send({
+      derivedArtifacts: [
+        { semanticType: "somatic-vcf", artifactHash: "sha256:vcf001", producingStep: "mutect2" },
+      ],
+    });
+
+  assert.equal(completeRes.status, 200);
+
+  const completedRun = completeRes.body.case.workflowRuns.find(
+    (run: { runId: string }) => run.runId === runId,
+  );
+  const completedTimelineEvent = completeRes.body.case.timeline.find(
+    (event: { type: string }) => event.type === "workflow_completed",
+  );
+  const completedAuditEvent = completeRes.body.case.auditEvents.find(
+    (event: { type: string }) => event.type === "workflow.completed",
+  );
+
+  assert.ok(completedRun?.completedAt, "completedAt should be set");
+  assert.ok(completedTimelineEvent?.at, "workflow_completed timeline event should be present");
+  assert.ok(completedAuditEvent?.occurredAt, "workflow.completed audit event should be present");
+  assert.equal(completedRun.completedAt, completedTimelineEvent.at);
+  assert.equal(completedRun.completedAt, completedAuditEvent.occurredAt);
+  assert.equal(completedRun.completedAt, completeRes.body.case.updatedAt);
+});
+
 test("failing a workflow run produces WORKFLOW_FAILED status and records the reason", async () => {
   const app = createApp();
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
@@ -204,6 +527,27 @@ test("failing a workflow run produces WORKFLOW_FAILED status and records the rea
   );
   assert.equal(failedRun.status, "FAILED");
   assert.equal(failedRun.failureReason, "OutOfMemoryError in alignment step");
+});
+
+test("cancelling a workflow run produces WORKFLOW_CANCELLED status and records the cancellation", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithRunningWorkflow(app);
+
+  const cancelRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/cancel`)
+    .send({});
+
+  assert.equal(cancelRes.status, 200);
+  assert.equal(cancelRes.body.case.status, "WORKFLOW_CANCELLED");
+
+  const cancelledRun = cancelRes.body.case.workflowRuns.find(
+    (r: { runId: string }) => r.runId === runId,
+  );
+  assert.equal(cancelledRun.status, "CANCELLED");
+  assert.ok(cancelledRun.completedAt, "completedAt should be set on cancellation");
+
+  const auditTypes = cancelRes.body.case.auditEvents.map((e: { type: string }) => e.type);
+  assert.ok(auditTypes.includes("workflow.cancelled"));
 });
 
 test("listing and getting workflow runs returns the correct data", async () => {
@@ -234,6 +578,22 @@ test("starting a run on a case that is not WORKFLOW_REQUESTED returns 409", asyn
   assert.equal(startRes.body.code, "invalid_transition");
 });
 
+test("registering a source artifact with a semantic type incompatible with the sample type returns 409", async () => {
+  const app = createApp();
+  const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+  const caseId = String(createRes.body.case.caseId);
+
+  const sampleRes = await request(app).post(`/api/cases/${caseId}/samples`).send(buildSample("TUMOR_RNA", "RNA_SEQ"));
+  assert.equal(sampleRes.status, 200);
+
+  const artifactRes = await request(app)
+    .post(`/api/cases/${caseId}/artifacts`)
+    .send(buildArtifact("tumor_rna-phase2", "tumor-dna-fastq"));
+
+  assert.equal(artifactRes.status, 409);
+  assert.equal(artifactRes.body.code, "artifact_semantic_type_mismatch");
+});
+
 test("completing a run that is not RUNNING returns 409", async () => {
   const app = createApp();
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
@@ -244,6 +604,22 @@ test("completing a run that is not RUNNING returns 409", async () => {
 
   assert.equal(completeAgain.status, 409);
   assert.equal(completeAgain.body.code, "invalid_transition");
+});
+
+test("completing a workflow run with an unsupported derived artifact semantic type returns 400", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithRunningWorkflow(app);
+
+  const completeRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/complete`)
+    .send({
+      derivedArtifacts: [
+        { semanticType: "unknown-derived-artifact", artifactHash: "sha256:unknown001", producingStep: "mystery-step" },
+      ],
+    });
+
+  assert.equal(completeRes.status, 400);
+  assert.equal(completeRes.body.code, "invalid_input");
 });
 
 test("failing a run that does not exist returns 404", async () => {
@@ -259,6 +635,18 @@ test("failing a run that does not exist returns 404", async () => {
 
   assert.equal(failRes.status, 404);
   assert.equal(failRes.body.code, "run_not_found");
+});
+
+test("cancelling a completed run returns 409", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
+
+  const cancelRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/cancel`)
+    .send({});
+
+  assert.equal(cancelRes.status, 409);
+  assert.equal(cancelRes.body.code, "invalid_transition");
 });
 
 // ─── HLA Consensus ─────────────────────────────────────────────────
@@ -383,6 +771,42 @@ test("evaluating QC with any failing metric transitions case to QC_FAILED", asyn
   assert.equal(qcRes.body.case.qcGates[0].outcome, "FAILED");
 });
 
+test("evaluating QC with passing metrics and non-warning notes keeps the case PASSED", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
+
+  const qcRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/qc`)
+    .send({
+      results: [
+        { metric: "contamination_fraction", value: 0.002, threshold: 0.05, pass: true },
+        { metric: "tumor_purity", value: 0.21, threshold: 0.20, pass: true, notes: "Borderline but acceptable" },
+      ],
+    });
+
+  assert.equal(qcRes.status, 200);
+  assert.equal(qcRes.body.case.status, "QC_PASSED");
+  assert.equal(qcRes.body.case.qcGates[0].outcome, "PASSED");
+});
+
+test("evaluating QC with an explicit warning marker produces WARN without failing the case", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
+
+  const qcRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/qc`)
+    .send({
+      results: [
+        { metric: "contamination_fraction", value: 0.002, threshold: 0.05, pass: true },
+        { metric: "tumor_purity", value: 0.21, threshold: 0.20, pass: true, notes: "WARN: borderline but acceptable" },
+      ],
+    });
+
+  assert.equal(qcRes.status, 200);
+  assert.equal(qcRes.body.case.status, "QC_PASSED");
+  assert.equal(qcRes.body.case.qcGates[0].outcome, "WARN");
+});
+
 test("retrieving QC gate for a specific run returns the recorded result", async () => {
   const app = createApp();
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
@@ -445,6 +869,7 @@ test("getting a specific reference bundle returns its manifest", async () => {
   assert.equal(getRes.status, 200);
   assert.equal(getRes.body.bundle.genomeAssembly, "GRCh38");
   assert.equal(getRes.body.bundle.annotationVersion, "GENCODE v44");
+  assert.equal(getRes.body.bundle.hlaDatabaseVersion, "IMGT/HLA 3.55.0");
 });
 
 test("getting a non-existent reference bundle returns 404", async () => {
@@ -490,6 +915,10 @@ test("starting a workflow run pins the requested reference bundle to the run", a
 
   assert.equal(startRes.status, 200);
   assert.equal(referenceBundleRegistry.getPinnedBundle(runId), "GRCh38-2026a");
+  const startedRun = startRes.body.case.workflowRuns.find((run: { runId: string }) => run.runId === runId);
+  assert.equal(startedRun.pinnedReferenceBundle.bundleId, "GRCh38-2026a");
+  assert.equal(startedRun.pinnedReferenceBundle.genomeAssembly, "GRCh38");
+  assert.equal(startedRun.pinnedReferenceBundle.hlaDatabaseVersion, "IMGT/HLA 3.55.0");
 });
 
 // ─── End-to-End Lineage ─────────────────────────────────────────────
@@ -601,6 +1030,10 @@ test("generating a board packet creates a versioned review packet from current c
   assert.equal(packetRes.body.packet.snapshot.hlaConsensus.alleles.length, 2);
   assert.equal(packetRes.body.packet.snapshot.latestQcGate.outcome, "PASSED");
   assert.equal(packetRes.body.packet.snapshot.derivedArtifacts.length, 1);
+  assert.equal(packetRes.body.packet.snapshot.pinnedReferenceBundles.length, 1);
+  assert.equal(packetRes.body.packet.snapshot.pinnedReferenceBundles[0].bundleId, "GRCh38-2026a");
+  assert.equal(packetRes.body.packet.snapshot.pinnedReferenceBundles[0].hlaDatabaseVersion, "IMGT/HLA 3.55.0");
+  assert.equal(packetRes.body.case.status, "AWAITING_REVIEW");
   assert.equal(packetRes.body.case.boardPackets.length, 1);
 
   const auditTypes = packetRes.body.case.auditEvents.map((e: { type: string }) => e.type);
@@ -663,6 +1096,72 @@ test("listing and fetching board packets returns the stored review packet", asyn
   assert.equal(getRes.body.packet.snapshot.caseSummary.caseId, caseId);
 });
 
+// ─── Slice 2.C: Manifest in board packet ──────────────────────────
+test("board packet snapshot includes the workflow run manifest", async () => {
+  const app = createApp();
+  const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+  const caseId = String(createRes.body.case.caseId);
+
+  await registerWorkflowReadyInputs(app, caseId);
+
+  await request(app).post(`/api/cases/${caseId}/workflows`).send({
+    workflowName: "somatic-dna-rna-v1",
+    referenceBundleId: "GRCh38-2026a",
+    executionProfile: "local-dev",
+    requestedBy: "operator@example.org",
+  });
+
+  const runId = "board-manifest-run-001";
+  const manifest = {
+    manifestVersion: 1,
+    executorKind: "nextflow",
+    workflowName: "somatic-dna-rna-v1",
+    workflowRevision: "v3.1.0",
+    configProfile: "hpc-slurm",
+    submissionIntent: "production",
+    acceptedAt: new Date().toISOString(),
+    inputArtifactSet: [
+      { artifactId: "art-brd-001", semanticType: "fastq-r1", artifactHash: "sha256:brd111" },
+    ],
+    pinnedReferenceBundle: {
+      bundleId: "ref-hg38-board",
+      genomeAssembly: "GRCh38",
+      assets: [{ assetKind: "fasta", uri: "s3://refs/hg38.fa", checksum: "sha256:brdref" }],
+    },
+    sampleSnapshot: { sampleId: "SPL-BRD-001", sampleType: "tumor", assayType: "WES" },
+  };
+  await request(app).post(`/api/cases/${caseId}/runs/${runId}/start`).send({ manifest });
+  await request(app).post(`/api/cases/${caseId}/runs/${runId}/complete`).send({
+    derivedArtifacts: [
+      { semanticType: "somatic-vcf", artifactHash: "sha256:board-vcf", producingStep: "mutect2" },
+    ],
+  });
+
+  await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
+    alleles: ["HLA-A*02:01", "HLA-B*07:02"],
+    perToolEvidence: [
+      { toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.98 },
+    ],
+    confidenceScore: 0.98,
+    referenceVersion: "IMGT/HLA 3.55.0",
+  });
+
+  await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({
+    results: [{ metric: "tumor_purity", value: 0.55, threshold: 0.20, pass: true }],
+  });
+
+  const packetRes = await request(app)
+    .post(`/api/cases/${caseId}/board-packets`)
+    .set("x-correlation-id", "corr-manifest-board")
+    .send({});
+  assert.equal(packetRes.status, 201);
+  const snapshotRun = packetRes.body.packet.snapshot.workflowRuns[0];
+  assert.ok(snapshotRun.manifest, "board packet snapshot run should include manifest");
+  assert.equal(snapshotRun.manifest.executorKind, "nextflow");
+  assert.equal(snapshotRun.manifest.workflowRevision, "v3.1.0");
+  assert.equal(snapshotRun.manifest.inputArtifactSet.length, 1);
+});
+
 // ─── Error Paths ────────────────────────────────────────────────────
 
 test("workflow operations on a non-existent case return 404", async () => {
@@ -708,9 +1207,21 @@ test("root endpoint lists all Phase 2 API routes", async () => {
   assert.equal(rootRes.status, 200);
 
   const api: string[] = rootRes.body.api;
+  assert.ok(api.includes("POST /api/cases/:caseId/review-outcomes"));
+  assert.ok(api.includes("GET /api/cases/:caseId/review-outcomes"));
+  assert.ok(api.includes("GET /api/cases/:caseId/review-outcomes/:reviewId"));
+  assert.ok(api.includes("POST /api/cases/:caseId/handoff-packets"));
+  assert.ok(api.includes("GET /api/cases/:caseId/handoff-packets"));
+  assert.ok(api.includes("GET /api/cases/:caseId/handoff-packets/:handoffId"));
+  assert.ok(api.includes("POST /api/cases/:caseId/outcomes/administration"));
+  assert.ok(api.includes("POST /api/cases/:caseId/outcomes/immune-monitoring"));
+  assert.ok(api.includes("POST /api/cases/:caseId/outcomes/clinical-follow-up"));
+  assert.ok(api.includes("GET /api/cases/:caseId/outcomes"));
+  assert.ok(api.includes("GET /api/cases/:caseId/traceability"));
   assert.ok(api.includes("POST /api/cases/:caseId/runs/:runId/start"));
   assert.ok(api.includes("POST /api/cases/:caseId/runs/:runId/complete"));
   assert.ok(api.includes("POST /api/cases/:caseId/runs/:runId/fail"));
+  assert.ok(api.includes("POST /api/cases/:caseId/runs/:runId/cancel"));
   assert.ok(api.includes("GET /api/cases/:caseId/runs"));
   assert.ok(api.includes("GET /api/cases/:caseId/runs/:runId"));
   assert.ok(api.includes("POST /api/cases/:caseId/hla-consensus"));
@@ -720,6 +1231,329 @@ test("root endpoint lists all Phase 2 API routes", async () => {
   assert.ok(api.includes("POST /api/cases/:caseId/board-packets"));
   assert.ok(api.includes("GET /api/cases/:caseId/board-packets"));
   assert.ok(api.includes("GET /api/cases/:caseId/board-packets/:packetId"));
+  assert.ok(api.includes("GET /api/modalities"));
+  assert.ok(api.includes("GET /api/modalities/:modality"));
+  assert.ok(api.includes("POST /api/modalities/:modality/activate"));
   assert.ok(api.includes("GET /api/reference-bundles"));
   assert.ok(api.includes("GET /api/reference-bundles/:bundleId"));
+});
+
+// ─── Wave 1: Timestamp Separation ──────────────────────────────────
+
+test("starting a workflow run records acceptedAt as the submission timestamp", async () => {
+  const app = createApp();
+  const caseId = await createCaseAtWorkflowRequested(app);
+
+  const startRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/run-ts-001/start`)
+    .send({});
+
+  assert.equal(startRes.status, 200);
+  const run = startRes.body.case.workflowRuns[0];
+  assert.ok(run.acceptedAt, "acceptedAt should be present on a started run");
+  assert.ok(run.startedAt, "startedAt should also be present");
+  assert.equal(typeof run.acceptedAt, "string");
+});
+
+test("replaying workflow start preserves the original acceptedAt timestamp", async () => {
+  const app = createApp();
+  const caseId = await createCaseAtWorkflowRequested(app);
+
+  const first = await request(app)
+    .post(`/api/cases/${caseId}/runs/run-ts-002/start`)
+    .send({});
+  const second = await request(app)
+    .post(`/api/cases/${caseId}/runs/run-ts-002/start`)
+    .send({});
+
+  assert.equal(second.status, 200);
+  assert.equal(
+    second.body.case.workflowRuns[0].acceptedAt,
+    first.body.case.workflowRuns[0].acceptedAt,
+  );
+});
+
+// ─── Wave 1: Terminal Error Taxonomy ────────────────────────────────
+
+test("failing a workflow run with a failure category persists it on the run record", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithRunningWorkflow(app);
+
+  const failRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/fail`)
+    .send({ reason: "Nextflow pipeline crashed", failureCategory: "pipeline_error" });
+
+  assert.equal(failRes.status, 200);
+  const run = failRes.body.case.workflowRuns.find(
+    (r: { runId: string }) => r.runId === runId,
+  );
+  assert.equal(run.failureCategory, "pipeline_error");
+});
+
+test("failing a workflow run without a failure category defaults to unknown", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithRunningWorkflow(app);
+
+  const failRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/fail`)
+    .send({ reason: "something went wrong" });
+
+  assert.equal(failRes.status, 200);
+  const run = failRes.body.case.workflowRuns.find(
+    (r: { runId: string }) => r.runId === runId,
+  );
+  assert.equal(run.failureCategory, "unknown");
+});
+
+test("failing a workflow run with an invalid failure category returns 400", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithRunningWorkflow(app);
+
+  const failRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/fail`)
+    .send({ reason: "bad", failureCategory: "not_a_real_category" });
+
+  assert.equal(failRes.status, 400);
+  assert.equal(failRes.body.code, "invalid_input");
+});
+
+test("replaying workflow failure preserves the original failureCategory", async () => {
+  const app = createApp();
+  const { caseId, runId } = await createCaseWithRunningWorkflow(app);
+
+  const first = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/fail`)
+    .send({ reason: "timeout exceeded", failureCategory: "timeout" });
+  assert.equal(first.status, 200);
+
+  const second = await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/fail`)
+    .send({ reason: "timeout exceeded", failureCategory: "timeout" });
+  assert.equal(second.status, 200);
+  assert.equal(
+    second.body.case.workflowRuns[0].failureCategory,
+    first.body.case.workflowRuns[0].failureCategory,
+  );
+});
+
+// ─── Slice 1.C: Typed Terminal Metadata ─────────────────────────────
+
+test("completing a workflow run carries typed terminalMetadata from the runner", async () => {
+  const workflowRunner = new RecordingWorkflowRunner();
+  const app = createApp({ workflowRunner } as never);
+  const caseId = await createCaseAtWorkflowRequested(app);
+
+  await request(app).post(`/api/cases/${caseId}/runs/run-meta-001/start`).send({});
+  const completeRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/run-meta-001/complete`)
+    .send({ derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:abc", producingStep: "step1" }] });
+
+  assert.equal(completeRes.status, 200);
+  const run = completeRes.body.case.workflowRuns[0];
+  assert.equal(run.terminalMetadata.executorVersion, "1.0.0-test");
+  assert.equal(typeof run.terminalMetadata.durationMs, "number");
+  assert.equal(run.runMetadata, undefined);
+});
+
+test("failing a workflow run carries typed terminalMetadata from the runner", async () => {
+  const workflowRunner = new RecordingWorkflowRunner();
+  const app = createApp({ workflowRunner } as never);
+  const caseId = await createCaseAtWorkflowRequested(app);
+
+  await request(app).post(`/api/cases/${caseId}/runs/run-meta-002/start`).send({});
+  const failRes = await request(app)
+    .post(`/api/cases/${caseId}/runs/run-meta-002/fail`)
+    .send({ reason: "OOM", failureCategory: "infrastructure_error" });
+
+  assert.equal(failRes.status, 200);
+  const run = failRes.body.case.workflowRuns[0];
+  assert.equal(run.terminalMetadata.executorVersion, "1.0.0-test");
+  assert.equal(typeof run.terminalMetadata.durationMs, "number");
+  assert.equal(run.runMetadata, undefined);
+});
+
+// ─── Slice 2.A: Immutable Run Manifest — Zod schema ────────────────
+
+test("WorkflowRunManifest Zod schema validates a complete manifest", async () => {
+  const { parseWorkflowRunManifest } = await import("../src/validation.js");
+  const valid = {
+    manifestVersion: 1,
+    executorKind: "nextflow",
+    workflowName: "somatic-variant-calling",
+    workflowRevision: "v2.4.1",
+    configProfile: "hpc-slurm",
+    submissionIntent: "production",
+    acceptedAt: new Date().toISOString(),
+    inputArtifactSet: [
+      { artifactId: "art-001", semanticType: "fastq-r1", artifactHash: "sha256:aaa" },
+      { artifactId: "art-002", semanticType: "fastq-r2", artifactHash: "sha256:bbb" },
+    ],
+    pinnedReferenceBundle: {
+      bundleId: "ref-hg38-v2",
+      genomeAssembly: "GRCh38",
+      assets: [{ assetKind: "fasta", uri: "s3://refs/hg38.fa", checksum: "sha256:ccc" }],
+    },
+    sampleSnapshot: { sampleId: "SPL-001", sampleType: "tumor", assayType: "WES" },
+  };
+  const result = parseWorkflowRunManifest(valid);
+  assert.equal(result.executorKind, "nextflow");
+  assert.equal(result.inputArtifactSet.length, 2);
+  assert.equal(result.pinnedReferenceBundle.genomeAssembly, "GRCh38");
+});
+
+test("WorkflowRunManifest Zod schema rejects a partial manifest", async () => {
+  const { parseWorkflowRunManifest } = await import("../src/validation.js");
+  assert.throws(() => parseWorkflowRunManifest({ manifestVersion: 1 }), (err: any) => {
+    assert.equal(err.statusCode, 400);
+    assert.equal(err.code, "invalid_input");
+    return true;
+  });
+});
+
+test("starting a workflow run with a manifest attaches it to the run record", async () => {
+  const workflowRunner = new RecordingWorkflowRunner();
+  const app = createApp({ workflowRunner } as never);
+  const caseId = await createCaseAtWorkflowRequested(app);
+  const manifest = {
+    manifestVersion: 1,
+    executorKind: "nextflow",
+    workflowName: "somatic-variant-calling",
+    workflowRevision: "v2.4.1",
+    configProfile: "hpc-slurm",
+    submissionIntent: "production",
+    acceptedAt: new Date().toISOString(),
+    inputArtifactSet: [
+      { artifactId: "art-001", semanticType: "fastq-r1", artifactHash: "sha256:aaa" },
+    ],
+    pinnedReferenceBundle: {
+      bundleId: "ref-hg38-v2",
+      genomeAssembly: "GRCh38",
+      assets: [{ assetKind: "fasta", uri: "s3://refs/hg38.fa", checksum: "sha256:ccc" }],
+    },
+    sampleSnapshot: { sampleId: "SPL-001", sampleType: "tumor", assayType: "WES" },
+  };
+  const res = await request(app)
+    .post(`/api/cases/${caseId}/runs/manifest-run-001/start`)
+    .send({ manifest });
+  assert.equal(res.status, 200);
+  const run = res.body.case.workflowRuns[0];
+  assert.equal(run.manifest.executorKind, "nextflow");
+  assert.equal(run.manifest.inputArtifactSet.length, 1);
+});
+
+// ─── Slice 2.B: Manifest replay identity ──────────────────────────
+test("replaying a workflow start with the same manifest is idempotent", async () => {
+  const workflowRunner = new RecordingWorkflowRunner();
+  const app = createApp({ workflowRunner } as never);
+  const caseId = await createCaseAtWorkflowRequested(app);
+  const manifest = {
+    manifestVersion: 1,
+    executorKind: "nextflow",
+    workflowName: "germline-snv",
+    workflowRevision: "v1.0.0",
+    configProfile: "cloud-aws",
+    submissionIntent: "production",
+    acceptedAt: "2026-03-27T10:00:00Z",
+    inputArtifactSet: [
+      { artifactId: "art-010", semanticType: "fastq-r1", artifactHash: "sha256:ddd" },
+    ],
+    pinnedReferenceBundle: {
+      bundleId: "ref-hg38-v3",
+      genomeAssembly: "GRCh38",
+      assets: [{ assetKind: "fasta", uri: "s3://refs/hg38.fa", checksum: "sha256:eee" }],
+    },
+    sampleSnapshot: { sampleId: "SPL-010", sampleType: "normal", assayType: "WGS" },
+  };
+  const res1 = await request(app)
+    .post(`/api/cases/${caseId}/runs/replay-manifest-001/start`)
+    .send({ manifest });
+  assert.equal(res1.status, 200);
+
+  const res2 = await request(app)
+    .post(`/api/cases/${caseId}/runs/replay-manifest-001/start`)
+    .send({ manifest });
+  assert.equal(res2.status, 200, "replay with same manifest should succeed");
+  assert.equal(res2.body.case.workflowRuns.length, 1, "should not duplicate run");
+});
+
+test("replaying a workflow start with a different manifest returns 409", async () => {
+  const workflowRunner = new RecordingWorkflowRunner();
+  const app = createApp({ workflowRunner } as never);
+  const caseId = await createCaseAtWorkflowRequested(app);
+  const manifest = {
+    manifestVersion: 1,
+    executorKind: "nextflow",
+    workflowName: "germline-snv",
+    workflowRevision: "v1.0.0",
+    configProfile: "cloud-aws",
+    submissionIntent: "production",
+    acceptedAt: "2026-03-27T10:00:00Z",
+    inputArtifactSet: [
+      { artifactId: "art-020", semanticType: "fastq-r1", artifactHash: "sha256:fff" },
+    ],
+    pinnedReferenceBundle: {
+      bundleId: "ref-hg38-v3",
+      genomeAssembly: "GRCh38",
+      assets: [{ assetKind: "fasta", uri: "s3://refs/hg38.fa", checksum: "sha256:ggg" }],
+    },
+    sampleSnapshot: { sampleId: "SPL-020", sampleType: "normal", assayType: "WGS" },
+  };
+  const res1 = await request(app)
+    .post(`/api/cases/${caseId}/runs/replay-manifest-002/start`)
+    .send({ manifest });
+  assert.equal(res1.status, 200);
+
+  const alteredManifest = { ...manifest, workflowRevision: "v2.0.0-tampered" };
+  const res2 = await request(app)
+    .post(`/api/cases/${caseId}/runs/replay-manifest-002/start`)
+    .send({ manifest: alteredManifest });
+  assert.equal(res2.status, 409, "replay with different manifest should be rejected");
+  assert.ok(
+    res2.body.code === "invalid_transition",
+    "error code should be invalid_transition",
+  );
+});
+
+// ─── Slice 2.D: Manifest-only run reconstruction ──────────────────
+test("reconstructRunFromManifest builds a complete run record from manifest + terminal evidence", async () => {
+  const { reconstructRunFromManifest } = await import("../src/store.js");
+  const manifest = {
+    manifestVersion: 1,
+    executorKind: "nextflow",
+    workflowName: "germline-snv",
+    workflowRevision: "v1.0.0",
+    configProfile: "cloud-aws",
+    submissionIntent: "production",
+    acceptedAt: "2026-03-27T10:00:00Z",
+    inputArtifactSet: [
+      { artifactId: "art-r-001", semanticType: "fastq-r1", artifactHash: "sha256:rrr" },
+    ],
+    pinnedReferenceBundle: {
+      bundleId: "ref-hg38-v3",
+      genomeAssembly: "GRCh38",
+      assets: [{ assetKind: "fasta", uri: "s3://refs/hg38.fa", checksum: "sha256:sss" }],
+    },
+    sampleSnapshot: { sampleId: "SPL-R-001", sampleType: "normal", assayType: "WGS" },
+  };
+
+  const terminalEvidence = {
+    runId: "recon-run-001",
+    caseId: "case-recon-001",
+    requestId: "req-recon-001",
+    status: "COMPLETED" as const,
+    completedAt: "2026-03-27T12:00:00Z",
+    derivedArtifacts: [
+      { semanticType: "somatic-vcf" as const, artifactHash: "sha256:out-001", producingStep: "mutect2" },
+    ],
+  };
+
+  const run = reconstructRunFromManifest(manifest, terminalEvidence);
+  assert.equal(run.runId, "recon-run-001");
+  assert.equal(run.caseId, "case-recon-001");
+  assert.equal(run.workflowName, "germline-snv");
+  assert.equal(run.executionProfile, "cloud-aws");
+  assert.equal(run.status, "COMPLETED");
+  assert.equal(run.completedAt, "2026-03-27T12:00:00Z");
+  assert.deepStrictEqual(run.manifest, manifest);
+  assert.equal(run.derivedArtifacts.length, 1);
 });
