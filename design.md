@@ -40,7 +40,7 @@ tags: [oncology, mrna, circRNA, saRNA, neoantigen, platform-design]
 - strategic bet: сильные направления развития, которые не должны подаваться как settled baseline;
 - scenario horizon: 2050+ planning hypotheses for resilience, not delivery promises.
 
-Для отдельного long-horizon planning surface см. [2026-03-28-rna-oncology-platform-horizon-audit-2050-2076.md](../../docs/superpowers/specs/2026-03-28-rna-oncology-platform-horizon-audit-2050-2076.md).
+В standalone-репозитории long-horizon framing intentionally summarized inline; документ не требует cross-repository ссылок, чтобы оставаться самодостаточным.
 
 ## Current software implementation boundary
 
