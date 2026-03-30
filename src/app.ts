@@ -29,6 +29,8 @@ import { InMemoryReferenceBundleRegistry } from "./adapters/InMemoryReferenceBun
 import { InMemoryQcGateEvaluator } from "./adapters/InMemoryQcGateEvaluator";
 import { InMemoryWorkflowRunner } from "./adapters/InMemoryWorkflowRunner";
 import type { DeliveryModality, RunArtifact, HlaConsensusRecord } from "./types";
+import { apiKeyAuth } from "./middleware/api-key-auth";
+import { requestLogger, type RequestLogWriter } from "./middleware/request-logger";
 
 export interface AppDependencies {
   store?: CaseStore;
@@ -37,6 +39,8 @@ export interface AppDependencies {
   referenceBundleRegistry?: IReferenceBundleRegistry;
   qcGateEvaluator?: IQcGateEvaluator;
   workflowRunner?: IWorkflowRunner;
+  apiKey?: string;
+  requestLogWriter?: RequestLogWriter;
 }
 
 export function createApp(dependencies: AppDependencies = {}) {
@@ -56,6 +60,12 @@ export function createApp(dependencies: AppDependencies = {}) {
     res.setHeader("x-correlation-id", correlationId);
     next();
   });
+
+  app.use(requestLogger(dependencies.requestLogWriter));
+
+  if (dependencies.apiKey) {
+    app.use(apiKeyAuth(dependencies.apiKey));
+  }
 
   app.get("/", (_req, res) => {
     res.json({
@@ -179,13 +189,17 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.get("/api/cases", async (_req, res, next) => {
+  app.get("/api/cases", async (req, res, next) => {
     try {
-      const cases = await store.listCases();
+      const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
+      const { cases, totalCount } = await store.listCases({ limit, offset });
       res.json({
         cases,
         meta: {
-          totalCases: cases.length,
+          totalCases: totalCount,
+          limit,
+          offset,
         },
       });
     } catch (error) {

@@ -19,7 +19,15 @@ function createDispatchSink(config: ReturnType<typeof loadConfig>) {
     };
   }
 
-  const pool = new Pool({ connectionString });
+  const pool = new Pool({
+    connectionString,
+    max: 20,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 5_000,
+    statement_timeout: 30000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
+  });
   const sink = new PostgresWorkflowDispatchSink(pool, {
     tableName: config.workflowDispatchTableName,
   });
@@ -43,7 +51,15 @@ function createDurableAdapters(
     };
   }
 
-  const pool = new Pool({ connectionString });
+  const pool = new Pool({
+    connectionString,
+    max: 20,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 5_000,
+    statement_timeout: 30000,
+    keepAlive: true,
+    keepAliveInitialDelayMillis: 10_000,
+  });
   const store = new PostgresCaseStore(pool, undefined, dispatchSink);
   const runner = new PostgresWorkflowRunner(pool);
 
@@ -64,7 +80,10 @@ async function bootstrap() {
   if (durable.store instanceof PostgresCaseStore) {
     await durable.store.initialize();
   }
-  const app = createApp({ store: durable.store, workflowRunner: durable.runner });
+  if (!config.apiKey) {
+    process.stderr.write("WARNING: API_KEY not set — API endpoints are unprotected.\n");
+  }
+  const app = createApp({ store: durable.store, workflowRunner: durable.runner, apiKey: config.apiKey });
   const server = createServer(app);
   let shutdownPromise: Promise<void> | undefined;
 

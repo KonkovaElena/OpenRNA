@@ -74,6 +74,13 @@ function numberField(fieldName: string) {
   return z.number({ error: `${fieldName} must be a number.` });
 }
 
+function isoTimestamp(fieldName: string) {
+  return z.string({ error: `${fieldName} is required.` })
+    .trim()
+    .min(1, `${fieldName} is required.`)
+    .datetime({ message: `${fieldName} must be a valid ISO 8601 timestamp.` });
+}
+
 function booleanField(fieldName: string) {
   return z.boolean({ error: `${fieldName} must be a boolean.` });
 }
@@ -222,7 +229,7 @@ const workflowRunManifestSchema = z.object({
   workflowRevision: requiredText("workflowRevision"),
   configProfile: requiredText("configProfile"),
   submissionIntent: requiredText("submissionIntent"),
-  acceptedAt: requiredText("acceptedAt"),
+  acceptedAt: isoTimestamp("acceptedAt"),
   inputArtifactSet: z.array(manifestInputArtifactSchema, {
     error: "inputArtifactSet must be an array of artifact objects.",
   }),
@@ -237,7 +244,7 @@ const workflowRunManifestSchema = z.object({
 const hlaToolEvidenceSchema = z.object({
   toolName: requiredText("perToolEvidence[].toolName"),
   alleles: nonEmptyStringArray("perToolEvidence[].alleles", "perToolEvidence[].alleles[]"),
-  confidence: numberField("perToolEvidence[].confidence"),
+  confidence: numberField("perToolEvidence[].confidence").min(0, "confidence must be between 0 and 1.").max(1, "confidence must be between 0 and 1."),
   rawOutput: optionalText("perToolEvidence[].rawOutput"),
 }).strict() satisfies z.ZodType<HlaToolEvidence>;
 
@@ -246,7 +253,7 @@ const recordHlaConsensusInputSchema = z.object({
   perToolEvidence: z.array(hlaToolEvidenceSchema, {
     error: "perToolEvidence must be a non-empty array.",
   }).min(1, "perToolEvidence must be a non-empty array."),
-  confidenceScore: numberField("confidenceScore"),
+  confidenceScore: numberField("confidenceScore").min(0, "confidenceScore must be between 0 and 1.").max(1, "confidenceScore must be between 0 and 1."),
   tieBreakNotes: optionalText("tieBreakNotes"),
   referenceVersion: requiredText("referenceVersion"),
 }).strict() satisfies z.ZodType<RecordHlaConsensusInput>;
@@ -330,7 +337,7 @@ const recordAdministrationInputSchema = z.object({
   administrationId: requiredText("administrationId"),
   constructId: requiredText("constructId"),
   constructVersion: positiveInteger("constructVersion"),
-  administeredAt: requiredText("administeredAt"),
+  administeredAt: isoTimestamp("administeredAt"),
   route: enumText(administrationRoutes, "route", "Unsupported administration route.").transform(
     (value) => value as AdministrationRecord["route"],
   ),
@@ -343,7 +350,7 @@ const recordImmuneMonitoringInputSchema = z.object({
   monitoringId: requiredText("monitoringId"),
   constructId: requiredText("constructId"),
   constructVersion: positiveInteger("constructVersion"),
-  collectedAt: requiredText("collectedAt"),
+  collectedAt: isoTimestamp("collectedAt"),
   assayType: requiredText("assayType"),
   biomarker: requiredText("biomarker"),
   value: numberField("value"),
@@ -356,7 +363,7 @@ const recordClinicalFollowUpInputSchema = z.object({
   followUpId: requiredText("followUpId"),
   constructId: requiredText("constructId"),
   constructVersion: positiveInteger("constructVersion"),
-  evaluatedAt: requiredText("evaluatedAt"),
+  evaluatedAt: isoTimestamp("evaluatedAt"),
   responseCategory: enumText(
     clinicalResponseCategories,
     "responseCategory",
@@ -543,7 +550,7 @@ const workflowOutputManifestSchema = z.object({
   caseId: requiredText("caseId"),
   workflowName: requiredText("workflowName"),
   executionProfile: requiredText("executionProfile"),
-  completedAt: requiredText("completedAt"),
+  completedAt: isoTimestamp("completedAt"),
   durationMs: numberField("durationMs"),
   derivedArtifacts: z.array(outputManifestDerivedArtifactSchema, {
     error: "derivedArtifacts must be an array.",
@@ -574,7 +581,7 @@ export function parseWorkflowOutputManifest(value: unknown): WorkflowOutputManif
 
 const retrievalProvenanceSchema = z.object({
   uri: requiredText("retrievalProvenance.uri"),
-  retrievedAt: requiredText("retrievalProvenance.retrievedAt"),
+  retrievedAt: isoTimestamp("retrievalProvenance.retrievedAt"),
   integrityHash: requiredText("retrievalProvenance.integrityHash"),
 }).strict();
 
@@ -584,7 +591,7 @@ const registerBundleSchema = z.object({
   annotationVersion: requiredText("annotationVersion"),
   knownSitesVersion: requiredText("knownSitesVersion"),
   hlaDatabaseVersion: requiredText("hlaDatabaseVersion"),
-  frozenAt: requiredText("frozenAt"),
+  frozenAt: isoTimestamp("frozenAt"),
   transcriptSet: optionalText("transcriptSet"),
   callerBundleVersion: optionalText("callerBundleVersion"),
   pipelineRevision: optionalText("pipelineRevision"),

@@ -137,7 +137,7 @@ export { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatc
 
 export interface CaseStore {
   createCase(rawInput: unknown, correlationId: string): Promise<CaseRecord>;
-  listCases(): Promise<CaseRecord[]>;
+  listCases(options?: { limit?: number; offset?: number }): Promise<{ cases: CaseRecord[]; totalCount: number }>;
   getCase(caseId: string): Promise<CaseRecord>;
   registerSample(caseId: string, rawInput: unknown, correlationId: string): Promise<CaseRecord>;
   registerArtifact(caseId: string, rawInput: unknown, correlationId: string): Promise<CaseRecord>;
@@ -466,10 +466,13 @@ export class MemoryCaseStore implements CaseStore {
     return structuredClone(record);
   }
 
-  async listCases(): Promise<CaseRecord[]> {
-    return [...this.cases.values()]
+  async listCases(options?: { limit?: number; offset?: number }): Promise<{ cases: CaseRecord[]; totalCount: number }> {
+    const all = [...this.cases.values()]
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt))
       .map((record) => structuredClone(record));
+    const limit = options?.limit ?? 50;
+    const offset = options?.offset ?? 0;
+    return { cases: all.slice(offset, offset + limit), totalCount: all.length };
   }
 
   async getCase(caseId: string): Promise<CaseRecord> {

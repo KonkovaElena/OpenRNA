@@ -144,7 +144,9 @@ CREATE TABLE IF NOT EXISTS hla_consensus (
   confidence_score   REAL    NOT NULL,
   tie_break_notes    TEXT,
   reference_version  TEXT    NOT NULL,
-  produced_at        TIMESTAMPTZ NOT NULL
+  produced_at        TIMESTAMPTZ NOT NULL,
+  disagreements      JSONB,
+  confidence_decomposition JSONB
 );
 
 -- ─── QC Gates ───────────────────────────────────────────────────────
