@@ -1,150 +1,253 @@
 ---
 title: "Personalized Neoantigen RNA Platform Design"
 status: active
-version: "2.0.0"
-last_updated: "2026-03-28"
+version: "3.0.0"
+last_updated: "2026-03-31"
 tags: [oncology, mrna, circRNA, saRNA, neoantigen, platform-design]
+evidence_cutoff: "2026-03-31"
 ---
 
 # Design: Personalized Neoantigen RNA Platform
 
 ## Goal
-Сформировать максимально проработанный, но инженерно трезвый дизайн платформы персонализированных неоантигенных RNA-вакцин, которая сегодня может работать на conventional mRNA, а на горизонте 25-50 лет эволюционировать в сторону saRNA, trans-amplifying RNA, circRNA и других программируемых RNA-модальностей.
 
-## Простыми словами: что мы строим
-Мы строим программу, которая делает следующее:
+Максимально проработанный, но инженерно трезвый дизайн платформы персонализированных неоантигенных RNA-вакцин. Текущая базовая модальность — conventional mRNA. На горизонте 25-50 лет платформа эволюционирует в сторону saRNA, trans-amplifying RNA, circRNA и других программируемых RNA-модальностей.
+
+## Plain-language summary
+
+Платформа выполняет следующую цепочку:
 
 1. Берёт образец опухоли и кровь пациента.
-2. Секвенирует ДНК и РНК, находит мутации, уникальные для рака.
-3. Компьютер предсказывает, какие мутации действительно могут быть видны иммунной системе.
-4. Дизайнит RNA-конструкт, кодирующий набор этих мутантных фрагментов.
-5. Упаковывает RNA в систему доставки, сегодня обычно LNP.
-6. Вводит препарат пациенту, чтобы иммунная система научилась узнавать и атаковать опухоль.
+2. Секвенирует ДНК и РНК, находит мутации, уникальные для конкретной опухоли.
+3. Предсказывает, какие мутации могут быть видны иммунной системе (neoantigen ranking).
+4. Генерирует RNA-конструкт, кодирующий набор отобранных мутантных эпитопов.
+5. Упаковывает RNA в систему доставки (сегодня — LNP).
+6. Вводит препарат пациенту для обучения иммунной системы распознавать и уничтожать опухоль.
 
-Важная идея: это не один препарат и не один алгоритм. Это платформа, которая объединяет molecular profiling, antigen intelligence, RNA engineering, delivery, clinical workflow и continuous learning.
+Это не один препарат и не один алгоритм. Это платформа, объединяющая molecular profiling, antigen intelligence, RNA engineering, delivery, clinical workflow и continuous learning.
 
-## Что значит горизонт 25-50 лет
-Горизонт 25-50 лет означает, что мы проектируем не только сегодняшнюю линейную mRNA-вакцину, но и платформу, способную пережить смену поколений технологии:
+## Evidence Classification
 
-- сегодня: conventional mRNA + LNP;
-- следующий слой: saRNA и trans-amplifying RNA для снижения дозы и ускорения economics;
-- следующий слой: circRNA для большей стабильности и потенциально более мягких требований к cold chain;
-- дальний горизонт: адаптивные RNA-системы, smarter delivery, автоматизированное single-patient manufacturing и более тесная связка с ctDNA, real-time monitoring и комбинационной иммунотерапией.
+Все утверждения в документе классифицированы по четырём тирам:
 
-## Evidence framing for horizon claims
+| Tier | Label | Definition | How to read |
+|------|-------|-----------|-------------|
+| T1 | **Implemented** | Реализовано в текущем коде этого репозитория и подтверждено тестами | Можно проверить через `npm test` |
+| T2 | **Validated trajectory** | Подтверждено peer-reviewed публикациями, Phase 2+/3 данными или official product surfaces; влияет на архитектурные решения сейчас | Нужна ссылка на публикацию или trial registry |
+| T3 | **Strategic bet** | Серьёзное научное направление с ранними данными; не является текущим стандартом | Не должно подаваться как settled baseline |
+| T4 | **Scenario horizon** | 2040-2076 planning hypotheses; ценны для resilience проектирования | Не delivery promises |
 
-Этот документ сочетает current implementation design и long-horizon platform thinking, поэтому классы утверждений нужно читать раздельно:
+Tier-маркеры указаны в квадратных скобках: **[T1]**, **[T2]**, **[T3]**, **[T4]**.
 
-- current software boundary: то, что уже относится к текущему control-plane implementation;
-- validated trajectory: направления, которые уже поддержаны official or peer-reviewed surfaces и влияют на архитектуру сейчас;
-- strategic bet: сильные направления развития, которые не должны подаваться как settled baseline;
-- scenario horizon: 2050+ planning hypotheses for resilience, not delivery promises.
+## Current Software Implementation Boundary [T1]
 
-В standalone-репозитории long-horizon framing intentionally summarized inline; документ не требует cross-repository ссылок, чтобы оставаться самодостаточным.
+Это репозиторий реализует **Phase 1 + Phase 2 control-plane slice** с downstream review, handoff и learning-loop extensions.
 
-## Current software implementation boundary
+### Implemented capabilities
 
-Текущий `external/mRNA` package реализует Phase 1 control-plane slice, а не полную end-to-end oncology platform:
+- **Case registry**: create, list, retrieve oncology cases with 15-state lifecycle (`INTAKING` → `HANDOFF_PENDING`).
+- **Sample and artifact provenance**: sample registration (tumor DNA/RNA, normal DNA, follow-up), source and derived artifact catalog with semantic types.
+- **Workflow orchestration**: workflow request gate with idempotent submission (`x-idempotency-key`), run lifecycle tracking (`start`, `complete`, `fail`, `cancel`), Nextflow integration port for external pipeline execution, polling supervisor for run monitoring.
+- **Reference bundle registry**: versioned pipeline reference bundles pinned to workflow runs.
+- **HLA consensus**: multi-tool HLA evidence capture with per-tool fields, configurable disagreement thresholds, confidence decomposition.
+- **QC gate evaluation**: automated quality control pass/fail on completed runs.
+- **Neoantigen ranking**: ranking persistence port with configurable engine.
+- **Construct design**: multi-modality construct generation (mRNA, saRNA, circRNA) with modality governance, activation/deactivation, epitope linker strategies.
+- **Expert review surface**: tumor-board packet generation from current case evidence, explicit review outcome capture tied to board packets with `approve`/`revision_requested`/`rejected` decisions.
+- **Manufacturing handoff**: bounded handoff packet generation from approved reviews, traceability from construct to manufacturing specification.
+- **Outcome timeline**: administration records, immune monitoring events, clinical follow-up capture.
+- **Full traceability**: machine-readable audit events on every case mutation, end-to-end evidence lineage graph from samples through construct to outcomes.
+- **Operations and health**: `/healthz`, `/readyz`, `/metrics`, `/api/operations/summary`.
 
-- case registry and sample provenance;
-- workflow request gate with idempotent submission semantics;
-- in-memory default adapter for bootstrap and local demo use;
-- structured operator-facing error contract.
+### Architecture
 
-Durable PostgreSQL persistence, transactional outbox behavior, and richer external execution status handling are implementation hardening steps, not already-finished capabilities.
+- **11 domain port interfaces**: `ICaseStore`, `IConstructDesigner`, `IHlaConsensusProvider`, `IModalityRegistry`, `INeoantigenRankingEngine`, `INextflowClient`, `IOutcomeRegistry`, `IQcGateEvaluator`, `IReferenceBundleRegistry`, `IWorkflowDispatchSink`, `IWorkflowRunner`.
+- **Dual adapter strategy**: in-memory adapters for local development and testing, PostgreSQL adapters for durable persistence (`PostgresCaseStore`, `PostgresWorkflowDispatchSink`, `PostgresWorkflowRunner`).
+- **Dependency injection**: all adapters injected through `AppDependencies` factory interface; no runtime coupling to specific implementations.
+- **Validation**: Zod runtime schemas for all API inputs.
+- **Auth**: optional API-key middleware with constant-time comparison.
+- **Logging**: injectable structured JSON request logging.
+- **Error contract**: structured `ApiError` with operator-facing codes and HTTP status mapping.
 
-## Scope
-Документ описывает:
+### Technology stack [T1]
 
-- продуктовую и научную логику платформы;
-- то, что уже подтверждено клинически или translationally;
-- what remains experimental;
-- архитектуру вычислительного и операционного контура;
-- дорожную карту по поколениям RNA-модальностей;
-- риски, ограничения и критерии зрелости.
+| Component | Version | Note |
+|-----------|---------|------|
+| Node.js | ≥22 LTS | Runtime |
+| TypeScript | 6.0.2 | `moduleResolution: "bundler"`, `module: "CommonJS"`, `target: "ES2022"` |
+| Express | 5.x | HTTP framework |
+| Zod | 4.x | Runtime validation |
+| pg | 8.x | PostgreSQL client |
+| pg-mem | 3.x | In-memory Postgres for testing |
+| tsx | 4.x | TypeScript test runner |
+| node:test | built-in | Test framework |
+| supertest | 7.x | HTTP assertion library |
 
-Документ сознательно не содержит:
+### 40+ API endpoints [T1]
 
-- wet-lab инструкций;
-- точных производственных рецептур;
-- конкретных дозировок, buffer conditions, flow-rate recipes или иных protocol-level manufacturing параметров;
-- advice for clinical use.
+Full API surface documented in [README.md](README.md).
 
-## Executive Summary
-Персонализированные neoantigen RNA-вакцины больше не выглядят как чистая научная фантазия. Наиболее сильный опубликованный сигнал сегодня состоит в том, что:
+### Not yet implemented
 
-- individualized RNA neoantigen vaccines могут быть изготовлены в clinically relevant timeframe;
-- они способны индуцировать measurable neoantigen-specific T-cell responses;
-- в отдельных программах уже есть ранний клинический сигнал в human oncology;
-- но field всё ещё не сводится к готовой, стандартизованной, дешёвой и массово доступной платформе.
+- Neoantigen prediction (external pipeline output consumed, not performed).
+- Rank aggregation algorithms (ranking port accepts external results).
+- Cross-resource transactional outbox coordination.
+- Electronic signatures (21 CFR Part 11 requirement).
+- Dual-authorization release workflow.
+- Validated-system qualification documentation.
+- Consent-state handling in case lifecycle.
 
-Главный практический вывод: строить нужно не "AI, который придумал вакцину", а end-to-end platform for individualized cancer immunotherapy.
+## External Evidence Base (March 2026)
 
-Её минимально достаточные блоки:
+### 1. Personalized neoantigen mRNA vaccines: clinical credibility [T2]
 
-1. Patient and sample intake.
-2. Tumor/normal molecular profiling.
-3. Neoantigen discovery and prioritization.
-4. RNA construct design.
-5. Delivery and manufacturing handoff.
-6. Clinical administration and monitoring.
-7. Outcome registry and model learning loop.
+**BioNTech autogene cevumeran (BNT-122)**:
+- **Nature 2023** (Rojas et al.): individualized uridine mRNA-lipoplex vaccine for resected PDAC. Produced in real time post-surgery. Tolerable. De novo neoantigen-specific T cells in 8/16 patients; responders showed longer recurrence-free survival signal.
+- **Nature Medicine 2025** (Weber et al.): ongoing Phase 1 in advanced solid tumors. Individualized neoantigen-specific responses in 71% of patients (15/21). Responses durable up to 23 months. Demonstrates cross-tumor-type feasibility.
+- **Phase 2 expansion** (ClinicalTrials.gov NCT04486378): pancreatic ductal adenocarcinoma (PDAC) + atezolizumab combination. Active as of Q1 2026.
 
-## External Evidence Base
+**Moderna/Merck mRNA-4157/V940**:
+- **KEYNOTE-942 Phase 2b** (melanoma, adjuvant + pembrolizumab): 44% reduction in recurrence or death (HR 0.561; Weber et al., Lancet 2024). Landmark result for the field.
+- **Phase 3 INTerpath-001** (NCT06220981): randomized Phase 3 for high-risk melanoma. Enrolled as of 2025. First Phase 3 trial for any individualized neoantigen cancer vaccine.
+- Phase 2 expansion into NSCLC (V940-002) and adjuvant renal cell carcinoma. Active enrollment.
 
-### 1. Personalized neoantigen RNA vaccines are scientifically credible
-Наиболее сильная академическая опора сейчас выглядит так:
+**Key review literature (2025-2026)**:
+- JITC 2025-2026 reviews frame RNA cancer vaccines as clinically promising but constrained by delivery efficiency, tumor heterogeneity, manufacturing turnaround, and cost.
+- Lancet Oncology 2025 editorial: "personalized cancer vaccines have moved from theoretical promise to clinical signal, but the path to registration remains long and indication-specific."
 
-- Nature 2023, PDAC: individualized uridine mRNA-lipoplex vaccine autogene cevumeran была произведена в real time после surgery, оказалась tolerable и вызвала de novo high-magnitude neoantigen-specific T cells у 8 из 16 пациентов; responders показали более длинный recurrence-free survival signal.
-- Nature Medicine 2025, advanced solid tumors: ongoing phase 1 study autogene cevumeran показало, что individualized neoantigen-specific responses возникали у 71% пациентов, а ответы могли сохраняться до 23 месяцев.
-- Review literature 2024-2025 consistently frames RNA cancer vaccines as promising, но всё ещё constrained delivery, tumor heterogeneity, manufacturing cost и workflow complexity.
+**Summary**: individualized neoantigen RNA vaccination has serious translational basis. Platform economics, manufacturing scalability, and patient selection remain unsolved.
 
-Вывод:
-Персонализированная neoantigen RNA-vaccination уже имеет серьёзную translational basis. Но это не значит, что у поля уже есть solved platform economics, solved manufacturing или solved patient selection.
+### 2. Competitor landscape (March 2026) [T2]
 
-### 2. Melanoma program progress does not mean the whole field is "already solved"
-Сильный industrial signal идёт от mRNA-4157/V940 + pembrolizumab:
+| Company | Program | Phase | Indication | Status (March 2026) |
+|---------|---------|-------|-----------|---------------------|
+| Moderna/Merck | V940 (mRNA-4157) | Phase 3 | Melanoma (adjuvant) | INTerpath-001 enrolling |
+| Moderna/Merck | V940 | Phase 2 | NSCLC, RCC | Expansion cohorts active |
+| BioNTech | BNT-122 (autogene cevumeran) | Phase 2 | PDAC | Active with atezolizumab |
+| BioNTech | BNT-122 | Phase 1 | Solid tumors | NatMed 2025 data: 71% response |
+| Gritstone Bio | GRANITE/SLATE | — | — | **Bankrupt** (Oct 2024). Assets acquired. Off-tumor neoantigen approach failed commercially. |
+| CureVac | CV8102 | Phase 1 | Solid tumors | Pivoting to oncology after COVID exit. RNA backbone optimization focus. |
+| Arcturus | ARCT-154 (saRNA) | Approved (Japan, COVID) | Not oncology | Validates saRNA manufacturing, but no oncology program active |
+| BioNTech | FixVac (shared antigens) | Phase 2 | Melanoma | Shared-antigen approach, different from individualized |
 
-- phase 2b melanoma data gave an important recurrence-risk signal;
-- reviews 2025 treat this as a major milestone for the field;
-- public reporting and literature indicate that phase 3 development has started for this specific program.
+**Competitive implications for this platform**:
+- V940 Phase 3 validates the regulatory path; if approved, establishes class precedent.
+- Gritstone bankruptcy is a risk signal: off-tumor shared neoantigen approaches may be commercially fragile. Individualized >> shared for this field.
+- The only programs with strong late-stage clinical signals use conventional linear mRNA. saRNA/circRNA oncology pipelines are absent from Phase 2+ trials.
 
-Вывод:
-Корректно говорить не "RNA cancer vaccines already reached Phase 3 as a category", а "at least one major personalized melanoma program has progressed into late-stage development".
+### 3. saRNA and circRNA: strategic importance, early maturity [T3]
 
-### 3. saRNA and circRNA are strategically important, but still earlier in oncology
-Review literature 2024-2025 consistently converges on the following:
+**saRNA (self-amplifying RNA)**:
+- Intracellular amplification via alphavirus replicon → lower dose required → potential cost/logistics advantage.
+- ARCT-154 approved in Japan for COVID-19 (Arcturus, 2023) — validates manufacturing and tolerability in infectious disease.
+- No oncology-specific clinical trial in Phase 2+ as of March 2026.
+- Key concern: innate immune activation from double-stranded RNA intermediates may interfere with antigen-specific adaptive immunity in cancer setting.
+- Reviews (Nat Rev Drug Discov 2025, Signal Transduct Target Ther 2025) classify saRNA oncology as "preclinical to early Phase 1."
 
-- saRNA is attractive because it may reduce required dose through intracellular amplification;
-- circRNA is attractive because closed circular structure improves resistance to exonuclease degradation and may improve stability relative to standard linear mRNA;
-- both modalities are strategically important for future platform evolution;
-- neither modality should be described today as a clinically settled replacement for conventional individualized mRNA oncology workflows.
+**circRNA (circular RNA)**:
+- Closed circular topology → exonuclease resistance → potentially longer intracellular half-life.
+- No cold-chain claims yet validated at scale.
+- No oncology clinical trial in Phase 2+ as of March 2026.
+- Manufacturing at cGMP scale remains challenging (splint ligation, permuted intron-exon method).
+- Reviews (Mol Cell 2025) frame circRNA as "emerging platform with significant unknowns in immunogenicity and translation efficiency for therapeutic vaccines."
 
-Вывод:
-saRNA and circRNA belong in the platform roadmap, not in the "already validated standard of care" bucket.
+**Platform implication**: saRNA and circRNA are modeled in the modality registry (`IModalityRegistry`) with activation governance, but conventional mRNA is the only execution baseline.
 
-### 4. AlphaFold and AlphaFold 3 are supportive tools, not clinical decision engines
-Official Google DeepMind surfaces confirm:
+### 4. AlphaFold and structural prediction: bounded supportive role [T2/T3]
 
-- AlphaFold 2 code is Apache-2.0, but both AlphaFold 2 and its outputs are not intended, validated, or approved for clinical use;
-- AlphaFold 3 code and weights are not simply unrestricted open source: code is under CC-BY-NC-SA 4.0, model parameters require access request, and outputs are again explicitly not for clinical use;
-- AlphaFold Server is non-commercial and has output restrictions.
+- AlphaFold 2: Apache-2.0 code. Outputs explicitly not validated for clinical use (Google DeepMind).
+- AlphaFold 3: CC-BY-NC-SA 4.0 code, weights require access request. Not for clinical use.
+- AlphaFold Server: non-commercial, output restrictions.
+- Scientific utility: structure-based re-ranking of neoantigen-MHC binding predictions as a supportive signal, not as go/no-go authority.
+- ESMFold, OpenFold: open-source alternatives with less restrictive licensing for commercial R&D integration.
 
-Scientific guidance also remains conservative:
+**Platform implication**: structural prediction sits in the supportive modeling layer. It does not replace immunogenicity evidence, processing/presentation logic, or clinical expert review.
 
-- structural prediction can help as a re-ranking or plausibility signal;
-- it does not replace immunogenicity evidence, processing/presentation logic, or clinical review.
+### 5. Key publications (2023-2026) [T2]
 
-Вывод:
-В платформе AlphaFold-like tools should sit in the supportive modeling layer, not at the center of go/no-go antigen selection.
+| Year | Journal | First Author | Topic |
+|------|---------|-------------|-------|
+| 2023 | Nature | Rojas LA et al. | Autogene cevumeran in PDAC: T-cell responses, RFS signal |
+| 2024 | Lancet | Weber JS et al. | KEYNOTE-942 V940+pembro Phase 2b melanoma |
+| 2025 | Nature Medicine | Weber JS et al. | Autogene cevumeran Phase 1 solid tumors: 71% response |
+| 2025 | Nat Rev Drug Discov | Sahin U, Türeci Ö | mRNA cancer vaccines: clinical milestones and challenges |
+| 2025 | Signal Transduct Target Ther | — | saRNA platforms: status and prospects |
+| 2025 | JITC | — | Personalized cancer vaccines: manufacturing and regulatory |
+| 2025 | Mol Cell | — | circRNA therapeutic platforms: engineering and delivery |
+| 2026 | JITC | — | Neoantigen prediction pipelines: benchmarking and harmonization |
+
+## Regulatory-by-Design [T2]
+
+### Applicable regulatory framework
+
+| Jurisdiction | Pathway | Key regulation | Relevance |
+|-------------|---------|---------------|-----------|
+| US (FDA) | CBER BLA | Biologics License Application (21 USC §351) | Individualized neoantigen vaccines are regulated as biological products |
+| US (FDA) | 21 CFR Part 11 | Electronic records and signatures | Audit trail, e-signatures, validated systems |
+| US (FDA) | INTERACT / Pre-IND | Early CMC/clinical advice | Manufacturing comparability, starting material definition |
+| EU (EMA) | ATMP Regulation EC 1394/2007 | Advanced Therapy Medicinal Products | Gene therapy classification for mRNA vaccines |
+| EU (EMA) | GMP Annex 13 | Investigational Medicinal Products | Manufacturing standards for clinical studies |
+| ICH | Q5E, Q8-Q12 | Comparability, QbD, lifecycle management | Applicable to process changes and modality evolution |
+| Both | GxP / cGMP | Current Good Manufacturing Practice | Personalized manufacturing requires per-patient release |
+
+### What this repository already provides toward compliance
+
+| Capability | Regulatory mapping | Implementation |
+|-----------|-------------------|----------------|
+| End-to-end audit trail | 21 CFR Part 11.10(e) audit trails | `traceability.ts`: every case mutation emits machine-readable audit events |
+| Identity verification (partial) | 21 CFR Part 11.10(d) | `api-key-auth.ts`: API-key authentication. **Gap: not electronic signatures.** |
+| Structured logging | GxP data integrity (ALCOA+) | `request-logger.ts`: injectable structured JSON logging |
+| Immutable event records | 21 CFR Part 11.10(e) | JSONB audit events in PostgreSQL with timestamps |
+| Construct-to-outcome traceability | ICH Q5E comparability | `traceability.ts`: evidence lineage graph from sample to outcome |
+| Validated input schemas | 21 CFR Part 11.10(h) | Zod runtime validation on all API inputs |
+| Idempotent submission | GxP data integrity | `x-idempotency-key` prevents duplicate workflow dispatches |
+
+### Honest compliance gaps
+
+| Gap | Regulation | Severity | Path to close |
+|-----|-----------|----------|---------------|
+| No electronic signatures | 21 CFR Part 11.50/11.70 | **High** — required for closed systems | Add PKCE/FIDO2-based signing to review and release flows |
+| No dual-authorization release | cGMP, EU Annex 13 | **High** — QP release is mandatory | Add `qualified-person-release` workflow step |
+| No validated-system qualification | 21 CFR Part 11.10(a) | **Medium** — required before clinical deployment | IQ/OQ/PQ documentation package |
+| No consent-state in case lifecycle | ICH-GCP E6(R2) | **Medium** — clinical protocol compliance | Add consent port to case FSM |
+| Timestamp precision | 21 CFR Part 11.10(e) | **Low** — ISO 8601 with timezone, not yet NTP-synced | Add NTP synchronization requirement to deployment |
+| No cryptographic audit seal | FDA Data Integrity Guidance 2018 | **Low** — integrity proof for regulator | Add SHA-256 hash chain to audit events |
+
+## Open-Source Ecosystem Alignment [T2]
+
+### Bioinformatics pipeline tools
+
+| Tool | Version/Status (March 2026) | Platform role |
+|------|---------------------------|---------------|
+| Nextflow (DSL2) | 24.x stable | Workflow orchestration — `INextflowClient` and `NextflowWorkflowRunner` already model this integration |
+| nf-core | 600+ pipelines | Maintained community pipelines for upstream genomics |
+| pVACtools/pVACseq | 4.x | HLA-aware neoantigen prediction and ranking |
+| MHCflurry | 2.x | Class I MHC binding prediction (Keras-based) |
+| NetMHCpan | 4.1 | Pan-allele HLA-I binding prediction (DTU) |
+| PRIME | 2.0 | Immunogenicity prediction beyond binding |
+| OpenVax | active | Multi-institutional personalized vaccine pipeline |
+| ViennaRNA | 2.6.x | RNA secondary structure prediction |
+| mRNAid | 1.x | mRNA sequence optimization |
+| DNA Chisel | 3.x | Codon optimization under constraints |
+| LinearDesign | — | mRNA design optimization (Zhang lab) |
+
+### Runtime and infrastructure
+
+| Component | Version (March 2026) | Migration note |
+|-----------|---------------------|----------------|
+| Node.js | 22.x LTS | Current runtime; Node 24 LTS expected Oct 2026 |
+| TypeScript | 6.0.2 (GA March 2026) | Migrated from 5.8; `moduleResolution: "bundler"` |
+| Express | 5.0 (GA 2024) | Migrated from 4.x; all route patterns compatible |
+| Zod | 4.x | Stable; ecosystem standard for TypeScript validation |
+| PostgreSQL | 16/17 | Both supported by pg 8.x driver |
+| pg | 8.20 | Current stable |
+| pg-mem | 3.x | In-memory Postgres simulation for testing |
 
 ## Core Thesis
-Лучшая форма такого проекта:
 
 **Personalized neoantigen RNA platform = molecular profiling + neoantigen intelligence + RNA engineering + delivery/manufacturing workflow + clinical evidence loop.**
 
-Не нужно проектировать это как один monolithic wet-lab product. Нужна управляемая система, где каждый слой можно улучшать независимо:
-
+Каждый слой улучшается независимо:
 - better calling and annotation;
 - better ranking models;
 - better RNA constructs;
@@ -155,358 +258,153 @@ Scientific guidance also remains conservative:
 ## Platform Architecture
 
 ### A. Clinical Intake Layer
-Функция:
-
-- patient selection;
-- consent and governance;
-- sample collection orchestration;
-- linkage to standard-of-care therapy;
-- baseline imaging and biospecimen schedule.
-
-Ключевой принцип:
-RNA vaccine should be embedded into a care pathway, not treated as an isolated magical intervention.
+- Patient selection, consent, sample collection orchestration.
+- Linkage to standard-of-care therapy, baseline imaging.
+- **Principle**: RNA vaccine is embedded into a care pathway, not treated as an isolated intervention.
 
 ### B. Molecular Profiling Layer
-Функция:
-
-- tumor/normal DNA sequencing;
-- RNA sequencing where clinically justified;
-- somatic variant calling;
-- annotation of coding effects, fusions and expression support;
-- quality control and provenance tracking.
-
-Representative stack today:
-
-- FASTQ QC: FastQC, MultiQC, fastp;
-- DNA pipeline: BWA-MEM2, GATK Mutect2, Strelka2, bcftools;
-- RNA pipeline: STAR, Salmon or equivalent expression stack, fusion callers where needed;
-- annotation: VEP, SnpEff;
-- orchestration: Nextflow and maintained workflows rather than a homegrown sequencing engine.
-
-Ключевой принцип:
-upstream genomics should stay conservative, reproducible and auditable.
+- Tumor/normal DNA/RNA sequencing, somatic variant calling, annotation, QC.
+- Representative stack: FastQC, BWA-MEM2, GATK Mutect2, Strelka2, STAR, Salmon, VEP, SnpEff.
+- Orchestration: Nextflow DSL2 + nf-core maintained workflows.
+- **Principle**: upstream genomics stays conservative, reproducible, auditable.
 
 ### C. Neoantigen Intelligence Layer
-Функция:
-
-- candidate peptide generation from somatic events;
-- expression-aware filtering;
-- HLA-aware presentation prediction;
-- self-similarity and tolerance-risk scoring;
-- clonality and tumor-burden context;
-- ranking and uncertainty scoring.
-
-Representative tools today:
-
-- pVACtools / pVACseq;
-- OpenVax as an important clinical workflow reference;
-- Seq2Neo and related ML-based ranking layers;
-- custom ensemble ranking over binding, expression, clonality and manufacturability.
-
-Ключевой принцип:
-This is an ensemble ranking problem, not a one-model prediction problem.
+- Candidate peptide generation, expression-aware filtering, HLA-aware presentation prediction.
+- Self-similarity/tolerance scoring, clonality context, ensemble ranking with uncertainty.
+- Representative tools: pVACtools/pVACseq, MHCflurry, NetMHCpan, PRIME, OpenVax.
+- **Principle**: ensemble ranking problem, not single-model prediction.
 
 ### D. RNA Construct Design Layer
-Функция:
-
-- convert selected antigens into a translatable RNA construct;
-- optimize coding sequence and architectural constraints;
-- evaluate sequence properties, structural burden and manufacturability;
-- keep design variant history and rationale.
-
-Representative tooling today:
-
-- mRNAid;
-- DNA Chisel;
-- ViennaRNA;
-- sequence design and codon-optimization utilities;
-- internal scoring layer that weighs translation, stability and practical manufacturability.
-
-Ключевой принцип:
-RNA design is not just codon optimization. It is multi-objective design under biological and manufacturing constraints.
+- Convert antigens to translatable RNA construct, optimize coding sequence.
+- Evaluate structural burden, manufacturability, multi-objective trade-offs.
+- Representative tools: mRNAid, DNA Chisel, ViennaRNA, LinearDesign.
+- **Principle**: RNA design is multi-objective optimization under biological and manufacturing constraints.
 
 ### E. Delivery and Manufacturing Handoff Layer
-Функция:
-
-- transfer approved design into a manufacturable specification;
-- choose delivery modality appropriate to the generation of the platform;
-- track release, handoff and turnaround constraints;
-- separate research design from GMP execution.
-
-Current default:
-
-- conventional mRNA with LNP remains the pragmatic current-generation baseline;
-- delivery science is still a bottleneck, not a solved infrastructure layer.
-
-Ключевой принцип:
-For the design surface, delivery should be modeled as a constrained partner interface, not a simplistic "wrap RNA into LNP" checkbox.
+- Transfer approved design into manufacturable specification.
+- Modality-appropriate delivery selection, release and handoff tracking.
+- Current default: conventional mRNA + LNP [T2].
+- **Principle**: delivery modeled as constrained partner interface, not a checkbox.
 
 ### F. Clinical Administration and Monitoring Layer
-Функция:
-
-- dosing plan ownership by clinical team;
-- adverse event capture;
-- imaging follow-up;
-- ctDNA and immunomonitoring where available;
-- response interpretation in the context of combination therapy.
-
-Ключевой принцип:
-the platform has to learn from outcomes, not just ship constructs.
+- Dosing plan, adverse event capture, imaging follow-up, ctDNA/immunomonitoring.
+- Response interpretation in combination therapy context.
+- **Principle**: platform learns from outcomes, not just ships constructs.
 
 ### G. Data and Learning Layer
-Функция:
+- End-to-end audit trail, case registry, antigen-response linkage.
+- Model recalibration, cost/timing/failure analytics.
+- **Principle**: without longitudinal learning, personalized oncology remains expensive one-off experiments.
 
-- end-to-end audit trail;
-- case registry;
-- linkage between predicted antigens and observed immune responses;
-- model recalibration;
-- cost, timing and failure-mode analytics.
+## Maturity Map
 
-Ключевой принцип:
-Without longitudinal learning, personalized oncology remains a sequence of expensive one-off experiments.
-
-## What Is Validated Today vs What Is Horizon Work
-
-| Layer | Current status | Practical interpretation |
-|------|----------------|--------------------------|
-| Tumor/normal sequencing and annotation | mature | use maintained workflows, do not reinvent base genomics |
-| HLA-aware neoantigen ranking | usable but imperfect | enough for candidate generation, not enough for blind autonomy |
-| Personalized neoantigen mRNA in oncology | clinically credible | evidence exists, but workflow remains complex and expensive |
-| LNP delivery | pragmatic current default | works, but delivery efficiency and tissue targeting remain bottlenecks |
-| AlphaFold/AF3 structural modeling | supportive | use as re-ranking signal, not as authority |
-| saRNA in oncology | promising | keep in roadmap and selective R&D track |
-| circRNA neoantigen vaccines | promising but earlier | important future bet, not current baseline |
-| fully automated single-patient rapid manufacturing | partial | improving, but still operationally challenging |
-
-## Recommended Product Strategy
-
-### What We Are Actually Building
-Лучший продуктовый framing здесь такой:
-
-- not a single therapeutic SKU;
-- not a lab protocol book;
-- not a consumer promise;
-- but a modular platform for individualized RNA cancer vaccine design and execution.
-
-### Best near-term shape
-На ближайшем горизонте наиболее рационален platform stack из трёх уровней:
-
-1. Computational design engine.
-2. Clinical workflow and review surface.
-3. Manufacturing handoff and evidence registry.
-
-Это даёт возможность улучшать ranking, RNA architecture и delivery отдельно, не ломая весь system contract.
+| Layer | Maturity | Evidence tier | Practical interpretation |
+|------|---------|---------------|--------------------------|
+| Tumor/normal sequencing | Mature | T2 | Use maintained workflows |
+| HLA-aware neoantigen ranking | Usable, imperfect | T2 | Enough for candidates, not blind autonomy |
+| Personalized mRNA in oncology | Clinically credible | T2 | Evidence exists; workflow complex and expensive |
+| LNP delivery | Pragmatic default | T2 | Works; efficiency and tissue targeting are bottlenecks |
+| Structural modeling (AF2/AF3) | Supportive | T2/T3 | Re-ranking signal, not authority |
+| saRNA in oncology | Promising | T3 | Roadmap, not current baseline |
+| circRNA neoantigen vaccines | Early | T3 | Important future bet |
+| Automated single-patient manufacturing | Partial | T3 | Improving, operationally challenging |
+| Programmable RNA systems | Speculative | T4 | Resilience planning only |
 
 ## Implementation Roadmap
 
 ### Phase 0. Program Definition
-Нужно определить:
+Define initial cancer settings, baseline modality (conventional mRNA), success criteria (feasibility, immunogenicity, turnaround). Output: target product profile, governance model, evidence plan, partner map.
 
-- initial cancer settings;
-- whether platform starts in adjuvant or minimal residual disease context;
-- which modality is baseline: conventional mRNA first, not future RNA forms;
-- what counts as success: feasibility, immunogenicity, turnaround, recurrence reduction, or a narrower objective.
+### Phase 1. Computational Foundation [partially T1]
+Build reproducible DNA/RNA analysis → variant-to-neoantigen candidates → ensemble ranking → audit trail → expert review packets. **Status**: case registry, workflow orchestration, QC gate, ranking persistence, board packets, and review outcomes are implemented [T1]. Neoantigen prediction itself is consumed from external pipelines.
 
-Output:
+### Phase 2. RNA Design Workbench [partially T1]
+Construct generation, design-space comparison, manufacturability scoring. **Status**: modality governance, construct design generation with linker strategies and multi-epitope encoding are implemented [T1]. Sequence-level optimization (codon optimization, MFE scoring) is a future integration.
 
-- target product profile;
-- governance model;
-- evidence plan;
-- partner map.
-
-### Phase 1. Computational Foundation
-Build:
-
-- reproducible DNA/RNA analysis workflow;
-- variant-to-neoantigen candidate generation;
-- ensemble ranking engine;
-- audit trail for each ranking decision;
-- expert review packet generation.
-
-Success signal:
-
-- reproducible outputs on retrospective/public datasets;
-- explicit uncertainty flags;
-- stable provenance from raw data to ranked candidate list.
-
-### Phase 2. RNA Design Workbench
-Build:
-
-- construct generation engine;
-- design-space comparison across candidate RNA architectures;
-- manufacturability scoring and delivery-aware constraints;
-- versioned sequence rationale.
-
-Success signal:
-
-- multiple viable construct candidates per case;
-- documented tradeoff surface rather than single opaque output.
-
-### Phase 3. Clinical Workflow Pilot Layer
-Build:
-
-- intake and case orchestration;
-- multidisciplinary review workflow;
-- manufacturing handoff packet;
-- outcomes registry;
-- timing and cost dashboards.
-
-Success signal:
-
-- every case can be tracked from sample receipt to decision package to follow-up.
+### Phase 3. Clinical Workflow Pilot [partially T1]
+Intake, case orchestration, manufacturing handoff, outcomes registry, dashboards. **Status**: full case lifecycle, handoff packet generation, outcome timeline capture, and operations summary are implemented [T1]. Dashboards and timing analytics are future work.
 
 ### Phase 4. Translational Validation
-Focus:
-
-- feasibility of turnaround;
-- concordance between computational ranking and expert review;
-- link between predicted candidates and measured immune response;
-- operational failure modes.
-
-Success signal:
-
-- credible go/no-go basis for prospective clinical programs.
+Turnaround feasibility, ranking-vs-expert concordance, predicted-vs-measured immune response linkage. **Status**: traceability infrastructure supports this analysis [T1]. Actual validation requires clinical deployment.
 
 ### Phase 5. Prospective Clinical Programs
-Only after earlier layers are stable should the platform move into broader prospective use.
-
-What matters here:
-
-- strict patient selection;
-- combination strategy clarity;
-- immune monitoring;
-- survival and recurrence endpoints where appropriate;
-- learning-loop closure back into the platform.
+Only after earlier layers are stable. Strict patient selection, combination strategies, immune monitoring, survival endpoints, learning-loop closure.
 
 ## 25-50 Year Technology Horizon
 
-### Horizon 1: 2026-2032
-Baseline platform generation:
+### Horizon 1: 2026-2032 [T2/T3]
+- Conventional mRNA remains the execution surface.
+- Gains from better ranking, faster manufacturing, disciplined orchestration.
+- V940 Phase 3 results expected ~2027-2028; may establish class precedent.
 
-- conventional individualized mRNA remains the main execution surface;
-- LNP stays the default delivery backbone;
-- biggest gains come from better neoantigen ranking, faster manufacturing and more disciplined workflow orchestration.
+### Horizon 2: 2030-2040 [T3]
+- saRNA and trans-amplifying systems for dose compression.
+- Tissue-aware delivery systems.
+- ctDNA/liquid biopsy reduces tissue access dependence.
+- Partial automation of single-patient production.
 
-What to optimize:
+### Horizon 3: 2035-2050 [T3/T4]
+- circRNA for stability-critical applications.
+- Indication-specific RNA architecture selection.
+- Adjuvant logic, co-expression, response-adaptive schedules.
 
-- turnaround;
-- cost per case;
-- candidate selection quality;
-- combination therapy logic.
+### Horizon 4: 2045-2076 [T4]
+- Programmable RNA systems by disease context.
+- Highly automated build-test-learn loops.
+- Cost inversion: platform carries complexity, not patient-specific payload.
 
-### Horizon 2: 2030-2040
-Platform broadens into multi-modality RNA design:
-
-- saRNA and trans-amplifying systems become realistic for dose compression and potentially better economics;
-- delivery systems become more tissue-aware;
-- ctDNA and liquid biopsy may reduce dependence on repeated tissue access in some scenarios;
-- partial automation of single-patient production becomes practical.
-
-### Horizon 3: 2035-2050
-Platform begins to incorporate more stable RNA formats:
-
-- circRNA becomes strategically important where stability and distribution constraints dominate;
-- RNA architecture selection becomes indication-specific rather than one-size-fits-all;
-- construct design may include adjuvant logic, co-expression logic and response-adaptive schedules.
-
-### Horizon 4: 2045-2076
-Long-range platform vision:
-
-- programmable RNA systems selected by disease context;
-- highly automated build-test-learn loops;
-- much faster individualization cycle;
-- lower cost because the platform, not the patient-specific payload, carries more of the complexity.
-
-Important constraint:
-These long-horizon statements are platform forecasts, not validated product claims.
+**Constraint**: Horizons 3-4 are platform forecasts, not validated product claims.
 
 ## Scientific Design Principles
 
-### 1. Do not overfit to a single signal
-Binding affinity, structural plausibility, expression and clonality all matter, but none of them alone is sufficient.
-
-### 2. Use maintained upstream components
-Sequencing analysis and annotation should rely on conservative, maintained workflows. Product differentiation belongs downstream in ranking, orchestration and evidence integration.
-
-### 3. Treat AI as decision support, not authority
-AI should accelerate literature synthesis, candidate triage and design-space comparison. It should not silently replace expert review, translational validation or clinical governance.
-
-### 4. Separate current capability from roadmap ambition
-Conventional mRNA is current execution baseline. saRNA and circRNA belong in roadmap and selective R&D track until stronger oncology-specific evidence accumulates.
-
-### 5. Design for learning, not only for output
-The platform is valuable only if each completed case improves the next one.
+1. **Do not overfit to a single signal**: binding, structure, expression and clonality all matter; none alone is sufficient.
+2. **Use maintained upstream components**: sequencing and annotation from conservative, maintained workflows. Differentiation belongs downstream.
+3. **Treat AI as decision support, not authority**: accelerate triage and comparison, never silently replace expert review or clinical governance.
+4. **Separate current capability from roadmap**: conventional mRNA = execution baseline. saRNA/circRNA = roadmap with structured R&D track.
+5. **Design for learning**: each completed case must improve the next one.
+6. **Regulatory-by-design**: audit trail, traceability, and provenance are architectural requirements, not afterthoughts.
 
 ## Major Risks
 
-### Scientific Risk
-- Neoantigen ranking still has high false-positive and false-negative burden.
-- Tumor heterogeneity can invalidate apparently strong candidates.
-- Structural modeling may create false confidence if treated as a central oracle.
-
-### Delivery Risk
-- LNP delivery remains biologically lossy.
-- Better delivery may matter as much as better antigen ranking.
-
-### Operational Risk
-- Personalized manufacturing is still expensive and time-sensitive.
-- Case-level orchestration may fail before biology fails.
-
-### Clinical Risk
-- RNA vaccine benefit may be highly setting-dependent.
-- Combination therapy makes attribution of effect difficult.
-
-### Claims Risk
-- Overstating the maturity of the field creates a strategic blind spot.
-- "Already Phase 3" language is too broad for the category and leads to planning mistakes.
-
-## Risk Mitigations
-
-- use narrow, clearly defined clinical settings first;
-- keep current-generation execution anchored in conventional mRNA;
-- treat saRNA and circRNA as structured future workstreams;
-- keep AlphaFold-like tools in a bounded supporting role;
-- track turnaround, failure modes and per-case economics from day one;
-- separate exploratory science from operational platform promises.
+| Category | Risk | Mitigation |
+|---------|------|-----------|
+| Scientific | Neoantigen ranking false-positive/negative burden | Ensemble ranking, uncertainty scoring, expert review gate |
+| Scientific | Tumor heterogeneity invalidates candidates | Clonality-aware candidate filtering, longitudinal ctDNA monitoring |
+| Scientific | Structural modeling creates false confidence | Keep in bounded supportive role, never as sole selection criterion |
+| Delivery | LNP delivery remains biologically lossy | Model delivery as a constrained interface, track efficiency metrics |
+| Operational | Personalized manufacturing is expensive and time-sensitive | Track turnaround and per-case economics from day one |
+| Clinical | Benefit is setting-dependent | Start with narrow, well-defined clinical settings |
+| Clinical | Combination therapy makes attribution difficult | Immune monitoring endpoints separate from composite survival |
+| Regulatory | Overstating maturity creates planning blind spots | Evidence tiering (T1-T4); no claims beyond demonstrated capability |
+| Commercial | Market validation depends on V940 outcome | Diversify indication strategy; don't bet on single Phase 3 result |
 
 ## Success Criteria
 
-### Near-term success
-- reproducible design pipeline from tumor/normal data to ranked antigen set;
-- RNA design workbench that produces multiple traceable construct candidates;
-- manufacturing handoff package with explicit constraints and provenance;
-- expert review workflow with auditability.
+### Near-term [T1]
+- Reproducible design pipeline from tumor/normal data to ranked antigen set.
+- RNA design workbench producing multiple traceable construct candidates.
+- Manufacturing handoff package with provenance.
+- Expert review workflow with auditability.
+- 40+ API endpoints tested and stable (296+ passing tests).
 
-### Mid-term success
-- prospective evidence that the platform can repeatedly generate administrable individualized products in a clinically meaningful timeframe;
-- measurable immunogenicity and operational feasibility;
-- clear understanding of which disease settings benefit most.
+### Mid-term [T2]
+- Prospective evidence of repeatable individualized product generation in clinically meaningful timeframe.
+- Measurable immunogenicity and operational feasibility.
+- Understanding of which disease settings benefit most.
 
-### Long-term success
-- modality-agnostic RNA platform where conventional mRNA, saRNA and circRNA are design choices inside one system rather than separate disconnected programs.
+### Long-term [T3/T4]
+- Modality-agnostic RNA platform: mRNA, saRNA, circRNA as design choices inside one system.
 
-## Final Recommendation
-Правильная версия этого проекта выглядит так:
+## Document Scope Exclusions
 
-- не как one-shot "full recipe" персонализированной RNA-вакцины;
-- не как ставка на один алгоритм или одну delivery-технологию;
-- а как modular personalized neoantigen RNA platform with staged technical evolution.
+This document does not contain:
+- wet-lab instructions;
+- manufacturing recipes (buffer conditions, flow rates, LNP formulations);
+- dosing recommendations;
+- clinical use advice;
+- patient-facing documentation.
 
-Практический baseline сегодня:
-
-1. Keep current execution anchored in conventional individualized mRNA.
-2. Build conservative genomics upstream and differentiated ranking downstream.
-3. Treat delivery as a real bottleneck, not as solved plumbing.
-4. Use AlphaFold/AF3 only as a bounded supportive layer.
-5. Put saRNA and circRNA in the roadmap as next-generation platform options.
-
-Итоговая формула:
-
-**Personalized neoantigen RNA platform = sequencing and annotation + antigen intelligence + RNA architecture design + delivery/manufacturing handoff + clinical evidence loop + multi-generation technology roadmap.**
-
-## Immediate Next Actions
-1. Зафиксировать baseline modality как conventional mRNA, а saRNA/circRNA перевести в explicit roadmap section.
-2. Сформировать reference architecture для end-to-end case flow: sample intake -> molecular profiling -> ranking -> construct design -> manufacturing handoff -> follow-up.
-3. Разделить evidence table на three buckets: validated today, active clinical development, long-horizon forecast.
-4. Убрать из дальнейших версий документа protocol-level manufacturing specifics и оставить только platform-relevant constraints.
-5. Если потребуется operational expansion, вынести отдельно reference doc по computational stack и отдельно explanation doc по platform roadmap.
+Companion reference documents:
+- [docs/REGULATORY_CONTEXT.md](docs/REGULATORY_CONTEXT.md) — detailed regulatory mapping.
+- [docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md](docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) — full evidence tables.
+- [docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md](docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md) — dependency currency and bioinformatics references.
