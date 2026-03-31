@@ -1,4 +1,6 @@
-# Personalized mRNA Control Plane
+# OpenRNA
+
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 Control-plane for a human personalized neoantigen RNA vaccine platform.
 
