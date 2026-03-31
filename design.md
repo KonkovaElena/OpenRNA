@@ -61,7 +61,7 @@ Tier-маркеры указаны в квадратных скобках: **[T1
 
 ### Architecture
 
-- **11 domain port interfaces**: `ICaseStore`, `IConstructDesigner`, `IHlaConsensusProvider`, `IModalityRegistry`, `INeoantigenRankingEngine`, `INextflowClient`, `IOutcomeRegistry`, `IQcGateEvaluator`, `IReferenceBundleRegistry`, `IWorkflowDispatchSink`, `IWorkflowRunner`.
+- **11 interfaces under `src/ports`**: `IConstructDesigner`, `IHlaConsensusProvider`, `IModalityRegistry`, `INeoantigenRankingEngine`, `INextflowClient`, `IOutcomeRegistry`, `IQcGateEvaluator`, `IReferenceBundleRegistry`, `IWorkflowDispatchSink`, `IWorkflowOrchestrator`, `IWorkflowRunner`. `CaseStore` remains a local storage abstraction defined in `src/store.ts`, not a standalone port file in `src/ports`.
 - **Dual adapter strategy**: in-memory adapters for local development and testing, PostgreSQL adapters for durable persistence (`PostgresCaseStore`, `PostgresWorkflowDispatchSink`, `PostgresWorkflowRunner`).
 - **Dependency injection**: all adapters injected through `AppDependencies` factory interface; no runtime coupling to specific implementations.
 - **Validation**: Zod runtime schemas for all API inputs.
@@ -74,7 +74,7 @@ Tier-маркеры указаны в квадратных скобках: **[T1
 | Component | Version | Note |
 |-----------|---------|------|
 | Node.js | ≥22 LTS | Runtime |
-| TypeScript | 6.0.2 | `module: "CommonJS"`, `target: "ES2022"`, default `node10` resolution |
+| TypeScript | 6.0.2 | Repo currently emits `module: "CommonJS"` with `target: "ES2022"` and no explicit `moduleResolution`; this is a local compatibility choice, while the TypeScript modules reference prefers `node16`, `node18`, or `nodenext` for Node.js targets |
 | Express | 5.x | HTTP framework |
 | Zod | 4.x | Runtime validation |
 | pg | 8.x | PostgreSQL client |
@@ -104,11 +104,11 @@ Full API surface documented in [README.md](README.md).
 **BioNTech autogene cevumeran (BNT-122)**:
 - **Nature 2023** (Rojas et al.): individualized uridine mRNA-lipoplex vaccine for resected PDAC. Produced in real time post-surgery. Tolerable. De novo neoantigen-specific T cells in 8/16 patients; responders showed longer recurrence-free survival signal.
 - **Nature Medicine 2025** (Weber et al.): ongoing Phase 1 in advanced solid tumors. Individualized neoantigen-specific responses in 71% of patients (15/21). Responses durable up to 23 months. Demonstrates cross-tumor-type feasibility.
-- **Phase 2 expansion** (ClinicalTrials.gov NCT04486378): pancreatic ductal adenocarcinoma (PDAC) + atezolizumab combination. Active as of Q1 2026.
+- **Registry-backed PDAC study** (ClinicalTrials.gov NCT05968326 / IMCODE003): adjuvant autogene cevumeran plus atezolizumab and mFOLFIRINOX versus mFOLFIRINOX alone in resected PDAC. Active as of March 2026.
 
 **Moderna/Merck mRNA-4157/V940**:
 - **KEYNOTE-942 Phase 2b** (melanoma, adjuvant + pembrolizumab): 44% reduction in recurrence or death (HR 0.561; Weber et al., Lancet 2024). Landmark result for the field.
-- **Phase 3 INTerpath-001** (NCT06220981): randomized Phase 3 for high-risk melanoma. Enrolled as of 2025. First Phase 3 trial for any individualized neoantigen cancer vaccine.
+- **High-risk melanoma registry-backed program**: ClinicalTrials.gov search for `INTerpath-001` / `V940-001` currently resolves to NCT05933577, "A Clinical Study of Intismeran Autogene (V940) Plus Pembrolizumab in People With High-Risk Melanoma," active not recruiting as of March 2026.
 - Phase 2 expansion into NSCLC (V940-002) and adjuvant renal cell carcinoma. Active enrollment.
 
 **Key review literature (2025-2026)**:
@@ -185,7 +185,7 @@ Full API surface documented in [README.md](README.md).
 | US (FDA) | CBER BLA | Biologics License Application (21 USC §351) | Individualized neoantigen vaccines are regulated as biological products |
 | US (FDA) | 21 CFR Part 11 | Electronic records and signatures | Audit trail, e-signatures, validated systems |
 | US (FDA) | INTERACT / Pre-IND | Early CMC/clinical advice | Manufacturing comparability, starting material definition |
-| EU (EMA) | ATMP Regulation EC 1394/2007 | Advanced Therapy Medicinal Products | Gene therapy classification for mRNA vaccines |
+| EU (EMA) | ATMP Regulation EC 1394/2007 | Advanced Therapy Medicinal Products | Product-specific ATMP classification analysis may become relevant, but this document does not assert gene-therapy status for neoantigen RNA products without a CAT-aligned source |
 | EU (EMA) | GMP Annex 13 | Investigational Medicinal Products | Manufacturing standards for clinical studies |
 | ICH | Q5E, Q8-Q12 | Comparability, QbD, lifecycle management | Applicable to process changes and modality evolution |
 | Both | GxP / cGMP | Current Good Manufacturing Practice | Personalized manufacturing requires per-patient release |
@@ -194,11 +194,11 @@ Full API surface documented in [README.md](README.md).
 
 | Capability | Regulatory mapping | Implementation |
 |-----------|-------------------|----------------|
-| End-to-end audit trail | 21 CFR Part 11.10(e) audit trails | `traceability.ts`: every case mutation emits machine-readable audit events |
+| End-to-end audit trail | 21 CFR Part 11.10(e) audit trails | `store.ts`: case mutations append machine-readable audit events; `traceability.ts` builds read-side lineage views from stored state |
 | Identity verification (partial) | 21 CFR Part 11.10(d) | `api-key-auth.ts`: API-key authentication. **Gap: not electronic signatures.** |
 | Structured logging | GxP data integrity (ALCOA+) | `request-logger.ts`: injectable structured JSON logging |
 | Immutable event records | 21 CFR Part 11.10(e) | JSONB audit events in PostgreSQL with timestamps |
-| Construct-to-outcome traceability | ICH Q5E comparability | `traceability.ts`: evidence lineage graph from sample to outcome |
+| Construct-to-outcome traceability | ICH Q5E comparability | `traceability.ts`: evidence lineage graph from stored ranking, construct, review, handoff, and outcome state |
 | Validated input schemas | 21 CFR Part 11.10(h) | Zod runtime validation on all API inputs |
 | Idempotent submission | GxP data integrity | `x-idempotency-key` prevents duplicate workflow dispatches |
 
@@ -236,8 +236,8 @@ Full API surface documented in [README.md](README.md).
 | Component | Version (March 2026) | Migration note |
 |-----------|---------------------|----------------|
 | Node.js | 22.x LTS | Current runtime; Node 24 LTS expected Oct 2026 |
-| TypeScript | 6.0.2 (GA March 2026) | Migrated from 5.8; `moduleResolution: "bundler"` |
-| Express | 5.0 (GA 2024) | Migrated from 4.x; all route patterns compatible |
+| TypeScript | 6.0.2 (GA March 2026) | Migrated from 5.8; repo currently stays on `module: "CommonJS"` without explicit `moduleResolution` as a local compatibility choice |
+| Express | 5.x | Migrated from 4.x; all route patterns compatible |
 | Zod | 4.x | Stable; ecosystem standard for TypeScript validation |
 | PostgreSQL | 16/17 | Both supported by pg 8.x driver |
 | pg | 8.20 | Current stable |

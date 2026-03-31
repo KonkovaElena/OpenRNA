@@ -1,6 +1,9 @@
 ---
 title: "Toolchain and Open-Source Baseline — March 2026"
 status: active
+version: "1.0.1"
+last_updated: "2026-03-31"
+tags: [toolchain, typescript, nodejs, express, bioinformatics]
 evidence_cutoff: "2026-03-31"
 ---
 
@@ -39,13 +42,14 @@ Key Node.js 22 features used by this project:
 
 | TS 6 Change | Impact | Action Taken |
 |-------------|--------|-------------|
-| `moduleResolution: "Node"` deprecated | Renamed to `node10` in TS 6 | Removed explicit `moduleResolution: "bundler"`; TS 6 defaults to `node10` for CJS |
-| `module: "node20"` requires `.js` extensions | Would require sweeping import changes | Not adopted — kept `module: "CommonJS"` which implies `node10` resolution |
+| Legacy `node` resolution naming | TypeScript keeps `node` as an alias of `node10`, and the modules reference says `node10` should no longer be used for modern Node targets | Repo no longer sets `moduleResolution` explicitly |
+| Official Node module guidance | TypeScript modules reference says `node16`, `node18`, or `nodenext` are the correct `module` options for Node.js apps | Not adopted in this repo during this audit because the existing CommonJS graph is being kept stable first |
+| `moduleResolution: "bundler"` pairing rule | Official docs require `bundler` to be paired with `module: "esnext"` or `module: "preserve"` | Historical `bundler` + `CommonJS` wording was removed from this document |
 | Stricter `isolatedDeclarations` default | No impact (not enabled) | None |
 | Improved type narrowing for discriminated unions | Beneficial for Zod schemas | Free improvement |
 | `--erasableSyntax` flag | Not needed (tsx handles TS stripping) | None |
 
-**Why `CommonJS` without explicit `moduleResolution`**: The `bundler` resolution was designed for bundled web projects, not Node.js backends — it was an incorrect migration choice. The correct TS 6 approach for a CJS Node.js project is `module: "CommonJS"` with no explicit `moduleResolution` (defaults to `node10`, the TS 6 rename of the deprecated `"Node"`). The alternative `module: "node20"` would require `.js` extensions on all relative imports — a high-churn refactor with zero runtime benefit for a CJS project.
+**Why `CommonJS` without explicit `moduleResolution` remains the repo's current state**: this setup keeps the existing import graph compiling cleanly today. It should be described as a repo-local compatibility tradeoff, not as the canonical TypeScript recommendation. The current TypeScript modules reference explicitly says Node.js apps should generally use `node16`, `node18`, or `nodenext`, says `commonjs` is not the preferred setting for modern Node targets, and says `moduleResolution: "bundler"` must only be paired with `module: "esnext"` or `module: "preserve"`.
 
 ### 1.3 tsconfig.json Configuration
 
