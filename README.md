@@ -51,7 +51,7 @@ See [`design.md § Architecture`](design.md) for the full port list and layer di
 | Component | Version | Note |
 |-----------|---------|------|
 | Node.js | ≥22 LTS | Runtime |
-| TypeScript | 6.0.2 | `moduleResolution: "bundler"` |
+| TypeScript | 6.0.2 | Strict mode, `module: "CommonJS"` |
 | Express | 5.x | Native async error handling |
 | Zod | 4.x | Runtime validation |
 | pg | 8.x | PostgreSQL client |

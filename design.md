@@ -74,7 +74,7 @@ Tier-маркеры указаны в квадратных скобках: **[T1
 | Component | Version | Note |
 |-----------|---------|------|
 | Node.js | ≥22 LTS | Runtime |
-| TypeScript | 6.0.2 | `moduleResolution: "bundler"`, `module: "CommonJS"`, `target: "ES2022"` |
+| TypeScript | 6.0.2 | `module: "CommonJS"`, `target: "ES2022"`, default `node10` resolution |
 | Express | 5.x | HTTP framework |
 | Zod | 4.x | Runtime validation |
 | pg | 8.x | PostgreSQL client |

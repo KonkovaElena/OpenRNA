@@ -39,13 +39,13 @@ Key Node.js 22 features used by this project:
 
 | TS 6 Change | Impact | Action Taken |
 |-------------|--------|-------------|
-| `moduleResolution: "Node"` deprecated | Direct impact — was our setting | Changed to `"bundler"` |
-| `moduleResolution: "bundler"` now supports CJS | Unblocks migration | Adopted; `module: "CommonJS"` retained |
+| `moduleResolution: "Node"` deprecated | Renamed to `node10` in TS 6 | Removed explicit `moduleResolution: "bundler"`; TS 6 defaults to `node10` for CJS |
+| `module: "node20"` requires `.js` extensions | Would require sweeping import changes | Not adopted — kept `module: "CommonJS"` which implies `node10` resolution |
 | Stricter `isolatedDeclarations` default | No impact (not enabled) | None |
 | Improved type narrowing for discriminated unions | Beneficial for Zod schemas | Free improvement |
 | `--erasableSyntax` flag | Not needed (tsx handles TS stripping) | None |
 
-**Why `bundler` over `node16`**: With `"type": "commonjs"` in package.json and no ESM migration planned, `bundler` resolution gives us the same import resolution behavior as `node` (pre-TS6) without requiring `.js` extensions in imports. The `node16` option would require explicit `.js` extensions on all relative imports — a high-churn change with zero runtime benefit for a CJS project.
+**Why `CommonJS` without explicit `moduleResolution`**: The `bundler` resolution was designed for bundled web projects, not Node.js backends — it was an incorrect migration choice. The correct TS 6 approach for a CJS Node.js project is `module: "CommonJS"` with no explicit `moduleResolution` (defaults to `node10`, the TS 6 rename of the deprecated `"Node"`). The alternative `module: "node20"` would require `.js` extensions on all relative imports — a high-churn refactor with zero runtime benefit for a CJS project.
 
 ### 1.3 tsconfig.json Configuration
 
@@ -54,7 +54,6 @@ Key Node.js 22 features used by this project:
   "compilerOptions": {
     "target": "ES2022",
     "module": "CommonJS",
-    "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
