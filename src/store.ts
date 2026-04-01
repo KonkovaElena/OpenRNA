@@ -15,6 +15,7 @@ import {
 } from "./validation";
 import type { IWorkflowDispatchSink } from "./ports/IWorkflowDispatchSink";
 import { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatchSink";
+import type { IStateMachineGuard } from "./ports/IStateMachineGuard";
 import type {
   AdministrationRecord,
   AssayType,
@@ -423,10 +424,31 @@ export class MemoryCaseStore implements CaseStore {
     private readonly clock: Clock = new SystemClock(),
     private readonly workflowDispatchSink: IWorkflowDispatchSink = new InMemoryWorkflowDispatchSink(),
     initialRecords: readonly CaseRecord[] = [],
+    private readonly stateMachineGuard?: IStateMachineGuard,
   ) {
     for (const record of initialRecords) {
       this.cases.set(record.caseId, structuredClone(record));
     }
+  }
+
+  /**
+   * Validate and apply a case status transition.
+   * When a guard is configured, rejects disallowed transitions with a 409 error.
+   * Falls through transparently when no guard is provided (backward compatible).
+   */
+  private async applyTransition(record: CaseRecord, nextStatus: CaseStatus, correlationId?: string): Promise<void> {
+    if (this.stateMachineGuard && record.status !== nextStatus) {
+      const result = await this.stateMachineGuard.validateTransition(record.caseId, record.status, nextStatus);
+      if (!result.allowed) {
+        throw new ApiError(
+          409,
+          "invalid_transition",
+          result.reason ?? `Transition from ${record.status} to ${nextStatus} is not allowed.`,
+          "Check allowed transitions for the current case status.",
+        );
+      }
+    }
+    record.status = nextStatus;
   }
 
   async createCase(rawInput: unknown, correlationId: string): Promise<CaseRecord> {
@@ -521,7 +543,7 @@ export class MemoryCaseStore implements CaseStore {
       );
     }
 
-    record.status = nextStatus;
+    await this.applyTransition(record, nextStatus, correlationId);
     record.updatedAt = registeredAt;
     return structuredClone(record);
   }
@@ -578,7 +600,7 @@ export class MemoryCaseStore implements CaseStore {
       );
     }
 
-    record.status = nextStatus;
+    await this.applyTransition(record, nextStatus, correlationId);
     record.updatedAt = registeredAt;
     return structuredClone(record);
   }
@@ -647,7 +669,7 @@ export class MemoryCaseStore implements CaseStore {
       status: "PENDING",
     });
     record.workflowRequests.push(workflowRequest);
-    record.status = deriveCaseStatus(record.caseProfile.consentStatus, record.samples, record.artifacts, true);
+    await this.applyTransition(record, deriveCaseStatus(record.caseProfile.consentStatus, record.samples, record.artifacts, true), correlationId);
     record.timeline.push(
       timelineEvent(this.clock, "workflow_requested", `${input.workflowName} requested with reference bundle ${input.referenceBundleId}.`),
     );
@@ -743,7 +765,7 @@ export class MemoryCaseStore implements CaseStore {
     run.startedAt = startedAt;
 
     record.workflowRuns.push(run);
-    record.status = "WORKFLOW_RUNNING";
+    await this.applyTransition(record, "WORKFLOW_RUNNING", correlationId);
     record.timeline.push(timelineEvent(this.clock, "workflow_started", `Workflow run ${run.runId} started.`, startedAt));
     record.auditEvents.push(auditEvent(this.clock, "workflow.started", `Workflow run ${run.runId} started.`, correlationId, startedAt));
     record.updatedAt = startedAt;
@@ -781,7 +803,7 @@ export class MemoryCaseStore implements CaseStore {
       caseId,
       completedAt,
     });
-    record.status = "WORKFLOW_COMPLETED";
+    await this.applyTransition(record, "WORKFLOW_COMPLETED", correlationId);
 
     for (const artifact of derivedArtifacts) {
       record.derivedArtifacts.push(artifact);
@@ -817,7 +839,7 @@ export class MemoryCaseStore implements CaseStore {
       caseId,
       completedAt,
     });
-    record.status = "WORKFLOW_CANCELLED";
+    await this.applyTransition(record, "WORKFLOW_CANCELLED", correlationId);
     record.timeline.push(timelineEvent(this.clock, "workflow_cancelled", `Run ${cancelledRun.runId} was cancelled.`, completedAt));
     record.auditEvents.push(auditEvent(this.clock, "workflow.cancelled", `Workflow run ${cancelledRun.runId} was cancelled.`, correlationId, completedAt));
     record.updatedAt = completedAt;
@@ -862,7 +884,7 @@ export class MemoryCaseStore implements CaseStore {
       caseId,
       completedAt,
     });
-    record.status = "WORKFLOW_FAILED";
+    await this.applyTransition(record, "WORKFLOW_FAILED", correlationId);
     record.timeline.push(timelineEvent(this.clock, "workflow_failed", `Run ${failedRun.runId} failed: ${failedRun.failureReason ?? "unknown failure"}`, completedAt));
     record.auditEvents.push(auditEvent(this.clock, "workflow.failed", `Run ${failedRun.runId} failed: ${failedRun.failureReason ?? "unknown failure"}`, correlationId, completedAt));
     record.updatedAt = completedAt;
@@ -899,9 +921,9 @@ export class MemoryCaseStore implements CaseStore {
 
     record.qcGates.push(gate);
     if (gate.outcome === "PASSED" || gate.outcome === "WARN") {
-      record.status = "QC_PASSED";
+      await this.applyTransition(record, "QC_PASSED", correlationId);
     } else {
-      record.status = "QC_FAILED";
+      await this.applyTransition(record, "QC_FAILED", correlationId);
     }
 
     record.timeline.push(timelineEvent(this.clock, "qc_evaluated", `QC gate for run ${runId}: ${gate.outcome}.`));
@@ -1024,7 +1046,7 @@ export class MemoryCaseStore implements CaseStore {
     };
 
     record.boardPackets.push(packet);
-    record.status = "AWAITING_REVIEW";
+    await this.applyTransition(record, "AWAITING_REVIEW", correlationId);
     record.timeline.push(timelineEvent(this.clock, "board_packet_generated", `Board packet ${packet.packetId} generated for ${boardRoute}.`));
     record.auditEvents.push(
       auditEvent(this.clock, "board.packet.generated", `Board packet ${packet.packetId} generated for ${boardRoute}.`, correlationId),
@@ -1094,11 +1116,12 @@ export class MemoryCaseStore implements CaseStore {
     };
 
     record.reviewOutcomes.push(reviewOutcome);
-    record.status = input.reviewDisposition === "approved"
-      ? "APPROVED_FOR_HANDOFF"
+    const reviewTargetStatus = input.reviewDisposition === "approved"
+      ? "APPROVED_FOR_HANDOFF" as const
       : input.reviewDisposition === "rejected"
-        ? "REVIEW_REJECTED"
-        : "REVISION_REQUESTED";
+        ? "REVIEW_REJECTED" as const
+        : "REVISION_REQUESTED" as const;
+    await this.applyTransition(record, reviewTargetStatus, correlationId);
     record.timeline.push(
       timelineEvent(
         this.clock,
@@ -1221,7 +1244,7 @@ export class MemoryCaseStore implements CaseStore {
     };
 
     record.handoffPackets.push(handoff);
-    record.status = "HANDOFF_PENDING";
+    await this.applyTransition(record, "HANDOFF_PENDING", correlationId);
     record.timeline.push(
       timelineEvent(
         this.clock,
