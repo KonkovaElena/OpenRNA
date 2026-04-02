@@ -1,0 +1,31 @@
+changelog:
+  exclude:
+    labels:
+      - skip-release-notes
+      - ignore-for-release
+  categories:
+    - title: Breaking Changes
+      labels:
+        - breaking-change
+        - semver-major
+    - title: Security
+      labels:
+        - security
+    - title: Features
+      labels:
+        - enhancement
+        - feature
+    - title: Bug Fixes
+      labels:
+        - bug
+        - fix
+    - title: Dependencies
+      labels:
+        - dependencies
+    - title: Documentation And Governance
+      labels:
+        - documentation
+        - governance
+    - title: Other Changes
+      labels:
+        - "*"

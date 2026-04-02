@@ -7,15 +7,23 @@
     "type": "git",
     "url": "https://github.com/KonkovaElena/OpenRNA.git"
   },
+  "bugs": {
+    "url": "https://github.com/KonkovaElena/OpenRNA/issues"
+  },
+  "homepage": "https://github.com/KonkovaElena/OpenRNA#readme",
+  "packageManager": "npm@11.6.1",
   "type": "commonjs",
   "engines": {
-    "node": ">=22"
+    "node": ">=24"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
-    "test": "node --import tsx --test tests/**/*.test.ts"
+    "sbom:cyclonedx": "npm sbom --sbom-format cyclonedx --package-lock-only --omit=dev",
+    "test": "node --import tsx --test tests/**/*.test.ts",
+    "test:coverage": "node --experimental-test-coverage --import tsx --test tests/**/*.test.ts",
+    "ci": "npm run build && npm test && npm audit --omit=dev --audit-level=high"
   },
   "keywords": [
     "human-oncology",
@@ -27,13 +35,13 @@
     "express"
   ],
   "dependencies": {
-    "express": "^5.0.0",
+    "express": "^5.2.1",
     "pg": "^8.20.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
-    "@types/node": "^22.19.15",
+    "@types/node": "^24.12.0",
     "pg-mem": "^3.0.14",
     "supertest": "^7.2.2",
     "tsx": "^4.21.0",

@@ -2,9 +2,9 @@
 title: "Personalized Neoantigen RNA Platform Design"
 status: active
 version: "3.0.0"
-last_updated: "2026-03-31"
+last_updated: "2026-04-02"
 tags: [oncology, mrna, circRNA, saRNA, neoantigen, platform-design]
-evidence_cutoff: "2026-03-31"
+evidence_cutoff: "2026-04-02"
 ---
 
 # Design: Personalized Neoantigen RNA Platform
@@ -25,6 +25,14 @@ evidence_cutoff: "2026-03-31"
 6. Вводит препарат пациенту для обучения иммунной системы распознавать и уничтожать опухоль.
 
 Это не один препарат и не один алгоритм. Это платформа, объединяющая molecular profiling, antigen intelligence, RNA engineering, delivery, clinical workflow и continuous learning.
+
+## April 2026 Addendum
+
+This design remains the authority architecture memo, but the live public-export baseline moved in three concrete ways during the April 2, 2026 hardening pass:
+
+1. The standalone repository now targets Node 24 Active LTS for its public reproducibility baseline and ships `.nvmrc`, `packageManager`, CI, and Dependabot surfaces to make that baseline explicit.
+2. The TypeScript compiler configuration moved from legacy `module: "CommonJS"` to `module: "nodenext"` while preserving a CommonJS runtime through `package.json` `type: "commonjs"`; this aligns the repo with current TypeScript guidance for Node applications without forcing a pure-ESM migration.
+3. Current public fact-check anchors remain `NCT05933577` for V940 / intismeran autogene in high-risk melanoma and `NCT05968326` for autogene cevumeran in resected PDAC. The April 2026 publication synthesis lives in `docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md`.
 
 ## Evidence Classification
 
@@ -73,8 +81,8 @@ Tier-маркеры указаны в квадратных скобках: **[T1
 
 | Component | Version | Note |
 |-----------|---------|------|
-| Node.js | ≥22 LTS | Runtime |
-| TypeScript | 6.0.2 | Repo currently emits `module: "CommonJS"` with `target: "ES2022"` and no explicit `moduleResolution`; this is a local compatibility choice, while the TypeScript modules reference prefers `node16`, `node18`, or `nodenext` for Node.js targets |
+| Node.js | 24.x Active LTS | Public baseline validated locally on Node 24.11.0; repository engines now require `>=24` |
+| TypeScript | 6.0.2 | Repo now uses `module: "nodenext"` with `package.json` `type: "commonjs"`, preserving the stable runtime while aligning with TypeScript's current Node guidance |
 | Express | 5.x | HTTP framework |
 | Zod | 4.x | Runtime validation |
 | pg | 8.x | PostgreSQL client |

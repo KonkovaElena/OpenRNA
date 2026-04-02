@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: If you use OpenRNA in research or technical evaluation, please cite it using the metadata below.
+title: OpenRNA
+type: software
+version: 0.1.0
+date-released: 2026-04-02
+license: Apache-2.0
+abstract: Control-plane for a human personalized neoantigen RNA vaccine platform.
+repository-code: https://github.com/KonkovaElena/OpenRNA
+url: https://github.com/KonkovaElena/OpenRNA
+authors:
+  - family-names: Konkova
+    given-names: Elena
+preferred-citation:
+  type: software
+  title: OpenRNA
+  version: 0.1.0
+  date-released: 2026-04-02
+  repository-code: https://github.com/KonkovaElena/OpenRNA
+  authors:
+    - family-names: Konkova
+      given-names: Elena
