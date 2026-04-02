@@ -77,7 +77,7 @@ npm ci
 npm run build
 npm test
 npm run test:coverage
-npm run sbom:cyclonedx -- > openrna-runtime-sbom.cdx.json
+npm run sbom:cyclonedx:file
 npm run dev
 ```
 

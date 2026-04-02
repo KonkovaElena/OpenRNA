@@ -38,7 +38,7 @@ jobs:
         run: npm run build
 
       - name: Generate runtime SBOM
-        run: npm run sbom:cyclonedx -- > openrna-runtime-sbom.cdx.json
+        run: npm run sbom:cyclonedx:file
 
       - name: Package attestable build artifact
         run: tar -czf openrna-dist-${{ github.sha }}.tgz dist package.json package-lock.json README.md LICENSE

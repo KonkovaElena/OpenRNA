@@ -74,7 +74,7 @@ gh attestation verify openrna-dist-<sha>.tgz \
 The repository emits a CycloneDX JSON SBOM. Review `openrna-runtime-sbom.cdx.json` directly or regenerate it locally with:
 
 ```bash
-npm run sbom:cyclonedx -- > openrna-runtime-sbom.cdx.json
+npm run sbom:cyclonedx:file
 ```
 
 ## Boundaries
