@@ -1,8 +1,8 @@
 ---
 title: "Academic Analysis: OpenRNA as a Personalized Neoantigen mRNA Vaccine Control Plane"
 status: active
-version: "1.0.0"
-last_updated: "2026-04-01"
+version: "1.1.0"
+last_updated: "2026-04-02"
 tags: [academic-analysis, oncology, mrna, neoantigen, control-plane, architecture]
 evidence_cutoff: "2026-04-01"
 ---
@@ -127,7 +127,7 @@ OpenRNA **consumes outputs** from, but does not replicate, existing tools:
 
 | Tool | Role | Integration Point in OpenRNA |
 |------|------|------------------------------|
-| **pVACtools** (v6.1.0, Griffith Lab, BSD-3-Clause-Clear) | Neoantigen prediction and ranking | `INeoantigenRankingEngine` port — accepts external ranking results |
+| **pVACtools** (Griffith Lab, BSD-3-Clause-Clear) | Neoantigen prediction and ranking | `INeoantigenRankingEngine` port — accepts external ranking results |
 | **MHCflurry** (v2.x, Keras-based) | Class I MHC binding prediction | Input to HLA consensus via `IHlaConsensusProvider` |
 | **NetMHCpan** (v4.1, DTU) | Pan-allele HLA-I binding | Input to HLA consensus |
 | **PRIME** (v2.0) | Immunogenicity prediction | Supportive ranking signal |
@@ -136,7 +136,7 @@ OpenRNA **consumes outputs** from, but does not replicate, existing tools:
 | **ViennaRNA** (v2.6.x) | RNA secondary structure | Construct design optimization input |
 | **mRNAid** (v1.x) | mRNA sequence optimization | Construct design layer |
 
-**Fact-check**: pVACtools is confirmed at v6.1.0 (released ~3 weeks ago) with 172 GitHub stars, 100 releases, BSD-3-Clause-Clear license, maintained by the Griffith Lab at Washington University in St. Louis. It provides pVACseq, pVACbind, pVACfuse, pVACsplice, pVACvector, and pVACview components.
+This analysis avoids hardcoded upstream popularity and release counters in active text because they drift faster than the repository implementation surface.
 
 ---
 
@@ -144,67 +144,98 @@ OpenRNA **consumes outputs** from, but does not replicate, existing tools:
 
 ### 3.1 Case Lifecycle State Machine
 
-The 15-state FSM is the architectural backbone:
+The implemented status vocabulary is the architectural backbone, and it is more branched than a single manufacturing-style linear pipeline:
 
 ```
-INTAKING → PROFILING → PROFILED → RANKING → RANKED →
-DESIGNING → DESIGNED → REVIEWING → REVIEWED →
-MANUFACTURING → MANUFACTURED → ADMINISTERING → MONITORING →
-COMPLETED / HANDOFF_PENDING
+INTAKING
+AWAITING_CONSENT
+READY_FOR_WORKFLOW
+WORKFLOW_REQUESTED
+WORKFLOW_RUNNING
+WORKFLOW_COMPLETED
+WORKFLOW_CANCELLED
+WORKFLOW_FAILED
+QC_PASSED
+QC_FAILED
+AWAITING_REVIEW
+APPROVED_FOR_HANDOFF
+REVISION_REQUESTED
+REVIEW_REJECTED
+HANDOFF_PENDING
 ```
+
+This list is verified against `src/types.ts` and captures consent, workflow, QC, review, and handoff branches rather than a simple `PROFILING → RANKING → DESIGNING` sequence.
 
 **Strengths**:
-- Deterministic transitions enforce sequential clinical workflow
-- Each transition generates an immutable audit event
-- State prevents skipping mandatory gates (QC, review, release)
-- Idempotent operations (`x-idempotency-key`) prevent duplicate submissions
+- Deterministic gating vocabulary exists across consent, workflow, QC, review, and handoff checkpoints
+- Each case mutation appends a machine-readable audit event, and `caseAuditEventTypes` currently enumerates 17 event kinds
+- Idempotent workflow submission (`x-idempotency-key`) reduces duplicate dispatch risk
+- Request-scoped correlation IDs (`x-correlation-id`) strengthen traceability across operator and workflow actions
 
 **Recommendations**:
-1. Add timeout/escalation logic for states that can stall (e.g., REVIEWING without board decision within SLA)
-2. Consider sub-states for complex transitions (e.g., MANUFACTURING could decompose into `QUEUED → IN_PRODUCTION → QC_RELEASE → RELEASED`)
-3. Add explicit `CANCELLED` and `ON_HOLD` states for clinical workflow interruptions
+1. Add timeout/escalation logic for long-lived operational states such as `WORKFLOW_REQUESTED`, `AWAITING_REVIEW`, and `HANDOFF_PENDING`
+2. Promote transition rules into a documented state matrix so `IStateMachineGuard` behavior is reviewable independently of route handlers
+3. Add explicit case-level `ON_HOLD` or `WITHDRAWN` states for non-technical clinical interruptions beyond workflow-level cancellation
 
 ### 3.2 Port-Adapter Architecture
 
-The 11 port interfaces demonstrate clean separation of concerns:
+The repository now exposes 16 port interfaces: 11 workflow/scientific seams plus 5 governance/compliance seams. The current Express composition root wires 10 of them through `AppDependencies`; the remaining six already exist as architectural seams, but are not yet surfaced through `createApp()`.
 
-| Port | Domain | Adapter Strategy |
-|------|--------|------------------|
-| `IConstructDesigner` | RNA construct generation | In-memory (multi-modality: mRNA, saRNA, circRNA) |
-| `IHlaConsensusProvider` | HLA typing consensus | In-memory (multi-tool evidence, disagreement thresholds) |
-| `IModalityRegistry` | RNA modality governance | In-memory (activation/deactivation lifecycle) |
-| `INeoantigenRankingEngine` | Antigen ranking | In-memory (accepts external results) |
-| `INextflowClient` | Pipeline execution | In-memory / real Nextflow client |
-| `IOutcomeRegistry` | Clinical outcomes | In-memory |
-| `IQcGateEvaluator` | Quality control gates | In-memory (configurable pass/fail criteria) |
-| `IReferenceBundleRegistry` | Pipeline version pinning | In-memory |
-| `IWorkflowDispatchSink` | Workflow submission | In-memory / PostgreSQL |
-| `IWorkflowOrchestrator` | Run lifecycle | In-memory |
-| `IWorkflowRunner` | Execution monitoring | In-memory / PostgreSQL / Nextflow |
+**Wired through `AppDependencies` in `src/app.ts`** [T1]:
 
-**Phase B additions (5 governance ports + adapters)** [T1]:
+| Port | Domain | Default adapter |
+|------|--------|-----------------|
+| `IConstructDesigner` | RNA construct generation | `InMemoryConstructDesigner` |
+| `IModalityRegistry` | RNA modality governance | `InMemoryModalityRegistry` |
+| `IReferenceBundleRegistry` | Pipeline version pinning | `InMemoryReferenceBundleRegistry` |
+| `IQcGateEvaluator` | Quality control gates | `InMemoryQcGateEvaluator` |
+| `IWorkflowRunner` | Execution monitoring | `InMemoryWorkflowRunner` |
+| `IStateMachineGuard` | Transition governance | `InMemoryStateMachineGuard` |
+| `IConsentTracker` | Patient consent lifecycle | `InMemoryConsentTracker` |
+| `IRbacProvider` | Role-based access control | `InMemoryRbacProvider` |
+| `IAuditSignatureProvider` | Cryptographic audit integrity | `InMemoryAuditSignatureProvider` |
+| `IFhirExporter` | Interoperability | `InMemoryFhirExporter` |
 
-| Port | Domain | Purpose |
-|------|--------|---------|
-| `IAuditSignatureProvider` | Cryptographic audit integrity | SHA-256 signature on audit events, signature chain verification |
-| `IConsentTracker` | Patient consent lifecycle | Consent recording, withdrawal, active-consent verification |
-| `IRbacProvider` | Role-based access control | Role validation, permission enforcement |
-| `IFhirExporter` | Interoperability | FHIR R4 Bundle export (Patient, Condition, Observation, MedicationRequest, DiagnosticReport) |
-| `IStateMachineGuard` | Transition governance | Pre-transition validation with audit logging |
+**Implemented as repository seams, but not injected through `AppDependencies`** [T1]:
+
+| Port | Domain | Current surface |
+|------|--------|-----------------|
+| `IHlaConsensusProvider` | HLA evidence harmonization | `InMemoryHlaConsensusProvider` exists, but the port is not yet injected through `createApp()` |
+| `INeoantigenRankingEngine` | External ranking intake | `InMemoryNeoantigenRankingEngine` exists, but the port is not yet injected through `createApp()` |
+| `INextflowClient` | Nextflow submission/cancel/poll boundary | Consumed by `NextflowWorkflowRunner`; no standalone concrete client adapter is shipped yet |
+| `IOutcomeRegistry` | Outcome timeline persistence | `InMemoryOutcomeRegistry` exists, but the port is not yet injected through `createApp()` |
+| `IWorkflowDispatchSink` | Workflow submission persistence | `InMemoryWorkflowDispatchSink` and `PostgresWorkflowDispatchSink` exist, but the port is not yet injected through `createApp()` |
+| `IWorkflowOrchestrator` | Run planning/orchestration | `InMemoryWorkflowOrchestrator` exists, but the port is not yet injected through `createApp()` |
+
+`CaseStore` remains a local storage abstraction in `src/store.ts`, with `MemoryCaseStore` and `PostgresCaseStore` rather than a dedicated `src/ports` interface.
+
+Adapter inventory currently comprises 19 classes: 15 in-memory adapters plus `NextflowWorkflowRunner`, `PostgresCaseStore`, `PostgresWorkflowDispatchSink`, and `PostgresWorkflowRunner`. Durable schema evolution is represented by `001_full_schema.sql` and `002_hla_disagreements.sql`.
 
 ### 3.3 Security Controls (Phase C) [T1]
 
-Three middleware layers added for hardened HTTP surface:
+Five middleware surfaces harden the HTTP API, and an inline correlation layer strengthens request-scoped provenance:
 
-| Middleware | Function |
-|-----------|----------|
-| `rate-limiter.ts` | Token-bucket rate limiting with configurable burst, separate limits per IP |
-| `rbac-auth.ts` | Role-based route protection with API key → role mapping |
+| Middleware / Layer | Function |
+|--------------------|----------|
 | `security-headers.ts` | OWASP-aligned security headers (CSP, HSTS, X-Frame-Options, etc.) |
+| `rate-limiter.ts` | Optional token-bucket rate limiting with configurable burst, separate limits per IP |
+| `request-logger.ts` | Structured JSON request logging with injectable sink |
+| `api-key-auth.ts` | Constant-time API-key authentication for closed deployments |
+| `rbac-auth.ts` | Role-based route protection with API key → role mapping |
+| Inline `x-correlation-id` middleware in `app.ts` | Request/response correlation propagation for audit and operational tracing |
 
-### 3.4 HLA Consensus Architecture
+### 3.4 Persistence, Traceability, and Interoperability
 
-Multi-tool evidence capture with configurable disagreement handling:
+Several implementation details materially strengthen the platform beyond a typical prototype:
+
+- `PostgresCaseStore`, `PostgresWorkflowDispatchSink`, and `PostgresWorkflowRunner` provide a durable persistence path rather than memory-only storage.
+- `caseAuditEventTypes` defines 17 explicit audit event categories, and `traceability.ts` exposes lineage views across samples, artifacts, workflows, reviews, handoff packets, and outcomes.
+- `IFhirExporter` plus `InMemoryFhirExporter` make interoperability a first-class seam rather than a post-hoc reporting concern.
+- `src/migrations/001_full_schema.sql` and `src/migrations/002_hla_disagreements.sql` show that schema evolution has already started to encode domain-specific persistence concerns.
+
+### 3.5 HLA Consensus Architecture
+
+The HLA consensus surface is multi-tool-ready, but the current repository ships an in-memory implementation that models evidence aggregation rather than direct production bindings to HLA callers:
 
 ```
 Tool A (e.g., Optitype)  → HLA-A*02:01, confidence 0.95
@@ -218,7 +249,7 @@ Tool C (e.g., xHLA)      → HLA-A*02:03, confidence 0.72
              Confidence decomposition per tool
 ```
 
-**Strength**: Multi-tool consensus is the recommended approach in the field. Single-tool HLA typing has known error rates.
+**Strength**: The seam matches recommended multi-tool practice and preserves space for tool-specific confidence decomposition once real adapters are attached.
 
 **Recommendation**: Add weighted consensus scoring where tool confidence contributes to the final call, rather than simple majority vote. Consider HLA-HD's allele-level resolution advantage for rare alleles.
 
@@ -233,8 +264,8 @@ Tool C (e.g., xHLA)      → HLA-A*02:03, confidence 0.72
 | **Electronic signatures** | 21 CFR Part 11.50/11.70 | Not implemented | Add PKCE/FIDO2-based signing to review and release flows. Signing must capture signer identity, timestamp, and meaning (approval, rejection, review) |
 | **Dual-authorization release** | cGMP, EU GMP Annex 13 | Not implemented | Add qualified-person (QP) release workflow step requiring two independent authorizations |
 | **Validated-system qualification** | 21 CFR Part 11.10(a) | Not implemented | Create IQ/OQ/PQ documentation package; define validation master plan |
-| **Consent-state integration** | ICH-GCP E6(R2) | Port exists (`IConsentTracker`), not integrated into case FSM | Wire consent verification into state transitions — block progression without active consent |
-| **Cryptographic audit chain** | FDA Data Integrity Guidance 2018 | Port exists (`IAuditSignatureProvider`), needs integration | Hash-chain all audit events; provide independent verification endpoint |
+| **Consent-state integration** | ICH-GCP E6(R2) | Port exists and is injected, but active consent is not yet enforced as a lifecycle gate across the case FSM | Wire consent verification into state transitions — block progression without active consent |
+| **Cryptographic audit chain** | FDA Data Integrity Guidance 2018 | Audit-signature seam exists, but it is not yet bound into an immutable release-grade signature chain | Hash-chain all audit events; provide independent verification endpoint |
 | **NTP synchronization** | 21 CFR Part 11.10(e) | Timestamps are ISO 8601 but not NTP-synced | Add NTP synchronization requirement to deployment configuration |
 
 ### Priority 2 — Data Security and Access Control (High Impact)
@@ -283,7 +314,7 @@ Tool C (e.g., xHLA)      → HLA-A*02:03, confidence 0.72
 
 | Platform / Tool | Type | Scope | Open Source | Clinical Stage |
 |----------------|------|-------|-------------|----------------|
-| **OpenRNA** | Control plane | Orchestration, governance, traceability | Yes (MIT) | Pre-clinical software |
+| **OpenRNA** | Control plane | Orchestration, governance, traceability | Yes (Apache-2.0) | Pre-clinical software |
 | **pVACtools** | Bioinformatics pipeline | Neoantigen prediction and ranking | Yes (BSD-3-Clause-Clear) | Research / clinical research |
 | **Nextflow + nf-core** | Workflow engine | Pipeline orchestration | Yes (Apache-2.0) | Industry standard |
 | **OpenVax** | Research pipeline | Multi-tool neoantigen pipeline | Yes | Research |
@@ -327,7 +358,7 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 | Audit signature provider | P2 | **Done** [T1] |
 | Dual-authorization release workflow | P2 | Not started |
 | PostgreSQL encryption-at-rest configuration | P2 | Not started |
-| CI/CD pipeline with automated testing | P3 | Tests exist (361 passing), CI not configured |
+| CI/CD pipeline with automated testing | P3 | README advertises 296+ `node:test` checks across 29 visible test files; CI not configured |
 
 ### Phase B: Ecosystem Integration (3-9 months)
 
@@ -371,10 +402,19 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 | IMCODE003 NCT05968326 (PDAC Phase 2) | ClinicalTrials.gov | ✅ Active registry entry |
 | 25 clinical trials for personalized neoantigen mRNA vaccine | ClinicalTrials.gov search | ✅ Verified April 2026 |
 | 238 PubMed results | PubMed search | ✅ Verified April 2026 |
-| pVACtools v6.1.0 | GitHub / ReadTheDocs | ✅ 172 stars, 100 releases, BSD-3-Clause-Clear |
 | Gritstone Bio bankruptcy Oct 2024 | Public filings | ✅ Confirmed |
 | ARCT-154 saRNA approved in Japan | Arcturus public disclosures | ✅ COVID-19, not oncology |
-| 361 tests passing in OpenRNA | `node --run test` output | ✅ Verified April 1, 2026 |
+
+### Repository-grounded [T1] claims verified against source files
+
+| Claim | Source surface | Verification |
+|-------|----------------|-------------|
+| 15 implemented case statuses | `src/types.ts` | ✅ Verified against the exported `caseStatuses` constant |
+| 16 port interfaces | `src/ports/*.ts` | ✅ Verified by direct port inventory |
+| 19 adapters | `src/adapters/*.ts` | ✅ Verified as 15 in-memory plus 4 integration/persistence adapters |
+| 5 middleware surfaces plus correlation propagation | `src/middleware/*.ts`, `src/app.ts` | ✅ Verified against the Express composition root |
+| 2 SQL migrations | `src/migrations/*.sql` | ✅ Verified by direct inventory |
+| Broad test surface | `README.md`, `tests/*` | ✅ README advertises 296+ `node:test` checks; 28 visible test files were counted directly |
 
 ### Claims Requiring Ongoing Monitoring
 
@@ -396,7 +436,7 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 3. **Regulatory foresight**: Audit trail, traceability, and immutability are built into the architecture from the start, not retrofitted.
 4. **Multi-modality readiness**: The modality registry (mRNA/saRNA/circRNA) with activation governance positions the platform for future RNA modalities without re-architecture.
 5. **Evidence-grounded documentation**: All design claims are tier-classified and traceable to primary sources.
-6. **Comprehensive test coverage**: 361 tests across 20 suites with zero failures.
+6. **Broad verification surface**: the repository exposes 28 visible test files, and the README advertises 296+ `node:test` checks across API, persistence, middleware, orchestration, and interoperability surfaces.
 
 ### Risks
 
@@ -408,7 +448,7 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 
 ### Assessment
 
-OpenRNA is a **well-designed, evidence-grounded** control plane at an early but solid maturity stage. The port-adapter architecture, comprehensive testing, and regulatory-aware audit trail place it ahead of typical academic prototypes. The strategic priority is clear: close the regulatory gaps (electronic signatures, dual authorization, consent integration), then build real adapter connections to the bioinformatics ecosystem.
+OpenRNA is a **well-designed, evidence-grounded** control plane at an early but solid maturity stage. The port-adapter architecture, broad verification surface, and regulatory-aware audit trail place it ahead of typical academic prototypes. The strategic priority is clear: close the regulatory gaps (electronic signatures, dual authorization, consent integration), then finish surfacing the remaining repository seams through the main composition root and build real adapter connections to the bioinformatics ecosystem.
 
 The clinical evidence for personalized neoantigen mRNA vaccines is at an inflection point: V940's Phase 3 readout will either validate or constrain the entire class. OpenRNA is architecturally positioned to benefit from a positive outcome and adapt to negative signals through its modality-agnostic design.
 
