@@ -95,6 +95,27 @@ test("PROB-002: loadConfig leaves apiKey undefined when API_KEY absent", () => {
   assert.equal(config.apiKey, undefined);
 });
 
+test("PROB-002: loadConfig reads principal and JWT auth settings", () => {
+  const config = loadConfig({
+    API_KEY: "secret-key-42",
+    API_KEY_PRINCIPAL_ID: "operator-service",
+    RBAC_ALLOW_ALL: "false",
+    JWT_SHARED_SECRET: "0123456789abcdef0123456789abcdef",
+    JWT_EXPECTED_ISSUER: "https://issuer.example",
+    JWT_EXPECTED_AUDIENCE: "openrna-api",
+    JWT_PRINCIPAL_CLAIM: "preferred_username",
+    JWT_ROLE_CLAIM: "realm_access.roles",
+  });
+
+  assert.equal(config.apiKeyPrincipalId, "operator-service");
+  assert.equal(config.rbacAllowAll, false);
+  assert.equal(config.jwt?.sharedSecret, "0123456789abcdef0123456789abcdef");
+  assert.equal(config.jwt?.expectedIssuer, "https://issuer.example");
+  assert.equal(config.jwt?.expectedAudience, "openrna-api");
+  assert.equal(config.jwt?.principalClaim, "preferred_username");
+  assert.equal(config.jwt?.roleClaim, "realm_access.roles");
+});
+
 // ── PROB-004: Pagination ─────────────────────────────────────────────
 
 test("PROB-004: GET /api/cases returns meta with totalCases, limit, offset", async () => {

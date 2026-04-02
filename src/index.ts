@@ -83,7 +83,14 @@ async function bootstrap() {
   if (!config.apiKey) {
     process.stderr.write("WARNING: API_KEY not set — API endpoints are unprotected.\n");
   }
-  const app = createApp({ store: durable.store, workflowRunner: durable.runner, apiKey: config.apiKey });
+  const app = createApp({
+    store: durable.store,
+    workflowRunner: durable.runner,
+    apiKey: config.apiKey,
+    apiKeyPrincipalId: config.apiKeyPrincipalId,
+    jwtAuthOptions: config.jwt,
+    rbacAllowAll: config.rbacAllowAll,
+  });
   const server = createServer(app);
   let shutdownPromise: Promise<void> | undefined;
 

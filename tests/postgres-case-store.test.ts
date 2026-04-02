@@ -77,12 +77,18 @@ test("PostgresCaseStore (normalized): full lifecycle round-trip", async () => {
 
   try {
     // 1. Create case
-    const created = await store.createCase(buildCaseInput(), "corr-create");
+    const created = await store.createCase(buildCaseInput(), {
+      correlationId: "corr-create",
+      actorId: "user-123",
+      authMechanism: "jwt-bearer",
+    });
     assert.ok(created.caseId, "case has an id");
     assert.equal(created.status, "INTAKING");
     assert.equal(created.caseProfile.indication, "metastatic melanoma");
     assert.equal(created.samples.length, 0);
     assert.equal(created.artifacts.length, 0);
+    assert.equal(created.auditEvents[0]?.actorId, "user-123");
+    assert.equal(created.auditEvents[0]?.authMechanism, "jwt-bearer");
     const caseId = created.caseId;
 
     // 2. Register samples
@@ -218,13 +224,24 @@ test("PostgresCaseStore (normalized): getCase returns data persisted in normaliz
   const { pool, store } = await createPgCaseStore();
 
   try {
-    const created = await store.createCase(buildCaseInput(), "corr-1");
+    const created = await store.createCase(buildCaseInput(), {
+      correlationId: "corr-1",
+      actorId: "user-123",
+      authMechanism: "jwt-bearer",
+    });
     const caseId = created.caseId;
 
     // Verify the case row exists in the normalized cases table
     const row = await pool.query("SELECT case_id, status, case_profile FROM cases WHERE case_id = $1", [caseId]);
     assert.equal(row.rows.length, 1, "case row exists in normalized cases table");
     assert.equal(row.rows[0].status, "INTAKING");
+
+    const auditRows = await pool.query(
+      "SELECT actor_id, auth_mechanism FROM audit_events WHERE case_id = $1 ORDER BY occurred_at",
+      [caseId],
+    );
+    assert.equal(auditRows.rows[0]?.actor_id, "user-123");
+    assert.equal(auditRows.rows[0]?.auth_mechanism, "jwt-bearer");
 
     // Register a sample and check normalized samples table
     await store.registerSample(

@@ -104,6 +104,16 @@ export const caseAuditEventTypes = [
 
 export type CaseAuditEventType = (typeof caseAuditEventTypes)[number];
 
+export const authMechanisms = ["anonymous", "api-key", "jwt-bearer"] as const;
+
+export type AuthMechanism = (typeof authMechanisms)[number];
+
+export interface AuditContext {
+  correlationId: string;
+  actorId: string;
+  authMechanism: AuthMechanism;
+}
+
 export interface CaseProfile {
   patientKey: string;
   indication: string;
@@ -170,6 +180,8 @@ export interface CaseAuditEventRecord {
   type: CaseAuditEventType;
   detail: string;
   correlationId: string;
+  actorId: string;
+  authMechanism: AuthMechanism;
   occurredAt: string;
 }
 
@@ -660,6 +672,177 @@ export interface FullTraceabilityRecord {
   reviewOutcomes: ReviewOutcomeRecord[];
   handoffPackets: HandoffPacketRecord[];
 }
+
+// ─── Case Event Journal (Wave 2 Foundation) ───────────────────────
+
+export const caseDomainEventTypes = [
+  "case.created",
+  "sample.registered",
+  "artifact.registered",
+  "workflow.requested",
+  "workflow.started",
+  "workflow.completed",
+  "workflow.cancelled",
+  "workflow.failed",
+  "hla.consensus.produced",
+  "qc.evaluated",
+  "board.packet.generated",
+  "review.outcome.recorded",
+  "handoff.packet.generated",
+  "neoantigen.ranking.recorded",
+  "construct.design.recorded",
+  "administration.recorded",
+  "immune-monitoring.recorded",
+  "clinical-follow-up.recorded",
+] as const;
+
+export type CaseDomainEventType = (typeof caseDomainEventTypes)[number];
+
+export type DomainEventInput<TType extends string, TPayload> = {
+  eventId: string;
+  aggregateId: string;
+  aggregateType: "case";
+  type: TType;
+  occurredAt: string;
+  updatedAt: string;
+  correlationId: string;
+  actorId: string;
+  authMechanism: AuthMechanism;
+  payload: TPayload;
+};
+
+export type DomainEventRecord<TType extends string, TPayload> = DomainEventInput<TType, TPayload> & {
+  version: number;
+};
+
+export interface CaseCreatedEventPayload {
+  createdAt: string;
+  status: CaseStatus;
+  caseProfile: CaseProfile;
+}
+
+export interface SampleRegisteredEventPayload {
+  sample: SampleRecord;
+  nextStatus: CaseStatus;
+  workflowGateOpened: boolean;
+}
+
+export interface ArtifactRegisteredEventPayload {
+  artifact: ArtifactRecord;
+  nextStatus: CaseStatus;
+  workflowGateOpened: boolean;
+}
+
+export interface WorkflowRequestedEventPayload {
+  request: WorkflowRequestRecord;
+  nextStatus: CaseStatus;
+}
+
+export interface WorkflowStartedEventPayload {
+  run: WorkflowRunRecord;
+  nextStatus: CaseStatus;
+}
+
+export interface WorkflowCompletedEventPayload {
+  run: WorkflowRunRecord;
+  derivedArtifacts: RunArtifact[];
+  nextStatus: CaseStatus;
+}
+
+export interface WorkflowCancelledEventPayload {
+  run: WorkflowRunRecord;
+  nextStatus: CaseStatus;
+}
+
+export interface WorkflowFailedEventPayload {
+  run: WorkflowRunRecord;
+  nextStatus: CaseStatus;
+}
+
+export interface HlaConsensusProducedEventPayload {
+  consensus: HlaConsensusRecord;
+}
+
+export interface QcEvaluatedEventPayload {
+  runId: string;
+  gate: QcGateRecord;
+  nextStatus: CaseStatus;
+}
+
+export interface BoardPacketGeneratedEventPayload {
+  packet: BoardPacketRecord;
+  nextStatus: CaseStatus;
+}
+
+export interface ReviewOutcomeRecordedEventPayload {
+  reviewOutcome: ReviewOutcomeRecord;
+  nextStatus: CaseStatus;
+}
+
+export interface HandoffPacketGeneratedEventPayload {
+  handoffPacket: HandoffPacketRecord;
+  nextStatus: CaseStatus;
+}
+
+export interface NeoantigenRankingRecordedEventPayload {
+  ranking: RankingResult;
+}
+
+export interface ConstructDesignRecordedEventPayload {
+  constructDesign: ConstructDesignPackage;
+}
+
+export interface AdministrationRecordedEventPayload {
+  entry: Extract<OutcomeTimelineEntry, { entryType: "administration" }>;
+}
+
+export interface ImmuneMonitoringRecordedEventPayload {
+  entry: Extract<OutcomeTimelineEntry, { entryType: "immune-monitoring" }>;
+}
+
+export interface ClinicalFollowUpRecordedEventPayload {
+  entry: Extract<OutcomeTimelineEntry, { entryType: "clinical-follow-up" }>;
+}
+
+export type CaseDomainEventInput =
+  | DomainEventInput<"case.created", CaseCreatedEventPayload>
+  | DomainEventInput<"sample.registered", SampleRegisteredEventPayload>
+  | DomainEventInput<"artifact.registered", ArtifactRegisteredEventPayload>
+  | DomainEventInput<"workflow.requested", WorkflowRequestedEventPayload>
+  | DomainEventInput<"workflow.started", WorkflowStartedEventPayload>
+  | DomainEventInput<"workflow.completed", WorkflowCompletedEventPayload>
+  | DomainEventInput<"workflow.cancelled", WorkflowCancelledEventPayload>
+  | DomainEventInput<"workflow.failed", WorkflowFailedEventPayload>
+  | DomainEventInput<"hla.consensus.produced", HlaConsensusProducedEventPayload>
+  | DomainEventInput<"qc.evaluated", QcEvaluatedEventPayload>
+  | DomainEventInput<"board.packet.generated", BoardPacketGeneratedEventPayload>
+  | DomainEventInput<"review.outcome.recorded", ReviewOutcomeRecordedEventPayload>
+  | DomainEventInput<"handoff.packet.generated", HandoffPacketGeneratedEventPayload>
+  | DomainEventInput<"neoantigen.ranking.recorded", NeoantigenRankingRecordedEventPayload>
+  | DomainEventInput<"construct.design.recorded", ConstructDesignRecordedEventPayload>
+  | DomainEventInput<"administration.recorded", AdministrationRecordedEventPayload>
+  | DomainEventInput<"immune-monitoring.recorded", ImmuneMonitoringRecordedEventPayload>
+  | DomainEventInput<"clinical-follow-up.recorded", ClinicalFollowUpRecordedEventPayload>;
+
+export type CaseDomainEventRecord =
+  | DomainEventRecord<"case.created", CaseCreatedEventPayload>
+  | DomainEventRecord<"sample.registered", SampleRegisteredEventPayload>
+  | DomainEventRecord<"artifact.registered", ArtifactRegisteredEventPayload>
+  | DomainEventRecord<"workflow.requested", WorkflowRequestedEventPayload>
+  | DomainEventRecord<"workflow.started", WorkflowStartedEventPayload>
+  | DomainEventRecord<"workflow.completed", WorkflowCompletedEventPayload>
+  | DomainEventRecord<"workflow.cancelled", WorkflowCancelledEventPayload>
+  | DomainEventRecord<"workflow.failed", WorkflowFailedEventPayload>
+  | DomainEventRecord<"hla.consensus.produced", HlaConsensusProducedEventPayload>
+  | DomainEventRecord<"qc.evaluated", QcEvaluatedEventPayload>
+  | DomainEventRecord<"board.packet.generated", BoardPacketGeneratedEventPayload>
+  | DomainEventRecord<"review.outcome.recorded", ReviewOutcomeRecordedEventPayload>
+  | DomainEventRecord<"handoff.packet.generated", HandoffPacketGeneratedEventPayload>
+  | DomainEventRecord<"neoantigen.ranking.recorded", NeoantigenRankingRecordedEventPayload>
+  | DomainEventRecord<"construct.design.recorded", ConstructDesignRecordedEventPayload>
+  | DomainEventRecord<"administration.recorded", AdministrationRecordedEventPayload>
+  | DomainEventRecord<"immune-monitoring.recorded", ImmuneMonitoringRecordedEventPayload>
+  | DomainEventRecord<"clinical-follow-up.recorded", ClinicalFollowUpRecordedEventPayload>;
 
 // ─── Horizon Modality Gate (Wave 11) ───────────────────────────────
 

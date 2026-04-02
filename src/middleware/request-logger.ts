@@ -25,6 +25,8 @@ export function requestLogger(write: RequestLogWriter = defaultRequestLogWriter)
         statusCode: res.statusCode,
         durationMs: Date.now() - start,
         correlationId: res.locals.correlationId ?? undefined,
+        principalId: res.locals.principalId ?? undefined,
+        authMechanism: res.locals.authMechanism ?? undefined,
       };
       write(JSON.stringify(entry) + "\n");
     });
