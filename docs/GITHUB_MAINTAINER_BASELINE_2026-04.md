@@ -1,7 +1,7 @@
 ---
 title: "GitHub Maintainer Baseline — April 2026"
 status: "active"
-version: "1.0.0"
+version: "1.1.0"
 last_updated: "2026-04-02"
 date: "2026-04-02"
 tags: [github, branch-protection, security, release, operations]
@@ -56,7 +56,15 @@ GitHub documents that required checks should use unique job names to avoid ambig
 - `RELEASE.md` is the public how-to for maintainers and consumers
 - releases should be cut from signed or otherwise verified tags on `main`
 - provenance and SBOM evidence should come from the tagged `Supply Chain Provenance` workflow run
+- the attested SBOM file should be generated only through `npm run sbom:cyclonedx:file`, which writes normalized UTF-8 JSON via `scripts/write-cyclonedx-sbom.mjs`
 - the tagged `Supply Chain Provenance` workflow is expected to publish the GitHub release and attach the build bundle, SBOM, and checksums automatically
+
+## Maintainer Lessons From The April 2026 Hardening Pass
+
+- **Identity integrity is stricter than convenience.** Unauthenticated requests must stay anonymous. `src/auth.ts` and `tests/security-middleware.test.ts` now treat an unsigned `x-api-key` header as untrusted input unless API-key or JWT auth is actually configured.
+- **Replay parity is a release gate for event-journal work.** Any new `MemoryCaseStore` mutation must append a domain event and return the replay-backed aggregate. `tests/event-journal-foundation.test.ts` now traps terminal workflow transitions plus board, review, and handoff flows.
+- **Attestation predicates must be shell-safe JSON artifacts.** `actions/attest@v4` accepts only clean SPDX or CycloneDX JSON. Shell redirection of `npm run ...` output is not a safe way to build that file because npm wrapper lines or shell-specific encoding can corrupt the predicate.
+- **Documentation corrections should follow verified implementation changes immediately.** The April 2026 pass showed that architecture fixes, release workflow changes, and regulatory wording drift together; the public maintainer and release docs should be updated in the same task, not later.
 
 ## Scope Boundary
 

@@ -1,7 +1,7 @@
 ---
 title: "Release And Verification"
 status: "active"
-version: "1.0.0"
+version: "1.1.0"
 last_updated: "2026-04-02"
 date: "2026-04-02"
 tags: [release, verification, provenance, sbom, github]
@@ -30,6 +30,13 @@ This document defines the minimal release contract for the standalone OpenRNA re
 3. Wait for the tag run of `CI` and `Supply Chain Provenance` to finish successfully.
 4. The tagged `Supply Chain Provenance` run creates the GitHub release automatically if it does not already exist.
 5. Verify that the generated release notes and attached assets look correct on the release page.
+
+## Operational Lessons
+
+- `Supply Chain Provenance` expects `openrna-runtime-sbom.cdx.json` to be pure UTF-8 JSON. `actions/attest@v4` rejects wrapper text, shell banners, or encoding-damaged output.
+- The canonical SBOM file generator is `npm run sbom:cyclonedx:file`, which delegates to `scripts/write-cyclonedx-sbom.mjs` and rewrites the npm output into normalized JSON.
+- Do not create the attested SBOM file with shell redirection from `npm run sbom:cyclonedx`, including forms such as `npm run sbom:cyclonedx > file` or `npm run sbom:cyclonedx -- > file`.
+- If the `Attest SBOM` step fails with JSON parse errors such as `Unexpected token '>'`, inspect the generated SBOM artifact first. That failure mode usually means the file contains wrapper text rather than raw JSON.
 
 ## Consumer Verification
 
