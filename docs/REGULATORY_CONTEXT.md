@@ -1,10 +1,10 @@
 ---
 title: "Regulatory Context for Personalized Neoantigen RNA Vaccines"
 status: active
-version: "1.0.1"
-last_updated: "2026-03-31"
+version: "1.1.0"
+last_updated: "2026-04-02"
 tags: [regulatory, fda, ema, part-11, atmp, oncology]
-evidence_cutoff: "2026-03-31"
+evidence_cutoff: "2026-04-02"
 ---
 
 # Regulatory Context
@@ -59,6 +59,40 @@ This is a regulatory-orientation and gap-analysis note, not a formal product-cla
 | **ICH Q12** | Lifecycle management | Post-approval changes to manufacturing process |
 | **ICH E6(R2)** | Good Clinical Practice | Clinical trial conduct, informed consent, data management |
 
+## April 2026 Part 11 Precision Points
+
+The eCFR page for Title 21 Part 11 was rechecked on April 2, 2026. It was displayed as up to date as of March 31, 2026 and last amended on March 25, 2026.
+
+For this repository, the most operational sections are:
+
+- **§11.10** closed-system controls: validation, access limitation, audit trails, sequencing and authority checks, and documentation controls.
+- **§11.50** signature manifestations: printed name, execution time, and signing meaning.
+- **§11.70** signature and record linking.
+- **§§11.100, 11.200, and 11.300** signature uniqueness and identification-code or password controls.
+
+This matters because OpenRNA already models a closed-system deployment posture more than an open public submission surface. The practical question is not whether Part 11 exists, but which concrete controls remain unsatisfied by the current implementation.
+
+### What the FDA scope guidance changes in practice
+
+FDA's 2003 Part 11 scope-and-application guidance does not cancel Part 11. It narrows the scope and explains enforcement discretion for some validation, audit-trail, record-retention, and copy-generation provisions while still enforcing predicate rules and key closed-system controls.
+
+For this repository, that leads to a more disciplined posture:
+
+- do not treat every internal software feature as automatically Part 11-scoped;
+- do identify which electronic records and signatures would actually be relied on for regulated activity;
+- do document that decision up front;
+- do not use enforcement-discretion language as a substitute for access control, authority checks, signer identity, or record integrity.
+
+The correct question is therefore not "is OpenRNA globally Part 11 compliant?" The correct question is "which regulated records would this system create or hold, and what control set is required for those records in intended use?"
+
+### Risk-based software validation stance
+
+FDA's `General Principles of Software Validation` guidance remains a stable reference for this repository's validation posture. The key operational principle is that validation depth should be justified by intended use and by the software's effect on accuracy, reliability, record integrity, and, where relevant, product quality or patient safety.
+
+For OpenRNA, this means engineering verification is necessary but not sufficient. Current tests, typed schemas, and CI gates are useful software evidence, but they are not a replacement for a documented intended-use statement, user requirements, risk assessment, traceability matrix, and IQ/OQ/PQ-style qualification package on the durable deployment path.
+
+This pass deliberately anchors validation language on rechecked eCFR text and stable FDA guidance pages. A newer CSA framing may still be useful internally, but it is not promoted here until its official page path is re-confirmed.
+
 ## 21 CFR Part 11 Compliance Mapping
 
 FDA's 2003 scope-and-application guidance explicitly says the Agency intends to interpret Part 11 narrowly: it applies to predicate-rule records kept or submitted electronically, not to every computerized system used somewhere in a GxP environment.
@@ -70,18 +104,18 @@ FDA's 2003 scope-and-application guidance explicitly says the Agency intends to 
 | **§11.10(a)** Validation of systems | System validation | ❌ No IQ/OQ/PQ documentation | Requires validation package before clinical use |
 | **§11.10(b)** Ability to generate accurate and complete copies | Data export | ✅ JSON API responses, JSONB storage | Full backup/restore procedures needed |
 | **§11.10(c)** Protection of records for retention period | Record retention | ⚠️ PostgreSQL persistence available | Needs formal retention policy and archival strategy |
-| **§11.10(d)** Limiting system access to authorized individuals | Access control | ⚠️ API-key auth (`api-key-auth.ts`) | Not equivalent to individual user authentication. Needs RBAC. |
+| **§11.10(d)** Limiting system access to authorized individuals | Access control | ⚠️ API-key auth plus RBAC seam (`api-key-auth.ts`, `rbac-auth.ts`) | Not equivalent to per-user OIDC or JWT identity, Part 11 authority checks, or signer-bound attribution. |
 | **§11.10(e)** Secure, computer-generated, time-stamped audit trails | Audit trail | ⚠️ `store.ts` records audit events during mutations; `traceability.ts` builds read-side lineage views from stored state | NTP synchronization for timestamp accuracy needed |
 | **§11.10(h)** Input checks (device checks) | Input validation | ✅ Zod runtime schemas on all API inputs | Validation rules need formal specification document |
 | **§11.10(k)** Documentation and audit trail for system changes | Change control | ⚠️ Git version control | Needs formal change control procedure documentation |
-| **§11.50** Electronic signature manifestations | E-signatures | ❌ Not implemented | Requires PKCE/FIDO2 or equivalent |
-| **§11.70** Electronic signature/record linking | Signature binding | ❌ Not implemented | Required for review approval and QP release |
+| **§11.50** Electronic signature manifestations | E-signatures | ⚠️ Audit-signature seam exists, but not Part 11-complete | Needs signer name, execution time, signing meaning, and stronger identity binding than the current HMAC helper |
+| **§11.70** Electronic signature/record linking | Signature binding | ⚠️ Signature provider exists, but signatures are not yet bound into release-grade records | Required for review approval, release authorization, and non-repudiation |
 
 ### ALCOA+ Data Integrity Principles
 
 | Principle | Implementation | Status |
 |-----------|---------------|--------|
-| **A**ttributable | API-key identifies calling system; no individual user attribution yet | ⚠️ Partial |
+| **A**ttributable | API key plus optional role mapping identify caller class, not a unique signer or reviewer | ⚠️ Partial |
 | **L**egible | JSON structured data, human-readable audit events | ✅ |
 | **C**ontemporaneous | Timestamps at event creation time | ✅ |
 | **O**riginal | JSONB storage in PostgreSQL; in-memory store is volatile | ⚠️ PostgreSQL path only |
@@ -123,8 +157,8 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 
 | Gap | Priority | Regulatory Driver | Effort Estimate |
 |-----|----------|-------------------|-----------------|
-| Electronic signatures | **Critical** | 21 CFR Part 11 §11.50/11.70 | Significant — requires crypto/auth infrastructure |
-| Individual user authentication | **Critical** | 21 CFR Part 11 §11.10(d), cGMP | Moderate — replace API-key with RBAC + identity provider |
+| Electronic signatures | **Critical** | 21 CFR Part 11 §11.50/11.70 and Subpart C | Significant — current audit-signature seam must evolve into signer-bound electronic records |
+| Individual user authentication | **Critical** | 21 CFR Part 11 §11.10(d)/(g), §11.100, cGMP | Moderate — replace API-key baseline with RBAC + identity provider |
 | Dual-authorization release | **Critical** | EU QP release, cGMP release workflow | Moderate — new workflow step + e-signature prerequisite |
 | System validation documentation | **High** | 21 CFR Part 11 §11.10(a) | Documentation-heavy — IQ/OQ/PQ package |
 | Formal change control | **High** | 21 CFR Part 11 §11.10(k) | Process documentation — Git history is necessary but not sufficient |
@@ -132,6 +166,16 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 | Retention and archival policy | **Medium** | FDA Data Integrity Guidance | Documentation and infrastructure — backup/archival procedures |
 | NTP-synchronized timestamps | **Low** | 21 CFR Part 11 §11.10(e) | Deployment configuration — not a code change |
 | Cryptographic audit seal | **Low** | FDA Data Integrity Guidance | Moderate — SHA-256 hash chain on audit events |
+
+## Claim Boundary For This Repository
+
+| Safe current claim | Not yet justified |
+|--------------------|-------------------|
+| OpenRNA has Part 11-oriented seams for audit, access control, and signature handling | OpenRNA is Part 11 compliant |
+| The PostgreSQL path can support durable regulated records | Record retention, archival, and recovery controls are formally validated |
+| The review and handoff workflow can evolve into release authorization controls | Dual-authorization or qualified-person release exists today |
+| FHIR export is a first-class interoperability seam | Clinical profile conformance and site-to-site interoperability are formally qualified |
+| The repository has engineering verification evidence | The repository is a validated computerized system for regulated use |
 
 ## Path to Clinical Deployment
 
@@ -146,7 +190,7 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 6. Dual-authorization release workflow (Qualified Person).
 7. Retention and archival policy documentation.
 8. NTP synchronization requirement in deployment specification.
-9. Formal computer system validation against predefined user requirements.
+9. Formal computer system validation against predefined user requirements, documented risk assessment, and traceability from requirements to evidence.
 
 ### BLA-Supporting Phase
 10. Cryptographic audit seals for tamper evidence.
@@ -156,6 +200,8 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 ## References
 
 - FDA: 21 CFR Part 11 — Electronic Records; Electronic Signatures
+- FDA: Part 11, Electronic Records; Electronic Signatures — Scope and Application (Guidance for Industry, 2003)
+- FDA: General Principles of Software Validation (Guidance for Industry and FDA Staff, 2002)
 - FDA: Data Integrity and Compliance With Drug CGMP (December 2018)
 - EU: Regulation (EC) No 1394/2007 on Advanced Therapy Medicinal Products
 - EU: EudraLex Volume 4, GMP Annex 13 — Investigational Medicinal Products
