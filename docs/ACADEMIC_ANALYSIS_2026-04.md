@@ -255,7 +255,7 @@ Five middleware surfaces harden the HTTP API, and an inline correlation layer st
 Several implementation details materially strengthen the platform beyond a typical prototype:
 
 - `PostgresCaseStore`, `PostgresWorkflowDispatchSink`, and `PostgresWorkflowRunner` provide a durable persistence path rather than memory-only storage.
-- `caseAuditEventTypes` defines 17 explicit audit event categories, and `traceability.ts` exposes lineage views across samples, artifacts, workflows, reviews, handoff packets, and outcomes.
+- `caseAuditEventTypes` defines 17 explicit audit event categories, and `traceability.ts` exposes lineage views across samples, artifacts, workflows, reviews, handoff packets, and outcomes. Note: `CaseAuditEventRecord` currently carries event type, detail, correlation ID, and timestamp, but does not include an `actorId` field — individual-user attribution is not yet part of the audit event schema.
 - `IFhirExporter` plus `InMemoryFhirExporter` make interoperability a first-class seam rather than a post-hoc reporting concern.
 - `src/migrations/001_full_schema.sql` and `src/migrations/002_hla_disagreements.sql` show that schema evolution has already started to encode domain-specific persistence concerns.
 

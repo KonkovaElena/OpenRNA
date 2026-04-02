@@ -119,7 +119,7 @@ FDA's 2003 scope-and-application guidance explicitly says the Agency intends to 
 | **L**egible | JSON structured data, human-readable audit events | ✅ |
 | **C**ontemporaneous | Timestamps at event creation time | ✅ |
 | **O**riginal | JSONB storage in PostgreSQL; in-memory store is volatile | ⚠️ PostgreSQL path only |
-| **A**ccurate | Zod validation on input; immutable audit events | ✅ |
+| **A**ccurate | Zod validation on input; audit events are append-only by application convention (no database-level immutability constraint) | ⚠️ Partial |
 | +**C**omplete | Full event history per case via audit trail | ✅ |
 | +**C**onsistent | Consistent timestamp format (ISO 8601) | ✅ |
 | +**E**nduring | PostgreSQL with configurable retention | ⚠️ No formal retention policy |
@@ -141,7 +141,7 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 
 ### Strengths (honest assessment)
 
-1. **Machine-readable audit trail** (`store.ts` + `traceability.ts`): case mutations append auditable events with timestamp, actor, and payload, while `traceability.ts` assembles end-to-end lineage views from stored state. This is the most relevant current software capability for Part 11-aligned record integrity.
+1. **Machine-readable audit trail** (`store.ts` + `traceability.ts`): case mutations append auditable events with event type, detail string, correlation ID, and timestamp (`CaseAuditEventRecord`), while `traceability.ts` assembles end-to-end lineage views from stored state. Individual actor identity is not yet captured in the audit event record — the current event schema carries correlation context, not signer attribution. This is the most relevant current software capability for Part 11-aligned record integrity, but actor-bound attribution remains an open gap.
 
 2. **Input validation** (Zod schemas in `validation.ts`): All API inputs are runtime-validated against typed schemas. Rejects malformed data before it enters the system.
 
