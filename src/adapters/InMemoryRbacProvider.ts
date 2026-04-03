@@ -25,7 +25,7 @@ export class InMemoryRbacProvider implements IRbacProvider {
   private readonly rolePermissions: Record<Role, readonly RbacAction[]>;
 
   constructor(options: RbacProviderOptions = {}) {
-    this.allowAll = options.allowAll ?? true; // backward compatible: allow all by default
+    this.allowAll = options.allowAll ?? false; // deny-by-default (hardening 2026-04)
     this.rolePermissions = options.rolePermissions ?? { ...DEFAULT_ROLE_PERMISSIONS };
   }
 

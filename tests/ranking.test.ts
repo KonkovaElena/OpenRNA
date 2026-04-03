@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+﻿import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
 import type { NeoantigenCandidate, RankingResult, RankingRationale, DerivedArtifactSemanticType } from "../src/types.js";
@@ -9,9 +9,9 @@ import { createApp } from "../src/app.js";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner.js";
 import type { WorkflowRunRecord } from "../src/types.js";
 
-// ─── 8.A: Ranking types and port contract ───────────────────────────
+// в”Ђв”Ђв”Ђ 8.A: Ranking types and port contract в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-describe("Wave 8.A — Neoantigen ranking types", () => {
+describe("Wave 8.A вЂ” Neoantigen ranking types", () => {
   const candidate: NeoantigenCandidate = {
     candidateId: "neo-001",
     peptideSequence: "YLQPRTFLL",
@@ -77,7 +77,7 @@ describe("Wave 8.A — Neoantigen ranking types", () => {
   });
 });
 
-// ─── 8.B: In-memory ranking adapter ─────────────────────────────────
+// в”Ђв”Ђв”Ђ 8.B: In-memory ranking adapter в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 function buildCandidate(overrides: Partial<NeoantigenCandidate> & { candidateId: string }): NeoantigenCandidate {
   return {
@@ -93,7 +93,7 @@ function buildCandidate(overrides: Partial<NeoantigenCandidate> & { candidateId:
   };
 }
 
-describe("Wave 8.B — InMemoryNeoantigenRankingEngine", () => {
+describe("Wave 8.B вЂ” InMemoryNeoantigenRankingEngine", () => {
   const engine = new InMemoryNeoantigenRankingEngine();
 
   it("ranks candidates by composite score descending", async () => {
@@ -174,7 +174,7 @@ describe("Wave 8.B — InMemoryNeoantigenRankingEngine", () => {
   });
 });
 
-// ─── 8.C: Board packet wiring ───────────────────────────────────────
+// в”Ђв”Ђв”Ђ 8.C: Board packet wiring в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 class FakeWorkflowRunner implements IWorkflowRunner {
   private runs = new Map<string, WorkflowRunRecord>();
@@ -308,7 +308,7 @@ async function createReviewReadyCaseForRanking(app: ReturnType<typeof createApp>
   return caseId;
 }
 
-describe("Wave 8.C — Ranking in board packets", () => {
+describe("Wave 8.C вЂ” Ranking in board packets", () => {
   it("store records and retrieves neoantigen ranking", async () => {
     const store = new MemoryCaseStore();
     const caseRec = await store.createCase({
@@ -375,7 +375,7 @@ describe("Wave 8.C — Ranking in board packets", () => {
 
   it("board packet includes ranking when present", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() });
+    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
     const caseId = await createReviewReadyCaseForRanking(app);
 
     // Record ranking directly on the store
@@ -400,7 +400,7 @@ describe("Wave 8.C — Ranking in board packets", () => {
 
   it("board packet omits ranking when not recorded", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() });
+    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
     const caseId = await createReviewReadyCaseForRanking(app);
 
     // Generate board packet WITHOUT ranking
@@ -411,12 +411,12 @@ describe("Wave 8.C — Ranking in board packets", () => {
     const getRes = await request(app).get(`/api/cases/${caseId}/board-packets/${packetId}`);
     assert.equal(getRes.status, 200);
     const snapshot = getRes.body.packet.snapshot;
-    assert.equal(snapshot.neoantigenRanking, undefined, "no ranking recorded → omitted from packet");
+    assert.equal(snapshot.neoantigenRanking, undefined, "no ranking recorded в†’ omitted from packet");
   });
 
   it("ranking evidence decomposition shows per-candidate feature scores", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() });
+    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
     const caseId = await createReviewReadyCaseForRanking(app);
 
     const ranking = buildRanking(caseId);

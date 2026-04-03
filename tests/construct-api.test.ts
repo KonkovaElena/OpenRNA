@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -237,7 +237,7 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>): Promise
 
 test("POST /api/cases/:caseId/construct-design generates and GET retrieves a construct package", async () => {
   const store = new MemoryCaseStore();
-  const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const createResponse = await request(app)
@@ -257,7 +257,7 @@ test("POST /api/cases/:caseId/construct-design generates and GET retrieves a con
 
 test("POST /api/cases/:caseId/construct-design records payload provenance on the case", async () => {
   const store = new MemoryCaseStore();
-  const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const createResponse = await request(app)
@@ -280,7 +280,7 @@ test("POST /api/cases/:caseId/construct-design records payload provenance on the
 });
 
 test("GET /api/cases/:caseId/construct-design returns 404 when no construct was recorded", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
 
@@ -291,7 +291,7 @@ test("GET /api/cases/:caseId/construct-design returns 404 when no construct was 
 
 test("POST /api/cases/:caseId/construct-design rejects saRNA by default", async () => {
   const store = new MemoryCaseStore();
-  const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const createResponse = await request(app)
@@ -310,6 +310,7 @@ test("board packet snapshot includes construct design when present", async () =>
     store,
     workflowRunner: new FakeWorkflowRunner(),
     constructDesigner: new InMemoryConstructDesigner(modalityRegistry),
+    rbacAllowAll: true, consentGateEnabled: false,
   });
   const caseId = await createReviewReadyCase(app);
 
@@ -345,7 +346,7 @@ test("Postgres-backed case storage persists construct design across a fresh app 
   try {
     const firstStore = new PostgresCaseStore(pool);
     await firstStore.initialize();
-    const firstApp = createApp({ store: firstStore, workflowRunner: new FakeWorkflowRunner() });
+    const firstApp = createApp({ store: firstStore, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
     const caseId = await createReviewReadyCase(firstApp);
 
     const createResponse = await request(firstApp)
@@ -355,7 +356,7 @@ test("Postgres-backed case storage persists construct design across a fresh app 
 
     const secondStore = new PostgresCaseStore(pool);
     await secondStore.initialize();
-    const secondApp = createApp({ store: secondStore, workflowRunner: new FakeWorkflowRunner() });
+    const secondApp = createApp({ store: secondStore, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
 
     const getResponse = await request(secondApp).get(`/api/cases/${caseId}/construct-design`);
     assert.equal(getResponse.status, 200);

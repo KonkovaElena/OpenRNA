@@ -8,6 +8,7 @@ import { PostgresCaseStore } from "./adapters/PostgresCaseStore";
 import { PostgresWorkflowDispatchSink } from "./adapters/PostgresWorkflowDispatchSink";
 import { PostgresWorkflowRunner } from "./adapters/PostgresWorkflowRunner";
 import { closeServerAndResources } from "./runtime-shutdown";
+import { InMemoryStateMachineGuard } from "./adapters/InMemoryStateMachineGuard";
 import { Pool } from "pg";
 
 function createDispatchSink(config: ReturnType<typeof loadConfig>) {
@@ -45,7 +46,7 @@ function createDurableAdapters(
   const connectionString = config.caseStoreDatabaseUrl;
   if (!connectionString) {
     return {
-      store: new MemoryCaseStore(undefined, dispatchSink) as MemoryCaseStore | PostgresCaseStore,
+      store: new MemoryCaseStore(undefined, dispatchSink, [], new InMemoryStateMachineGuard()) as MemoryCaseStore | PostgresCaseStore,
       runner: new InMemoryWorkflowRunner() as InMemoryWorkflowRunner | PostgresWorkflowRunner,
       shutdown: async () => {},
     };
@@ -60,7 +61,7 @@ function createDurableAdapters(
     keepAlive: true,
     keepAliveInitialDelayMillis: 10_000,
   });
-  const store = new PostgresCaseStore(pool, undefined, dispatchSink);
+  const store = new PostgresCaseStore(pool, undefined, dispatchSink, new InMemoryStateMachineGuard());
   const runner = new PostgresWorkflowRunner(pool);
 
   return {

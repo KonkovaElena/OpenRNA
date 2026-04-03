@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -96,7 +96,7 @@ async function createPostgresDispatchSink() {
 }
 
 test("POST /api/cases creates a human oncology case and GET /api/cases lists it", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   assert.equal(createResponse.status, 201);
@@ -110,7 +110,7 @@ test("POST /api/cases creates a human oncology case and GET /api/cases lists it"
 });
 
 test("registering the required sample trio and source artifacts unlocks workflow request and records the run", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
 
@@ -158,7 +158,7 @@ test("registering the required sample trio and source artifacts unlocks workflow
 });
 
 test("workflow request is blocked when consent is missing even if samples are present", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createResponse = await request(app)
     .post("/api/cases")
     .send(buildCaseInput({ consentStatus: "missing" }));
@@ -188,7 +188,7 @@ test("workflow request is blocked when consent is missing even if samples are pr
 });
 
 test("repeating a workflow request with the same idempotency key does not create a duplicate run", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
 
@@ -221,7 +221,7 @@ test("repeating a workflow request with the same idempotency key does not create
 });
 
 test("registering a source artifact adds it to the case catalog and emits a machine-readable audit event", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createResponse = await request(app)
     .post("/api/cases")
     .set("x-correlation-id", "corr-case-create-001")
@@ -253,7 +253,7 @@ test("registering a source artifact adds it to the case catalog and emits a mach
 });
 
 test("artifact registration is rejected when the referenced sample provenance is missing", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
 
@@ -265,7 +265,7 @@ test("artifact registration is rejected when the referenced sample provenance is
 });
 
 test("idempotency key reuse with different payload is rejected as a mismatch", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
 
@@ -294,7 +294,7 @@ test("idempotency key reuse with different payload is rejected as a mismatch", a
 });
 
 test("workflow request records carry the correlation ID from the HTTP boundary", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
 
@@ -329,7 +329,7 @@ test("sink failure during workflow dispatch does not corrupt case state and allo
 
   const { MemoryCaseStore } = await import("../src/store.js");
   const store = new MemoryCaseStore(undefined, failingOnFirstCallSink);
-  const app = createApp({ store });
+  const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
 
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
@@ -367,7 +367,7 @@ test("workflow request persists a durable dispatch record when using the Postgre
   const { pool, sink } = await createPostgresDispatchSink();
   try {
     const store = new MemoryCaseStore(undefined, sink);
-    const app = createApp({ store });
+    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
 
     const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
     const caseId = String(createResponse.body.case.caseId);
@@ -413,7 +413,7 @@ test("Postgres-backed case storage persists workflow-ready case state across a f
   try {
     const firstStore = new PostgresCaseStore(pool);
     await firstStore.initialize();
-    const firstApp = createApp({ store: firstStore });
+    const firstApp = createApp({ store: firstStore , rbacAllowAll: true, consentGateEnabled: false });
 
     const createResponse = await request(firstApp).post("/api/cases").send(buildCaseInput());
     const caseId = String(createResponse.body.case.caseId);
@@ -435,7 +435,7 @@ test("Postgres-backed case storage persists workflow-ready case state across a f
 
     const secondStore = new PostgresCaseStore(pool);
     await secondStore.initialize();
-    const secondApp = createApp({ store: secondStore });
+    const secondApp = createApp({ store: secondStore , rbacAllowAll: true, consentGateEnabled: false });
 
     const persistedCaseResponse = await request(secondApp).get(`/api/cases/${caseId}`);
     assert.equal(persistedCaseResponse.status, 200);
@@ -454,7 +454,7 @@ test("Postgres-backed case storage persists workflow-ready case state across a f
 });
 
 test("returned case records are immutable snapshots that do not affect stored state", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
 
@@ -465,7 +465,7 @@ test("returned case records are immutable snapshots that do not affect stored st
   const firstGet = await request(app).get(`/api/cases/${caseId}`);
   assert.equal(firstGet.body.case.samples.length, 1);
 
-  // Mutate the returned object — should not affect stored state
+  // Mutate the returned object вЂ” should not affect stored state
   firstGet.body.case.samples.push({ sampleId: "injected", sampleType: "FOLLOW_UP" });
 
   const secondGet = await request(app).get(`/api/cases/${caseId}`);
@@ -473,7 +473,7 @@ test("returned case records are immutable snapshots that do not affect stored st
 });
 
 test("invalid requests return the documented operator-facing error contract", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const response = await request(app).post("/api/cases").send({
     caseProfile: {
       patientKey: "",

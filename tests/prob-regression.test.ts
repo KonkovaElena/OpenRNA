@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Regression tests for PROB-002, PROB-004, PROB-008, PROB-009, PROB-010, PROB-014.
  * Each section targets one specific fix to prevent silent reintroduction.
  */
@@ -8,7 +8,7 @@ import request from "supertest";
 import { createApp } from "../src/app";
 import { loadConfig } from "../src/config";
 
-// ── Helpers ──────────────────────────────────────────────────────────
+// в”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 function buildCaseInput() {
   return {
@@ -43,10 +43,10 @@ async function createConstructDesign(app: ReturnType<typeof createApp>, caseId: 
   return res.body.constructDesign as { constructId: string; version: number };
 }
 
-// ── PROB-002: API Key Authentication ─────────────────────────────────
+// в”Ђв”Ђ PROB-002: API Key Authentication в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("PROB-002: exempt paths respond without api key", async () => {
-  const app = createApp({ apiKey: "secret-key-42" });
+  const app = createApp({ apiKey: "secret-key-42" , rbacAllowAll: true, consentGateEnabled: false });
 
   for (const path of ["/", "/healthz", "/readyz", "/metrics"]) {
     const res = await request(app).get(path);
@@ -56,14 +56,14 @@ test("PROB-002: exempt paths respond without api key", async () => {
 });
 
 test("PROB-002: protected route returns 401 without x-api-key header", async () => {
-  const app = createApp({ apiKey: "secret-key-42" });
+  const app = createApp({ apiKey: "secret-key-42" , rbacAllowAll: true, consentGateEnabled: false });
   const res = await request(app).get("/api/cases");
   assert.equal(res.status, 401);
   assert.match(res.body.error, /Missing x-api-key/);
 });
 
 test("PROB-002: protected route returns 403 with wrong api key", async () => {
-  const app = createApp({ apiKey: "secret-key-42" });
+  const app = createApp({ apiKey: "secret-key-42" , rbacAllowAll: true, consentGateEnabled: false });
   const res = await request(app)
     .get("/api/cases")
     .set("x-api-key", "wrong-key");
@@ -72,7 +72,7 @@ test("PROB-002: protected route returns 403 with wrong api key", async () => {
 });
 
 test("PROB-002: protected route returns 200 with correct api key", async () => {
-  const app = createApp({ apiKey: "secret-key-42" });
+  const app = createApp({ apiKey: "secret-key-42" , rbacAllowAll: true, consentGateEnabled: false });
   const res = await request(app)
     .get("/api/cases")
     .set("x-api-key", "secret-key-42");
@@ -80,7 +80,7 @@ test("PROB-002: protected route returns 200 with correct api key", async () => {
 });
 
 test("PROB-002: no auth middleware when apiKey is not set", async () => {
-  const app = createApp(); // no apiKey
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false }); // no apiKey
   const res = await request(app).get("/api/cases");
   assert.equal(res.status, 200);
 });
@@ -116,10 +116,10 @@ test("PROB-002: loadConfig reads principal and JWT auth settings", () => {
   assert.equal(config.jwt?.roleClaim, "realm_access.roles");
 });
 
-// ── PROB-004: Pagination ─────────────────────────────────────────────
+// в”Ђв”Ђ PROB-004: Pagination в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("PROB-004: GET /api/cases returns meta with totalCases, limit, offset", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   await request(app).post("/api/cases").send(buildCaseInput());
   await request(app).post("/api/cases").send(buildCaseInput());
 
@@ -133,7 +133,7 @@ test("PROB-004: GET /api/cases returns meta with totalCases, limit, offset", asy
 });
 
 test("PROB-004: pagination respects limit and offset query params", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   for (let i = 0; i < 5; i++) {
     await request(app).post("/api/cases").send(buildCaseInput());
   }
@@ -147,16 +147,16 @@ test("PROB-004: pagination respects limit and offset query params", async () => 
 });
 
 test("PROB-004: limit is clamped to max 200", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   await request(app).post("/api/cases").send(buildCaseInput());
 
-  // limit=999 → clamped to 200
+  // limit=999 в†’ clamped to 200
   const res = await request(app).get("/api/cases?limit=999");
   assert.equal(res.body.meta.limit, 200);
 });
 
 test("PROB-004: limit=1 is accepted", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   await request(app).post("/api/cases").send(buildCaseInput());
 
   const res = await request(app).get("/api/cases?limit=1");
@@ -164,10 +164,10 @@ test("PROB-004: limit=1 is accepted", async () => {
   assert.equal(res.body.cases.length, 1);
 });
 
-// ── PROB-008: Confidence Score Range ──────────────────────────────────
+// в”Ђв”Ђ PROB-008: Confidence Score Range в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("PROB-008: HLA confidenceScore rejects values > 1", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = caseRes.body.case.caseId;
 
@@ -184,7 +184,7 @@ test("PROB-008: HLA confidenceScore rejects values > 1", async () => {
 });
 
 test("PROB-008: HLA confidenceScore rejects values < 0", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = caseRes.body.case.caseId;
 
@@ -201,7 +201,7 @@ test("PROB-008: HLA confidenceScore rejects values < 0", async () => {
 });
 
 test("PROB-008: HLA confidenceScore accepts boundary values 0 and 1", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = caseRes.body.case.caseId;
 
@@ -218,10 +218,10 @@ test("PROB-008: HLA confidenceScore accepts boundary values 0 and 1", async () =
   }
 });
 
-// ── PROB-009: ISO 8601 Timestamp Validation ──────────────────────────
+// в”Ђв”Ђ PROB-009: ISO 8601 Timestamp Validation в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("PROB-009: rejects non-ISO observedAt in immune monitoring", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = caseRes.body.case.caseId;
 
@@ -240,7 +240,7 @@ test("PROB-009: rejects non-ISO observedAt in immune monitoring", async () => {
 });
 
 test("PROB-009: rejects non-ISO administeredAt in administration outcome", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = caseRes.body.case.caseId;
 
@@ -257,7 +257,7 @@ test("PROB-009: rejects non-ISO administeredAt in administration outcome", async
 });
 
 test("PROB-009: accepts valid ISO 8601 administeredAt", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = caseRes.body.case.caseId;
   const constructDesign = await createConstructDesign(app, caseId);
@@ -273,7 +273,7 @@ test("PROB-009: accepts valid ISO 8601 administeredAt", async () => {
   assert.equal(res.status, 201);
 });
 
-// ── PROB-010: Pool Configuration ─────────────────────────────────────
+// в”Ђв”Ђ PROB-010: Pool Configuration в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("PROB-010: loadConfig returns pool-relevant fields", () => {
   const config = loadConfig({
@@ -285,7 +285,7 @@ test("PROB-010: loadConfig returns pool-relevant fields", () => {
   assert.ok(config.port, "should expose port");
 });
 
-// ── PROB-014: Request Logger ─────────────────────────────────────────
+// в”Ђв”Ђ PROB-014: Request Logger в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("PROB-014: request logger emits JSON to stdout for API calls", async () => {
   const lines: string[] = [];
@@ -295,6 +295,7 @@ test("PROB-014: request logger emits JSON to stdout for API calls", async () => 
         lines.push(line.trim());
       }
     },
+    rbacAllowAll: true, consentGateEnabled: false,
   });
 
   await request(app).post("/api/cases").send(buildCaseInput());
@@ -316,6 +317,7 @@ test("PROB-014: request logger skips health/metrics paths", async () => {
         lines.push(line.trim());
       }
     },
+    rbacAllowAll: true, consentGateEnabled: false,
   });
 
   await request(app).get("/healthz");

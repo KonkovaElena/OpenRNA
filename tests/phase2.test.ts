@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
 import { createApp } from "../src/app";
@@ -7,7 +7,7 @@ import { InMemoryReferenceBundleRegistry } from "../src/adapters/InMemoryReferen
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
 import type { DerivedArtifactSemanticType, WorkflowRunRecord } from "../src/types";
 
-// ─── Helpers ────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 function buildCaseInput(overrides: Record<string, unknown> = {}) {
   return {
@@ -272,11 +272,11 @@ class RecordingWorkflowRunner implements IWorkflowRunner {
   }
 }
 
-// ─── Workflow Run Lifecycle ─────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Workflow Run Lifecycle в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("starting a workflow run delegates to the configured workflow runner and preserves the route runId", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner } as never);
+  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
 
   const startRes = await request(app)
@@ -295,7 +295,7 @@ test("starting a workflow run delegates to the configured workflow runner and pr
 
 test("completing a workflow run uses the configured workflow runner terminal metadata", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner } as never);
+  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
 
   const startRes = await request(app)
@@ -319,7 +319,7 @@ test("completing a workflow run uses the configured workflow runner terminal met
 });
 
 test("replaying workflow start for the same runId is idempotent and does not duplicate run history", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
 
   const firstStartRes = await request(app)
@@ -350,7 +350,7 @@ test("replaying workflow start for the same runId is idempotent and does not dup
 });
 
 test("replaying workflow completion does not duplicate derived artifacts or terminal audit events", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
   const completionPayload = {
     derivedArtifacts: [
@@ -385,7 +385,7 @@ test("replaying workflow completion does not duplicate derived artifacts or term
 });
 
 test("replaying workflow cancellation does not duplicate terminal history", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const firstCancelRes = await request(app)
@@ -412,7 +412,7 @@ test("replaying workflow cancellation does not duplicate terminal history", asyn
 });
 
 test("replaying workflow failure does not duplicate terminal history", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const firstFailRes = await request(app)
@@ -440,7 +440,7 @@ test("replaying workflow failure does not duplicate terminal history", async () 
 });
 
 test("starting a workflow run advances the case from WORKFLOW_REQUESTED to WORKFLOW_RUNNING", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
 
   const startRes = await request(app)
@@ -455,7 +455,7 @@ test("starting a workflow run advances the case from WORKFLOW_REQUESTED to WORKF
 });
 
 test("completing a workflow run produces WORKFLOW_COMPLETED status and records derived artifacts", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const completeRes = await request(app)
@@ -481,7 +481,7 @@ test("completing a workflow run reuses one terminal timestamp across run, timeli
   const clock = {
     nowIso: () => new Date(Date.UTC(2026, 0, 1, 0, 0, tick++)).toISOString(),
   };
-  const app = createApp({ store: new MemoryCaseStore(clock) });
+  const app = createApp({ store: new MemoryCaseStore(clock) , rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const completeRes = await request(app)
@@ -513,7 +513,7 @@ test("completing a workflow run reuses one terminal timestamp across run, timeli
 });
 
 test("failing a workflow run produces WORKFLOW_FAILED status and records the reason", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const failRes = await request(app)
@@ -530,7 +530,7 @@ test("failing a workflow run produces WORKFLOW_FAILED status and records the rea
 });
 
 test("cancelling a workflow run produces WORKFLOW_CANCELLED status and records the cancellation", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const cancelRes = await request(app)
@@ -551,7 +551,7 @@ test("cancelling a workflow run produces WORKFLOW_CANCELLED status and records t
 });
 
 test("listing and getting workflow runs returns the correct data", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const listRes = await request(app).get(`/api/cases/${caseId}/runs`);
@@ -566,7 +566,7 @@ test("listing and getting workflow runs returns the correct data", async () => {
 });
 
 test("starting a run on a case that is not WORKFLOW_REQUESTED returns 409", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
@@ -579,7 +579,7 @@ test("starting a run on a case that is not WORKFLOW_REQUESTED returns 409", asyn
 });
 
 test("registering a source artifact with a semantic type incompatible with the sample type returns 409", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
@@ -595,7 +595,7 @@ test("registering a source artifact with a semantic type incompatible with the s
 });
 
 test("completing a run that is not RUNNING returns 409", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
   const completeAgain = await request(app)
@@ -607,7 +607,7 @@ test("completing a run that is not RUNNING returns 409", async () => {
 });
 
 test("completing a workflow run with an unsupported derived artifact semantic type returns 400", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const completeRes = await request(app)
@@ -623,7 +623,7 @@ test("completing a workflow run with an unsupported derived artifact semantic ty
 });
 
 test("failing a run that does not exist returns 404", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
 
   // Start a run first
@@ -638,7 +638,7 @@ test("failing a run that does not exist returns 404", async () => {
 });
 
 test("cancelling a completed run returns 409", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
   const cancelRes = await request(app)
@@ -649,10 +649,10 @@ test("cancelling a completed run returns 409", async () => {
   assert.equal(cancelRes.body.code, "invalid_transition");
 });
 
-// ─── HLA Consensus ─────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ HLA Consensus в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("recording HLA consensus stores the allele calls and tool evidence on the case", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
@@ -688,7 +688,7 @@ test("recording HLA consensus stores the allele calls and tool evidence on the c
 });
 
 test("retrieving HLA consensus for an existing case returns the stored record", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
@@ -705,7 +705,7 @@ test("retrieving HLA consensus for an existing case returns the stored record", 
 });
 
 test("retrieving HLA consensus when none recorded returns 404", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
@@ -715,7 +715,7 @@ test("retrieving HLA consensus when none recorded returns 404", async () => {
 });
 
 test("HLA consensus with invalid input returns 400", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
@@ -727,10 +727,10 @@ test("HLA consensus with invalid input returns 400", async () => {
   assert.equal(badRes.body.code, "invalid_input");
 });
 
-// ─── QC Gate ────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ QC Gate в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("evaluating QC on a completed run records the gate and transitions case to QC_PASSED", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
   const qcRes = await request(app)
@@ -754,7 +754,7 @@ test("evaluating QC on a completed run records the gate and transitions case to 
 });
 
 test("evaluating QC with any failing metric transitions case to QC_FAILED", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
   const qcRes = await request(app)
@@ -772,7 +772,7 @@ test("evaluating QC with any failing metric transitions case to QC_FAILED", asyn
 });
 
 test("evaluating QC with passing metrics and non-warning notes keeps the case PASSED", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
   const qcRes = await request(app)
@@ -790,7 +790,7 @@ test("evaluating QC with passing metrics and non-warning notes keeps the case PA
 });
 
 test("evaluating QC with an explicit warning marker produces WARN without failing the case", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
   const qcRes = await request(app)
@@ -808,7 +808,7 @@ test("evaluating QC with an explicit warning marker produces WARN without failin
 });
 
 test("retrieving QC gate for a specific run returns the recorded result", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
   await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({
@@ -822,7 +822,7 @@ test("retrieving QC gate for a specific run returns the recorded result", async 
 });
 
 test("QC gate on a non-completed run returns 409", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const qcRes = await request(app)
@@ -836,7 +836,7 @@ test("QC gate on a non-completed run returns 409", async () => {
 });
 
 test("QC gate with no results returns 400", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
   const qcRes = await request(app)
@@ -847,10 +847,10 @@ test("QC gate with no results returns 400", async () => {
   assert.equal(qcRes.body.code, "invalid_input");
 });
 
-// ─── Reference Bundle Registry ──────────────────────────────────────
+// в”Ђв”Ђв”Ђ Reference Bundle Registry в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("listing reference bundles returns the default pre-loaded catalog", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
   const listRes = await request(app).get("/api/reference-bundles");
   assert.equal(listRes.status, 200);
@@ -863,7 +863,7 @@ test("listing reference bundles returns the default pre-loaded catalog", async (
 });
 
 test("getting a specific reference bundle returns its manifest", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
   const getRes = await request(app).get("/api/reference-bundles/GRCh38-2026a");
   assert.equal(getRes.status, 200);
@@ -873,7 +873,7 @@ test("getting a specific reference bundle returns its manifest", async () => {
 });
 
 test("getting a non-existent reference bundle returns 404", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
   const getRes = await request(app).get("/api/reference-bundles/nonexistent");
   assert.equal(getRes.status, 404);
@@ -881,7 +881,7 @@ test("getting a non-existent reference bundle returns 404", async () => {
 });
 
 test("requesting a workflow with an unknown reference bundle returns 404 and leaves the case unchanged", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
@@ -905,7 +905,7 @@ test("requesting a workflow with an unknown reference bundle returns 404 and lea
 
 test("starting a workflow run pins the requested reference bundle to the run", async () => {
   const referenceBundleRegistry = new InMemoryReferenceBundleRegistry();
-  const app = createApp({ referenceBundleRegistry });
+  const app = createApp({ referenceBundleRegistry , rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
   const runId = "run-pin-001";
 
@@ -921,10 +921,10 @@ test("starting a workflow run pins the requested reference bundle to the run", a
   assert.equal(startedRun.pinnedReferenceBundle.hlaDatabaseVersion, "IMGT/HLA 3.55.0");
 });
 
-// ─── End-to-End Lineage ─────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ End-to-End Lineage в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-test("full workflow lifecycle: request → start → complete → QC PASS traces full audit lineage", async () => {
-  const app = createApp();
+test("full workflow lifecycle: request в†’ start в†’ complete в†’ QC PASS traces full audit lineage", async () => {
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
   // 1. Create case, register samples, request workflow
   const caseId = await createCaseAtWorkflowRequested(app);
@@ -979,7 +979,7 @@ test("full workflow lifecycle: request → start → complete → QC PASS traces
 });
 
 test("HLA consensus + QC in full workflow produces complete provenance chain", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
   // Record HLA consensus
@@ -1011,10 +1011,10 @@ test("HLA consensus + QC in full workflow produces complete provenance chain", a
   assert.ok(auditTypes.includes("qc.evaluated"));
 });
 
-// ─── Board Packet Generation ───────────────────────────────────────
+// в”Ђв”Ђв”Ђ Board Packet Generation в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("generating a board packet creates a versioned review packet from current case evidence", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId } = await createReviewReadyCase(app);
 
   const packetRes = await request(app)
@@ -1042,7 +1042,7 @@ test("generating a board packet creates a versioned review packet from current c
 });
 
 test("generating the same board packet twice without case changes reuses the existing packet", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId } = await createReviewReadyCase(app);
 
   const firstRes = await request(app).post(`/api/cases/${caseId}/board-packets`).send({});
@@ -1056,7 +1056,7 @@ test("generating the same board packet twice without case changes reuses the exi
 });
 
 test("board packet generation is blocked until review evidence is complete", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId } = await createCaseWithCompletedWorkflow(app);
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`).send({});
@@ -1069,7 +1069,7 @@ test("board packet generation is blocked until review evidence is complete", asy
 });
 
 test("board packet generation requires a configured multidisciplinary review route", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId } = await createReviewReadyCase(app, { boardRoute: undefined });
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`).send({});
@@ -1079,7 +1079,7 @@ test("board packet generation requires a configured multidisciplinary review rou
 });
 
 test("listing and fetching board packets returns the stored review packet", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId } = await createReviewReadyCase(app);
 
   const createPacketRes = await request(app).post(`/api/cases/${caseId}/board-packets`).send({});
@@ -1096,9 +1096,9 @@ test("listing and fetching board packets returns the stored review packet", asyn
   assert.equal(getRes.body.packet.snapshot.caseSummary.caseId, caseId);
 });
 
-// ─── Slice 2.C: Manifest in board packet ──────────────────────────
+// в”Ђв”Ђв”Ђ Slice 2.C: Manifest in board packet в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 test("board packet snapshot includes the workflow run manifest", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
@@ -1162,10 +1162,10 @@ test("board packet snapshot includes the workflow run manifest", async () => {
   assert.equal(snapshotRun.manifest.inputArtifactSet.length, 1);
 });
 
-// ─── Error Paths ────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Error Paths в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("workflow operations on a non-existent case return 404", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
   const startRes = await request(app)
     .post("/api/cases/nonexistent/runs/run-001/start")
@@ -1177,7 +1177,7 @@ test("workflow operations on a non-existent case return 404", async () => {
 });
 
 test("fail workflow run input validation rejects missing reason", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const failRes = await request(app)
@@ -1189,7 +1189,7 @@ test("fail workflow run input validation rejects missing reason", async () => {
 });
 
 test("complete workflow run with empty body still succeeds (no derived artifacts)", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const completeRes = await request(app)
@@ -1202,7 +1202,7 @@ test("complete workflow run with empty body still succeeds (no derived artifacts
 });
 
 test("root endpoint lists all Phase 2 API routes", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const rootRes = await request(app).get("/");
   assert.equal(rootRes.status, 200);
 
@@ -1238,10 +1238,10 @@ test("root endpoint lists all Phase 2 API routes", async () => {
   assert.ok(api.includes("GET /api/reference-bundles/:bundleId"));
 });
 
-// ─── Wave 1: Timestamp Separation ──────────────────────────────────
+// в”Ђв”Ђв”Ђ Wave 1: Timestamp Separation в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("starting a workflow run records acceptedAt as the submission timestamp", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
 
   const startRes = await request(app)
@@ -1256,7 +1256,7 @@ test("starting a workflow run records acceptedAt as the submission timestamp", a
 });
 
 test("replaying workflow start preserves the original acceptedAt timestamp", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
 
   const first = await request(app)
@@ -1273,10 +1273,10 @@ test("replaying workflow start preserves the original acceptedAt timestamp", asy
   );
 });
 
-// ─── Wave 1: Terminal Error Taxonomy ────────────────────────────────
+// в”Ђв”Ђв”Ђ Wave 1: Terminal Error Taxonomy в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("failing a workflow run with a failure category persists it on the run record", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const failRes = await request(app)
@@ -1291,7 +1291,7 @@ test("failing a workflow run with a failure category persists it on the run reco
 });
 
 test("failing a workflow run without a failure category defaults to unknown", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const failRes = await request(app)
@@ -1306,7 +1306,7 @@ test("failing a workflow run without a failure category defaults to unknown", as
 });
 
 test("failing a workflow run with an invalid failure category returns 400", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const failRes = await request(app)
@@ -1318,7 +1318,7 @@ test("failing a workflow run with an invalid failure category returns 400", asyn
 });
 
 test("replaying workflow failure preserves the original failureCategory", async () => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const first = await request(app)
@@ -1336,11 +1336,11 @@ test("replaying workflow failure preserves the original failureCategory", async 
   );
 });
 
-// ─── Slice 1.C: Typed Terminal Metadata ─────────────────────────────
+// в”Ђв”Ђв”Ђ Slice 1.C: Typed Terminal Metadata в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("completing a workflow run carries typed terminalMetadata from the runner", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner } as never);
+  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
 
   await request(app).post(`/api/cases/${caseId}/runs/run-meta-001/start`).send({});
@@ -1357,7 +1357,7 @@ test("completing a workflow run carries typed terminalMetadata from the runner",
 
 test("failing a workflow run carries typed terminalMetadata from the runner", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner } as never);
+  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
 
   await request(app).post(`/api/cases/${caseId}/runs/run-meta-002/start`).send({});
@@ -1372,7 +1372,7 @@ test("failing a workflow run carries typed terminalMetadata from the runner", as
   assert.equal(run.runMetadata, undefined);
 });
 
-// ─── Slice 2.A: Immutable Run Manifest — Zod schema ────────────────
+// в”Ђв”Ђв”Ђ Slice 2.A: Immutable Run Manifest вЂ” Zod schema в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("WorkflowRunManifest Zod schema validates a complete manifest", async () => {
   const { parseWorkflowRunManifest } = await import("../src/validation.js");
@@ -1412,7 +1412,7 @@ test("WorkflowRunManifest Zod schema rejects a partial manifest", async () => {
 
 test("starting a workflow run with a manifest attaches it to the run record", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner } as never);
+  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
   const manifest = {
     manifestVersion: 1,
@@ -1441,10 +1441,10 @@ test("starting a workflow run with a manifest attaches it to the run record", as
   assert.equal(run.manifest.inputArtifactSet.length, 1);
 });
 
-// ─── Slice 2.B: Manifest replay identity ──────────────────────────
+// в”Ђв”Ђв”Ђ Slice 2.B: Manifest replay identity в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 test("replaying a workflow start with the same manifest is idempotent", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner } as never);
+  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
   const manifest = {
     manifestVersion: 1,
@@ -1478,7 +1478,7 @@ test("replaying a workflow start with the same manifest is idempotent", async ()
 
 test("replaying a workflow start with a different manifest returns 409", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner } as never);
+  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
   const manifest = {
     manifestVersion: 1,
@@ -1514,7 +1514,7 @@ test("replaying a workflow start with a different manifest returns 409", async (
   );
 });
 
-// ─── Slice 2.D: Manifest-only run reconstruction ──────────────────
+// в”Ђв”Ђв”Ђ Slice 2.D: Manifest-only run reconstruction в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 test("reconstructRunFromManifest builds a complete run record from manifest + terminal evidence", async () => {
   const { reconstructRunFromManifest } = await import("../src/store.js");
   const manifest = {

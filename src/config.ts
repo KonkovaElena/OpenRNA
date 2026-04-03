@@ -68,7 +68,7 @@ const configSchema = z.object({
   ),
   API_KEY: optionalEnvText(),
   API_KEY_PRINCIPAL_ID: optionalEnvText(),
-  RBAC_ALLOW_ALL: optionalEnvBoolean(true),
+  RBAC_ALLOW_ALL: optionalEnvBoolean(false),
   JWT_SHARED_SECRET: optionalEnvText().refine(
     (value) => value === undefined || Buffer.byteLength(value, "utf-8") >= 32,
     "JWT_SHARED_SECRET must be at least 32 bytes when provided.",

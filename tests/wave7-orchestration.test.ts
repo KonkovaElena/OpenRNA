@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
 import { createApp } from "../src/app";
@@ -18,7 +18,7 @@ import {
   workflowDependencies,
 } from "../src/types";
 
-// ─── FakeWorkflowRunner ─────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ FakeWorkflowRunner в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 class FakeWorkflowRunner implements IWorkflowRunner {
   private runs = new Map<string, WorkflowRunRecord>();
@@ -78,7 +78,7 @@ class FakeWorkflowRunner implements IWorkflowRunner {
   }
 }
 
-// ─── FailingWorkflowRunner: always fails startRun for a given workflow ─────
+// в”Ђв”Ђв”Ђ FailingWorkflowRunner: always fails startRun for a given workflow в”Ђв”Ђв”Ђв”Ђв”Ђ
 
 class FailingWorkflowRunner extends FakeWorkflowRunner {
   constructor(private failOn: string) {
@@ -92,7 +92,7 @@ class FailingWorkflowRunner extends FakeWorkflowRunner {
   }
 }
 
-// ─── HTTP Helpers ───────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ HTTP Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 function buildCaseInput() {
   return {
@@ -133,7 +133,7 @@ function buildSourceArtifact(sample: { sampleId: string; sampleType: string }) {
   };
 }
 
-// ─── 7.A: Well-known workflow names ─────────────────────────────────
+// в”Ђв”Ђв”Ђ 7.A: Well-known workflow names в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("Wave 7.A: well-known workflow names", async (t) => {
   await t.test("wellKnownWorkflowNames contains the expected 6 workflows", () => {
@@ -204,9 +204,9 @@ test("Wave 7.A: well-known workflow names", async (t) => {
   });
 });
 
-// ─── 7.B: Orchestrator plan() ───────────────────────────────────────
+// в”Ђв”Ђв”Ђ 7.B: Orchestrator plan() в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-test("Wave 7.B: orchestrator plan — topological ordering", async (t) => {
+test("Wave 7.B: orchestrator plan вЂ” topological ordering", async (t) => {
   const runner = new FakeWorkflowRunner();
   const orchestrator = new InMemoryWorkflowOrchestrator(runner, "GRCh38-2026a", "standard");
 
@@ -262,9 +262,9 @@ test("Wave 7.B: orchestrator plan — topological ordering", async (t) => {
   });
 });
 
-// ─── 7.B: Orchestrator execute() ────────────────────────────────────
+// в”Ђв”Ђв”Ђ 7.B: Orchestrator execute() в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-test("Wave 7.B: orchestrator execute — all workflows succeed", async (t) => {
+test("Wave 7.B: orchestrator execute вЂ” all workflows succeed", async (t) => {
   const runner = new FakeWorkflowRunner();
   const orchestrator = new InMemoryWorkflowOrchestrator(runner, "GRCh38-2026a", "standard");
 
@@ -290,7 +290,7 @@ test("Wave 7.B: orchestrator execute — all workflows succeed", async (t) => {
   });
 });
 
-test("Wave 7.B: orchestrator execute — failure cascades to skip", async (t) => {
+test("Wave 7.B: orchestrator execute вЂ” failure cascades to skip", async (t) => {
   await t.test("dna-qc failure skips downstream somatic-calling, annotation, combined-evidence", async () => {
     const runner = new FailingWorkflowRunner("dna-qc");
     const orchestrator = new InMemoryWorkflowOrchestrator(runner, "GRCh38-2026a", "standard");
@@ -338,7 +338,7 @@ test("Wave 7.B: orchestrator execute — failure cascades to skip", async (t) =>
   });
 });
 
-// ─── 7.C: Evidence lineage — unit tests for buildEvidenceLineage ────
+// в”Ђв”Ђв”Ђ 7.C: Evidence lineage вЂ” unit tests for buildEvidenceLineage в”Ђв”Ђв”Ђв”Ђ
 
 test("Wave 7.C: buildEvidenceLineage with dependency chain", async (t) => {
   const dnaQcRun: WorkflowRunRecord = {
@@ -419,14 +419,14 @@ test("Wave 7.C: buildEvidenceLineage with dependency chain", async (t) => {
     assert.equal(edge.artifactId, "art-qc-1");
   });
 
-  await t.test("builds full chain: dna-qc → somatic → annotation", () => {
+  await t.test("builds full chain: dna-qc в†’ somatic в†’ annotation", () => {
     const lineage = buildEvidenceLineage([dnaQcRun, somaticRun, annotationRun], artifacts);
-    // dna-qc → somatic-calling (qc-summary-json)
+    // dna-qc в†’ somatic-calling (qc-summary-json)
     const edge1 = lineage.edges.find(
       (e) => e.producerWorkflow === "dna-qc" && e.consumerWorkflow === "somatic-calling",
     );
     assert.ok(edge1);
-    // somatic-calling → annotation (somatic-vcf)
+    // somatic-calling в†’ annotation (somatic-vcf)
     const edge2 = lineage.edges.find(
       (e) => e.producerWorkflow === "somatic-calling" && e.consumerWorkflow === "annotation",
     );
@@ -502,10 +502,10 @@ test("Wave 7.C: buildEvidenceLineage with dependency chain", async (t) => {
   });
 });
 
-// ─── 7.C: Evidence lineage in board packet via HTTP ─────────────────
+// в”Ђв”Ђв”Ђ 7.C: Evidence lineage in board packet via HTTP в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("Wave 7.C: board packet with single workflow has no evidence lineage", async (t) => {
-  const app = createApp();
+  const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
   await t.test("board packet omits evidenceLineage when only one non-well-known workflow exists", async () => {
     const createRes = await request(app).post("/api/cases").send(buildCaseInput());
@@ -567,6 +567,6 @@ test("Wave 7.C: board packet with single workflow has no evidence lineage", asyn
     assert.equal(packetRes.status, 201, "board packet");
 
     const snapshot = packetRes.body.packet.snapshot;
-    assert.equal(snapshot.evidenceLineage, undefined, "No dependency edges → no lineage");
+    assert.equal(snapshot.evidenceLineage, undefined, "No dependency edges в†’ no lineage");
   });
 });
