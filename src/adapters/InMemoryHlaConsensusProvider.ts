@@ -1,6 +1,9 @@
 import type { HlaConsensusRecord, HlaDisagreementRecord } from "../types";
 import type { IHlaConsensusProvider, HlaTypingInput } from "../ports/IHlaConsensusProvider";
 
+/**
+ * @sota-stub Stub implementation of IHlaConsensusProvider providing local math consensus resolution.
+ */
 export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
   private readonly records = new Map<string, HlaConsensusRecord>();
 
@@ -17,9 +20,18 @@ export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
       }
     }
 
+    let validInputs = 0;
+    let sumConfidence = 0;
+    for (const i of inputs) {
+      if (Number.isFinite(i.confidence) && i.confidence >= 0 && i.confidence <= 1) {
+        sumConfidence += i.confidence;
+        validInputs++;
+      }
+    }
+
     const avgConfidence =
-      inputs.length > 0
-        ? inputs.reduce((sum, i) => sum + i.confidence, 0) / inputs.length
+      validInputs > 0
+        ? sumConfidence / validInputs
         : 0;
 
     // Detect disagreements: compare alleles across tool pairs per locus

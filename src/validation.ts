@@ -244,7 +244,11 @@ const workflowRunManifestSchema = z.object({
 const hlaToolEvidenceSchema = z.object({
   toolName: requiredText("perToolEvidence[].toolName"),
   alleles: nonEmptyStringArray("perToolEvidence[].alleles", "perToolEvidence[].alleles[]"),
-  confidence: numberField("perToolEvidence[].confidence").min(0, "confidence must be between 0 and 1.").max(1, "confidence must be between 0 and 1."),
+  confidence: numberField("perToolEvidence[].confidence")
+    .finite()
+    .min(0, "confidence must be between 0 and 1.")
+    .max(1, "confidence must be between 0 and 1.")
+    .multipleOf(0.001, "confidence must have at most 3 decimal places."),
   rawOutput: optionalText("perToolEvidence[].rawOutput"),
 }).strict() satisfies z.ZodType<HlaToolEvidence>;
 
@@ -253,7 +257,11 @@ const recordHlaConsensusInputSchema = z.object({
   perToolEvidence: z.array(hlaToolEvidenceSchema, {
     error: "perToolEvidence must be a non-empty array.",
   }).min(1, "perToolEvidence must be a non-empty array."),
-  confidenceScore: numberField("confidenceScore").min(0, "confidenceScore must be between 0 and 1.").max(1, "confidenceScore must be between 0 and 1."),
+  confidenceScore: numberField("confidenceScore")
+    .finite()
+    .min(0, "confidenceScore must be between 0 and 1.")
+    .max(1, "confidenceScore must be between 0 and 1.")
+    .multipleOf(0.001, "confidenceScore must have at most 3 decimal places."),
   tieBreakNotes: optionalText("tieBreakNotes"),
   referenceVersion: requiredText("referenceVersion"),
 }).strict() satisfies z.ZodType<RecordHlaConsensusInput>;
@@ -290,14 +298,22 @@ type RecordClinicalFollowUpInput = Omit<ClinicalFollowUpRecord, "caseId">;
 const rankingRationaleSchema = z.object({
   candidateId: requiredText("rankedCandidates[].candidateId"),
   rank: positiveInteger("rankedCandidates[].rank"),
-  compositeScore: numberField("rankedCandidates[].compositeScore"),
+  compositeScore: numberField("rankedCandidates[].compositeScore")
+    .finite()
+    .min(0, "compositeScore must be between 0 and 1.")
+    .max(1, "compositeScore must be between 0 and 1.")
+    .multipleOf(0.001, "compositeScore must have at most 3 decimal places."),
   featureWeights: z.record(z.string(), z.number(), {
     error: "rankedCandidates[].featureWeights must be an object of numeric weights.",
   }),
   featureScores: z.record(z.string(), z.number(), {
     error: "rankedCandidates[].featureScores must be an object of numeric scores.",
   }),
-  uncertaintyContribution: numberField("rankedCandidates[].uncertaintyContribution"),
+  uncertaintyContribution: numberField("rankedCandidates[].uncertaintyContribution")
+    .finite()
+    .min(0, "uncertaintyContribution must be >= 0.")
+    .max(1, "uncertaintyContribution must be <= 1.")
+    .multipleOf(0.001, "uncertaintyContribution must have at most 3 decimal places."),
   explanation: requiredText("rankedCandidates[].explanation"),
 }).strict() satisfies z.ZodType<RankingRationale>;
 
