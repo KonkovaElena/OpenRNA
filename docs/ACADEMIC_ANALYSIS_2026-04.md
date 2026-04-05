@@ -1,10 +1,10 @@
 ﻿---
 title: "Academic Analysis: OpenRNA as a Personalized Neoantigen mRNA Vaccine Control Plane"
 status: active
-version: "1.4.0"
-last_updated: "2026-04-04"
+version: "1.4.1"
+last_updated: "2026-04-05"
 tags: [academic-analysis, oncology, mrna, neoantigen, control-plane, architecture]
-evidence_cutoff: "2026-04-04"
+evidence_cutoff: "2026-04-05"
 ---
 
 # Academic Analysis: OpenRNA Platform
@@ -13,7 +13,7 @@ evidence_cutoff: "2026-04-04"
 
 This is a peer-review-grade technical analysis of the OpenRNA platform -- a TypeScript/Node.js control plane we've built for orchestrating personalized neoantigen mRNA vaccine workflows. We cover the medical context, technical architecture, gap assessment, competitive positioning, and a phased strategic roadmap. Every factual claim is checked against primary sources (PubMed, ClinicalTrials.gov, official product documentation) as of April 4, 2026.
 
-The April 4, 2026 refresh corrects stale numeric claims against current ClinicalTrials.gov registry data, updates port/adapter/test counts to match the audited working tree, and adds INTerpath-001 enrollment specifics verified directly from NCT05933577. Recommendations remain framed as evolutions of current OpenRNA capabilities rather than as greenfield architecture proposals.
+The April 5, 2026 refresh corrects stale numeric claims against current ClinicalTrials.gov registry data, updates port/adapter/test counts to match the re-audited working tree, refreshes coverage metrics from the current standalone verification lane, and keeps INTerpath-001 enrollment specifics anchored to NCT05933577. Recommendations remain framed as evolutions of current OpenRNA capabilities rather than as greenfield architecture proposals.
 
 Evidence tier markers follow the 4-tier system defined in `design.md`:
 - **[T1]** Implemented in this repository
@@ -467,7 +467,7 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 | 20 adapters | `src/adapters/*.ts` | PASS - Verified as 16 in-memory plus 4 integration/persistence adapters |
 | 7 middleware surfaces plus correlation propagation | `src/middleware/*.ts`, `src/app.ts` | PASS - Verified against the Express composition root (including `consent-gate.ts` and `auth-context.ts`) |
 | 2 SQL migrations | `src/migrations/*.sql` | PASS - Verified by direct inventory |
-| Broad test surface | `README.md`, `tests/*` | PASS - 430 tests across 22 suites; line coverage 94.81%, branch 82.64%, function 94.07% (verified 2026-04-03) |
+| Broad test surface | `README.md`, `tests/*` | PASS - 440 tests across 22 suites; line coverage 95.00%, branch 83.44%, function 94.94% (verified 2026-04-05) |
 | GitHub-native verification and provenance automation | `.github/workflows/*.yml`, `.github/release.yml` | PASS - Verified for CI, CodeQL, dependency review, SBOM and attestation generation, and semver-tag release publication |
 
 ### Claims Requiring Ongoing Monitoring
@@ -499,7 +499,7 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 3. **Regulatory foresight**: Audit trail, traceability, and immutability are built into the architecture from the start, not retrofitted.
 4. **Multi-modality readiness**: The modality registry (mRNA/saRNA/circRNA) with activation governance positions the platform for future RNA modalities without re-architecture.
 5. **Evidence-grounded documentation**: All design claims are tier-classified and traceable to primary sources.
-6. **Broad verification surface**: the repository passes 430 tests across 22 suites with 94.81% line coverage, 82.64% branch coverage, and 94.07% function coverage -- verified on the audited revision (2026-04-03).
+6. **Broad verification surface**: the repository passes 440 tests across 22 suites with 95.00% line coverage, 83.44% branch coverage, and 94.94% function coverage -- verified on the audited revision (2026-04-05).
 7. **Public-repository hardening**: GitHub-native CI, CodeQL, dependency review, SBOM and provenance automation, and tag-driven release assets now exist as tracked repository surfaces rather than as out-of-band maintainer steps.
 
 ### Risks
