@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA Hyper Audit 2026"
 status: active
-version: "1.1.0"
-last_updated: "2026-04-03"
+version: "1.2.0"
+last_updated: "2026-04-04"
 tags: [openrna, audit, security, architecture, event-sourcing, compliance]
 mode: evidence
 evidence_cutoff: "2026-04-03"
@@ -12,27 +12,27 @@ evidence_cutoff: "2026-04-03"
 
 ## Executive Verdict
 
-OpenRNA in its current April 3, 2026 state is a strong research-grade and increasingly pre-production control plane with unusually good verification depth for a standalone public repository. The local evidence chain is materially strong and fresh on the audited working tree: `npm run build`, `npm test`, `npm run test:coverage`, `npm audit --omit=dev --audit-level=high`, and CycloneDX SBOM emission all passed during this audit.
+OpenRNA, as of April 3, 2026, is a strong research-grade control plane with unusually good verification depth for a standalone public repository. We verified the local evidence chain directly: `npm run build`, `npm test`, `npm run test:coverage`, `npm audit --omit=dev --audit-level=high`, and CycloneDX SBOM emission all pass clean.
 
-The project is stronger than the initial audit snapshot suggested. Several previously open hardening gaps are now materially closed:
+The project is stronger than the initial audit snapshot suggested. Several previously open gaps are now closed:
 
-1. RBAC is deny-by-default in configuration and in the in-memory provider;
-2. route-level authorization now covers case reads and case-mutating endpoints;
-3. case-scoped write routes are blocked by an active-consent middleware;
-4. `stateMachineGuard` is injected into both bootstrapped memory and PostgreSQL store paths.
+1. RBAC is deny-by-default — in config and in the in-memory provider;
+2. Route-level authorization covers case reads and case-mutating endpoints;
+3. Case-scoped writes are blocked by active-consent middleware;
+4. `stateMachineGuard` is injected in both memory and PostgreSQL store paths.
 
-The project is still not ready for regulated human-oncology deployment or a security-sensitive pilot without further hardening. The dominant remaining blockers are now narrower and more precise:
+That said — it's not ready for regulated human-oncology deployment or a security-sensitive pilot. The remaining blockers are narrower and more precise than before:
 
-1. authorization is route-complete, but not resource-scoped;
-2. consent is enforced on case-scoped writes, but is not yet authoritative for lifecycle snapshots or disclosure/export surfaces;
-3. event sourcing is durable only in memory, not as a first-class PostgreSQL event log;
-4. audit signing and release authority remain integrity-oriented rather than regulatory-grade.
+1. Authorization is route-complete but not resource-scoped (no case-ownership enforcement);
+2. Consent gates writes but doesn't yet govern lifecycle snapshots or export surfaces;
+3. Event sourcing is durable only in memory — PostgreSQL stores projections, not the event stream;
+4. Audit signing uses HMAC for integrity, not asymmetric signatures for non-repudiation.
 
-In short: the repository demonstrates strong engineering discipline, high testability, and visible control hardening progress, but several trust-boundary and traceability claims still need to be tightened before the platform can support higher-assurance deployment narratives.
+Bottom line: strong engineering discipline, high testability, visible hardening momentum — but several trust-boundary and traceability claims still need tightening before this can support higher-assurance deployment narratives.
 
 ## Scope
 
-This audit covers the standalone repository at `external/mRNA-standalone` as a separate software product.
+This audit covers the standalone OpenRNA repository as a separate software product.
 
 Audited surfaces:
 
@@ -293,6 +293,8 @@ The following items remain outside what can be proven from local code and local 
 
 ## Bottom Line
 
-OpenRNA already behaves like a serious engineering repository, and materially more so than the earliest April 2026 snapshot suggested. It still does not behave like a security-complete or compliance-complete oncology platform.
+OpenRNA already behaves like a serious engineering repository — and noticeably more so than the earliest April snapshot suggested. It doesn't yet behave like a security-complete or compliance-complete oncology platform. That distinction is healthy.
 
-That distinction is healthy. The codebase is now closest to a high-quality translational research control plane with meaningful hardening momentum, strong verification discipline, and clear upgrade paths. The next phase should not add more features first. It should finish the remaining control work around resource-scoped authorization, authoritative consent governance, durable domain-event history, and release authority.
+What we have now: a high-quality translational research control plane with real hardening momentum, strong verification discipline, and clear upgrade paths.
+
+What comes next: don't add more features first. Finish the control work — resource-scoped authorization, authoritative consent governance, durable domain-event history, and release authority. The gaps are well-defined and the architecture already anticipates them.

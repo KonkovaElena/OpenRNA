@@ -1,5 +1,5 @@
 -- 001_full_schema.sql
--- Normalized schema for personalized-mrna-control-plane.
+-- Normalized schema for OpenRNA.
 -- Replaces the JSONB-blob case_records table with proper relational tables.
 
 BEGIN;

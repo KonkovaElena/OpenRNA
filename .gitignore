@@ -3,6 +3,7 @@ dist/
 coverage/
 *.log
 .copilot-*.diff
+openrna-runtime-sbom.cdx.json
 .env
 .env.*
 !.env.example

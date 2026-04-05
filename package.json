@@ -1,7 +1,7 @@
 {
   "name": "openrna",
   "version": "0.1.0",
-  "description": "Control-plane for a human personalized neoantigen RNA vaccine platform",
+  "description": "OpenRNA control plane for personalized neoantigen RNA vaccine workflows",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

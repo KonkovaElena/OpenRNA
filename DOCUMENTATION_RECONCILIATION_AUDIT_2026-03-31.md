@@ -1,6 +1,6 @@
 ---
 title: "Documentation Reconciliation Audit 2026-03-31"
-status: "active-evidence"
+status: "historical-evidence"
 version: "1.0.0"
 last_updated: "2026-03-31"
 tags: [documentation, audit, evidence, regulatory, toolchain, clinical-trials]
@@ -10,7 +10,7 @@ tags: [documentation, audit, evidence, regulatory, toolchain, clinical-trials]
 
 ## Scope
 
-This memo certifies the current active documentation layer in `external/mRNA-standalone` after the March 31, 2026 reconciliation pass.
+This memo captures the March 31, 2026 reconciliation pass for the standalone OpenRNA repository.
 
 Assessment boundary:
 - routing and explanation surfaces: `README.md`, `design.md`
@@ -80,6 +80,6 @@ Refresh this memo and the companion docs if any of the following changes occur:
 
 ## Certification Statement
 
-As of 2026-03-31, the active documentation surface of `external/mRNA-standalone` is reconciled to the current repo state and to the specific primary-source checks performed for clinical registry anchors, FDA Part 11 scope, EMA ATMP framing, and TypeScript module guidance.
+As of 2026-03-31, the active documentation surface of the standalone OpenRNA repository was reconciled to the then-current repo state and to the specific primary-source checks performed for clinical registry anchors, FDA Part 11 scope, EMA ATMP framing, and TypeScript module guidance.
 
 This memo certifies documentation accuracy for engineering and planning use. It does not constitute legal, regulatory, clinical, or investment advice.

@@ -2,11 +2,15 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-Control-plane for a human personalized neoantigen RNA vaccine platform.
+**Control-plane for personalized neoantigen RNA vaccine workflows.**
+
+430 tests. 94.8% line coverage. 17 domain ports. Zero runtime vulnerabilities. Apache-2.0.
 
 ## What This Is
 
-A production-shaped control-plane slice covering Phases 1–2 of a personalized neoantigen RNA vaccine workflow: from patient case intake through molecular profiling orchestration, neoantigen ranking, construct design, expert review, manufacturing handoff, and outcome tracking.
+A production-shaped control-plane slice covering Phases 1–2 of a personalized neoantigen RNA vaccine workflow: patient case intake → molecular profiling orchestration → neoantigen ranking → construct design → expert review → manufacturing handoff → outcome tracking.
+
+The two largest clinical programs in this space — Moderna/Merck's V940 (INTerpath-001, 1,089 patients across 165 sites) and BioNTech's autogene cevumeran (IMCODE003) — demonstrate exactly the kind of per-patient operational complexity that a control plane manages: consent state, sample provenance, reference-bundle versioning, review packets, handoff traceability, outcome linkage.
 
 **What it is not**: a bioinformatics pipeline, an RNA sequence designer, or a clinical decision system. Those are upstream/downstream systems that this platform orchestrates through well-defined port interfaces.
 
@@ -38,7 +42,7 @@ See [`design.md`](design.md) for full architecture and evidence classification.
 
 ## Architecture
 
-- **11 domain port interfaces** abstracting all external dependencies
+- **17 domain port interfaces** abstracting all external dependencies
 - **Dual adapter strategy**: in-memory (default) + PostgreSQL for durable persistence
 - **Dependency injection** via `AppDependencies` factory — no runtime coupling to implementations
 - **Zod runtime validation** on all API inputs
@@ -104,15 +108,16 @@ Leave database URLs blank for the in-memory path. Set `CASE_STORE_DATABASE_URL` 
 
 | Document | Purpose |
 |----------|---------|
-| [`design.md`](design.md) | Authority architecture document (v3.0.0) with 4-tier evidence classification |
+| [`design.md`](design.md) | Authority architecture document for OpenRNA with 4-tier evidence classification |
 | [`docs/REGULATORY_CONTEXT.md`](docs/REGULATORY_CONTEXT.md) | FDA/EMA/Part 11/GMP mapping and compliance gap analysis |
 | [`docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) | Clinical evidence, competitor landscape, HLA/neoantigen tool catalog |
 | [`docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md`](docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md) | Dependency versions, migration decisions, bioinformatics ecosystem |
 | [`docs/GITHUB_MAINTAINER_BASELINE_2026-04.md`](docs/GITHUB_MAINTAINER_BASELINE_2026-04.md) | GitHub-side settings baseline for branch protection and security controls |
 | [`docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md`](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md) | April 2026 publication audit, investor-facing technical narrative, and export scope |
+| [`docs/INVESTOR_ONE_PAGER_2026-04.md`](docs/INVESTOR_ONE_PAGER_2026-04.md) | Investor technical summary with market context & hard numbers |
 | [`docs/reports/OPENRNA_HYPER_AUDIT_2026.md`](docs/reports/OPENRNA_HYPER_AUDIT_2026.md) | Academic-grade hyper audit of architecture, security, persistence, and control gaps |
 | [`docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md) | Sequenced hardening program derived from the April 2026 audit |
-| [`ISOLATION_CERTIFICATION_2026-03-30.md`](ISOLATION_CERTIFICATION_2026-03-30.md) | Standalone certification verdict |
+| [`docs/reports/OPENRNA_IDENTITY_AND_CANONICALIZATION_AUDIT_2026-04-05.md`](docs/reports/OPENRNA_IDENTITY_AND_CANONICALIZATION_AUDIT_2026-04-05.md) | Naming unification and repository-topology audit for the April 2026 OpenRNA cleanup |
 
 ## API Surface
 

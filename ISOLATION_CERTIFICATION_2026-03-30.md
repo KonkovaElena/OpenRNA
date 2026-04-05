@@ -1,25 +1,25 @@
 ---
-title: "Isolation Certification 2026-03-30"
-status: "active-evidence"
+title: "OpenRNA Repository Topology Certification 2026-03-30"
+status: "historical-evidence"
 version: "1.0.0"
 last_updated: "2026-03-30"
 tags: [isolation, audit, evidence, standalone, mrna]
 ---
 
-# Isolation Certification: mRNA Standalone Keeper
+# Repository Topology Certification: OpenRNA
 
 ## Scope
 
-This memo certifies the current state of `external/mRNA-standalone` as the canonical isolated keeper candidate and classifies remaining differences against `external/mRNA-standalone-isolated`.
+This memo preserves the March 30, 2026 evidence about the standalone OpenRNA repository topology and the linked comparison worktree that existed during that certification pass.
 
 Assessment boundary:
-- keeper candidate: `external/mRNA-standalone`
-- non-keeper comparator: `external/mRNA-standalone-isolated`
-- out of scope: the parent workspace `c:/plans`, except where cross-repository coupling had to be detected and removed
+- keeper candidate: the standalone OpenRNA repository
+- non-keeper comparator: the linked comparison worktree used during the certification pass
+- out of scope: the parent workspace, except where cross-repository coupling had to be detected and removed
 
 ## Executive Verdict
 
-`external/mRNA-standalone` satisfies the practical isolation goal.
+The standalone OpenRNA repository satisfied the practical isolation goal at the time of certification.
 
 The repository now passes all five required rails:
 - Git isolation
@@ -28,7 +28,7 @@ The repository now passes all five required rails:
 - test isolation
 - runtime isolation
 
-`external/mRNA-standalone-isolated` remains structurally non-isolated because its `.git` entry is a gitfile that points into the keeper repository's worktree storage rather than owning an independent `.git` directory.
+The linked comparison worktree remained structurally non-isolated because its `.git` entry was a gitfile pointing into the keeper repository's worktree storage rather than owning an independent `.git` directory.
 
 ## Truth Table
 
@@ -63,7 +63,7 @@ The keeper needed three concrete fixes before it could be certified:
 
 ### A. Correctness deltas already absorbed into the keeper
 
-These differences were required for a defensible isolated keeper and are now closed in `external/mRNA-standalone`:
+These differences were required for a defensible isolated keeper and were closed in the standalone OpenRNA repository:
 - emitted entrypoint validation and corrected `package.json` start target
 - awaited shutdown sequencing via `src/runtime-shutdown.ts`
 - idempotent signal-driven shutdown handling in bootstrap
@@ -89,15 +89,15 @@ These belong to a separate product-scope decision, not to isolation certificatio
 
 ### D. Non-keeper structural blocker
 
-`external/mRNA-standalone-isolated` fails the keeper test at the repository-topology layer:
+The linked comparison worktree failed the keeper test at the repository-topology layer:
 - its `.git` entry is a gitfile, not a real `.git` directory
-- that gitfile points into `external/mRNA-standalone/.git/worktrees/...`
+- that gitfile pointed into the keeper repository's `.git/worktrees/...` storage
 
 Therefore it can be a useful comparison worktree, but it cannot be certified as the single isolated repository without first being re-materialized as an independent Git repository.
 
 ## Remaining Blockers
 
-No blocker remains for certifying `external/mRNA-standalone` as the isolated keeper.
+No blocker remained for certifying the standalone OpenRNA repository as the isolated keeper.
 
 Remaining work, if desired, is elective:
 - port additional feature surfaces from the linked worktree into the keeper
@@ -105,6 +105,8 @@ Remaining work, if desired, is elective:
 
 ## Certification Statement
 
-As of 2026-03-30, `external/mRNA-standalone` is the only verified isolated mRNA repository variant in this workspace.
+As of 2026-03-30, the standalone OpenRNA repository was the only verified isolated repository variant in this workspace.
+
+Historical note: the linked comparison worktree discussed in this memo was later removed during the April 5, 2026 repository canonicalization pass. This file remains as evidence of the earlier topology review, not as a current routing document.
 
 The certification is grounded in direct repository-state inspection, clean reinstall, full rebuild, full test execution, and live HTTP runtime verification inside the standalone repository itself.
