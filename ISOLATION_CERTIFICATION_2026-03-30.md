@@ -8,6 +8,10 @@ tags: [isolation, audit, evidence, standalone, mrna]
 
 # Repository Topology Certification: OpenRNA
 
+> Historical evidence only.
+> Current public routing starts at [README.md](README.md) and [docs/PUBLIC_ARCHITECTURE_INDEX.md](docs/PUBLIC_ARCHITECTURE_INDEX.md).
+> Current publication posture lives in [docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md).
+
 ## Scope
 
 This memo preserves the March 30, 2026 evidence about the standalone OpenRNA repository topology and the linked comparison worktree that existed during that certification pass.
