@@ -607,32 +607,26 @@ export class PostgresCaseStore implements CaseStore {
     if (!caseResult.rows[0]) return null;
     const c = caseResult.rows[0];
 
-    const samplesR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM samples WHERE case_id = $1 ORDER BY registered_at`, [caseId]);
-    const artifactsR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM artifacts WHERE case_id = $1 ORDER BY registered_at`, [caseId]);
-    const requestsR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM workflow_requests WHERE case_id = $1 ORDER BY requested_at`, [caseId]);
-    const runsR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM workflow_runs WHERE case_id = $1 ORDER BY started_at NULLS LAST`, [caseId]);
-    const runArtsR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM run_artifacts WHERE case_id = $1 ORDER BY registered_at`, [caseId]);
-    const auditsR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM audit_events WHERE case_id = $1 ORDER BY occurred_at`, [caseId]);
-    const timelineR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM timeline_events WHERE case_id = $1 ORDER BY at`, [caseId]);
-    const outcomesR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM outcome_timeline WHERE case_id = $1 ORDER BY occurred_at, entry_id`, [caseId]);
-    const hlaR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM hla_consensus WHERE case_id = $1`, [caseId]);
-    const qcR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM qc_gates WHERE case_id = $1`, [caseId]);
-    const packetsR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM board_packets WHERE case_id = $1 ORDER BY created_at`, [caseId]);
-    const reviewOutcomesR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM review_outcomes WHERE case_id = $1 ORDER BY reviewed_at`, [caseId]);
-    const handoffPacketsR = await queryable.query<Record<string, unknown>>(
-      `SELECT * FROM handoff_packets WHERE case_id = $1 ORDER BY created_at`, [caseId]);
+    // HD-003: Fan out all 13 child queries in parallel — they are independent given the parent case_id.
+    const [
+      samplesR, artifactsR, requestsR, runsR, runArtsR,
+      auditsR, timelineR, outcomesR, hlaR, qcR,
+      packetsR, reviewOutcomesR, handoffPacketsR,
+    ] = await Promise.all([
+      queryable.query<Record<string, unknown>>(`SELECT * FROM samples WHERE case_id = $1 ORDER BY registered_at`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM artifacts WHERE case_id = $1 ORDER BY registered_at`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM workflow_requests WHERE case_id = $1 ORDER BY requested_at`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM workflow_runs WHERE case_id = $1 ORDER BY started_at NULLS LAST`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM run_artifacts WHERE case_id = $1 ORDER BY registered_at`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM audit_events WHERE case_id = $1 ORDER BY occurred_at`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM timeline_events WHERE case_id = $1 ORDER BY at`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM outcome_timeline WHERE case_id = $1 ORDER BY occurred_at, entry_id`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM hla_consensus WHERE case_id = $1`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM qc_gates WHERE case_id = $1`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM board_packets WHERE case_id = $1 ORDER BY created_at`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM review_outcomes WHERE case_id = $1 ORDER BY reviewed_at`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM handoff_packets WHERE case_id = $1 ORDER BY created_at`, [caseId]),
+    ]);
 
     return {
       caseId: String(c.case_id),
@@ -873,5 +867,20 @@ export class PostgresCaseStore implements CaseStore {
     } finally {
       client.release();
     }
+  }
+
+  async syncConsentStatus(
+    caseId: string,
+    consentStatus: Parameters<MemoryCaseStore["syncConsentStatus"]>[1],
+    correlationId: Parameters<MemoryCaseStore["syncConsentStatus"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) => store.syncConsentStatus(caseId, consentStatus, correlationId));
+  }
+
+  async restartFromRevision(
+    caseId: string,
+    correlationId: Parameters<MemoryCaseStore["restartFromRevision"]>[1],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) => store.restartFromRevision(caseId, correlationId));
   }
 }

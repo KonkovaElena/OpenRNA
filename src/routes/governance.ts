@@ -7,6 +7,7 @@ import type { IReferenceBundleRegistry } from "../ports/IReferenceBundleRegistry
 import type { IStateMachineGuard } from "../ports/IStateMachineGuard";
 import { parseRegisterBundleInput } from "../store";
 import type { CaseStore } from "../store";
+import { parseConsentEventInput } from "../validation";
 
 type RouteParamResolver = (req: Parameters<RequestHandler>[0], name: string) => string;
 
@@ -101,20 +102,21 @@ export function registerGovernanceRoutes(
   app.post("/api/cases/:caseId/consent", rbacAuth(rbacProvider, "REGISTER_SAMPLE"), async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
-      const event = req.body;
-      if (!event?.type || !CONSENT_TYPES.includes(event.type) || !event?.scope || !event?.version) {
-        throw new ApiError(400, "invalid_input", "Consent event requires type (granted|withdrawn|renewed), scope, and version.", "Provide a valid consent event.");
-      }
+      const input = parseConsentEventInput(req.body);
       const consentEvent = {
-        type: event.type,
-        timestamp: event.timestamp ?? new Date().toISOString(),
-        scope: event.scope,
-        version: event.version,
-        witnessId: event.witnessId,
-        notes: event.notes,
+        type: input.type,
+        timestamp: input.timestamp ?? new Date().toISOString(),
+        scope: input.scope,
+        version: input.version,
+        witnessId: input.witnessId,
+        notes: input.notes,
       };
       await consentTracker.recordConsent(caseId, consentEvent);
-      res.status(201).json({ recorded: true, event: consentEvent });
+      // Synchronize caseProfile.consentStatus so deriveCaseStatus re-evaluates
+      const newConsentStatus = input.type === "withdrawn" ? "missing" as const : "complete" as const;
+      const correlationId = String(res.locals.correlationId ?? "");
+      const updated = await store.syncConsentStatus(caseId, newConsentStatus, correlationId);
+      res.status(201).json({ recorded: true, event: consentEvent, case: updated });
     } catch (error) {
       next(error);
     }
@@ -126,6 +128,17 @@ export function registerGovernanceRoutes(
       const history = await consentTracker.getConsentHistory(caseId);
       const active = await consentTracker.isConsentActive(caseId);
       res.json({ caseId, consentActive: active, history });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/cases/:caseId/restart-from-revision", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), async (req, res, next) => {
+    try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const correlationId = String(res.locals.correlationId ?? "");
+      const updated = await store.restartFromRevision(caseId, correlationId);
+      res.json({ case: updated });
     } catch (error) {
       next(error);
     }

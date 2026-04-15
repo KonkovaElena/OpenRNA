@@ -100,6 +100,8 @@ export const caseAuditEventTypes = [
   "board.packet.generated",
   "review.outcome.recorded",
   "handoff.packet.generated",
+  "consent.updated",
+  "revision.restarted",
 ] as const;
 
 export type CaseAuditEventType = (typeof caseAuditEventTypes)[number];
@@ -694,6 +696,8 @@ export const caseDomainEventTypes = [
   "administration.recorded",
   "immune-monitoring.recorded",
   "clinical-follow-up.recorded",
+  "consent.updated",
+  "revision.restarted",
 ] as const;
 
 export type CaseDomainEventType = (typeof caseDomainEventTypes)[number];
@@ -985,6 +989,14 @@ export interface BoardPacketGenerationResult {
 export const reviewDispositions = ["approved", "rejected", "revision-requested"] as const;
 export type ReviewDisposition = (typeof reviewDispositions)[number];
 
+export interface SignatureManifestation {
+  meaning: "review" | "release" | "consent";
+  signedBy: string;
+  signedAt: string;
+  signatureHash: string;
+  signatureMethod: string;
+}
+
 export interface RecordReviewOutcomeInput {
   packetId: string;
   reviewerId: string;
@@ -992,6 +1004,7 @@ export interface RecordReviewOutcomeInput {
   reviewDisposition: ReviewDisposition;
   rationale: string;
   comments?: string;
+  signatureManifestation?: SignatureManifestation;
 }
 
 export interface ReviewOutcomeRecord {
@@ -1003,6 +1016,7 @@ export interface ReviewOutcomeRecord {
   reviewDisposition: ReviewDisposition;
   rationale: string;
   comments?: string;
+  signatureManifestation?: SignatureManifestation;
   reviewedAt: string;
 }
 

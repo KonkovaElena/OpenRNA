@@ -395,6 +395,16 @@ const activateModalityInputSchema = z.object({
   activationReason: z.string({ error: "activationReason is required." }).trim().min(3, "activationReason must be at least 3 characters."),
 }).strict() satisfies z.ZodType<ActivateModalityInput>;
 
+const signatureManifestationSchema = z.object({
+  meaning: z.enum(["review", "release", "consent"], {
+    error: "meaning must be one of: review, release, consent.",
+  }),
+  signedBy: requiredText("signatureManifestation.signedBy"),
+  signedAt: isoTimestamp("signatureManifestation.signedAt"),
+  signatureHash: requiredText("signatureManifestation.signatureHash"),
+  signatureMethod: requiredText("signatureManifestation.signatureMethod"),
+}).strict();
+
 const recordReviewOutcomeInputSchema = z.object({
   packetId: requiredText("packetId"),
   reviewerId: requiredText("reviewerId"),
@@ -404,6 +414,7 @@ const recordReviewOutcomeInputSchema = z.object({
   }),
   rationale: requiredText("rationale"),
   comments: optionalText("comments"),
+  signatureManifestation: signatureManifestationSchema.optional(),
 }).strict() satisfies z.ZodType<RecordReviewOutcomeInput>;
 
 const generateHandoffPacketInputSchema = z.object({
@@ -695,5 +706,71 @@ export function parseRegisterBundleInput(value: unknown): ReferenceBundleManifes
     value,
     registerBundleSchema,
     "Submit a JSON object describing the reference bundle.",
+  );
+}
+
+// ─── Consent Event (HD-004: replace inline validation) ───────────────
+
+const consentTypes = ["granted", "withdrawn", "renewed"] as const;
+
+const consentEventSchema = z.object({
+  type: z.enum(consentTypes, { error: "type must be one of: granted, withdrawn, renewed." }),
+  timestamp: isoTimestamp("timestamp").optional(),
+  scope: requiredText("scope"),
+  version: requiredText("version"),
+  witnessId: optionalText("witnessId"),
+  notes: optionalText("notes"),
+}).strict();
+
+export interface ConsentEventInput {
+  type: "granted" | "withdrawn" | "renewed";
+  timestamp?: string;
+  scope: string;
+  version: string;
+  witnessId?: string;
+  notes?: string;
+}
+
+export function parseConsentEventInput(value: unknown): ConsentEventInput {
+  return parseObjectWithSchema(
+    value,
+    consentEventSchema,
+    "Submit a JSON object with type (granted|withdrawn|renewed), scope, and version.",
+  );
+}
+
+// ─── Audit Sign / Verify (HD-004: replace inline validation) ─────────
+
+const auditSignInputSchema = z.object({
+  entry: z.record(z.string(), z.unknown(), { error: "entry is required." }),
+  principal: requiredText("principal"),
+}).strict();
+
+export interface AuditSignInput {
+  entry: Record<string, unknown>;
+  principal: string;
+}
+
+export function parseAuditSignInput(value: unknown): AuditSignInput {
+  return parseObjectWithSchema(
+    value,
+    auditSignInputSchema,
+    "Submit a JSON object with an audit entry and signing principal.",
+  );
+}
+
+const auditVerifyInputSchema = z.object({
+  entry: z.record(z.string(), z.unknown(), { error: "entry is required." }),
+}).strict();
+
+export interface AuditVerifyInput {
+  entry: Record<string, unknown>;
+}
+
+export function parseAuditVerifyInput(value: unknown): AuditVerifyInput {
+  return parseObjectWithSchema(
+    value,
+    auditVerifyInputSchema,
+    "Submit a JSON object with a signed audit entry to verify.",
   );
 }

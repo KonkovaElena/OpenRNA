@@ -212,6 +212,10 @@ export interface CaseStore {
   recordClinicalFollowUp(caseId: string, clinicalFollowUp: ClinicalFollowUpRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
   getOutcomeTimeline(caseId: string): Promise<OutcomeTimelineEntry[]>;
   getFullTraceability(caseId: string): Promise<FullTraceabilityRecord>;
+  // Consent-status synchronization
+  syncConsentStatus(caseId: string, consentStatus: ConsentStatus, correlationId: AuditContextInput): Promise<CaseRecord>;
+  // Restart from REVISION_REQUESTED
+  restartFromRevision(caseId: string, correlationId: AuditContextInput): Promise<CaseRecord>;
 }
 
 export class MemoryCaseStore implements CaseStore {
@@ -1126,5 +1130,47 @@ export class MemoryCaseStore implements CaseStore {
 
   async getFullTraceability(caseId: string): Promise<FullTraceabilityRecord> {
     return getFullTraceabilityForCase(await this.getCase(caseId));
+  }
+
+  async syncConsentStatus(caseId: string, consentStatus: ConsentStatus, correlationId: AuditContextInput): Promise<CaseRecord> {
+    const record = this.getMutableRecord(caseId);
+    record.caseProfile = { ...record.caseProfile, consentStatus };
+    const nextStatus = deriveCaseStatus(consentStatus, record.samples, record.artifacts, record.workflowRequests.length > 0);
+    await this.applyTransition(record, nextStatus, correlationId);
+    record.timeline.push(
+      timelineEvent(this.clock, "consent_updated", `Consent status synchronized to '${consentStatus}'.`),
+    );
+    record.auditEvents.push(
+      auditEvent(this.clock, "consent.updated", `Consent status changed to '${consentStatus}'.`, correlationId),
+    );
+    record.updatedAt = this.clock.nowIso();
+    await this.appendCaseEvent(
+      this.createCaseEvent(caseId, "consent.updated" as unknown as CaseDomainEventType, { consentStatus }, correlationId),
+    );
+    return this.rebuildCaseProjection(caseId);
+  }
+
+  async restartFromRevision(caseId: string, correlationId: AuditContextInput): Promise<CaseRecord> {
+    const record = this.getMutableRecord(caseId);
+    if (record.status !== "REVISION_REQUESTED") {
+      throw new ApiError(
+        409,
+        "invalid_transition",
+        `restartFromRevision requires REVISION_REQUESTED status, current: ${record.status}.`,
+        "Only cases in REVISION_REQUESTED status can be restarted.",
+      );
+    }
+    await this.applyTransition(record, "READY_FOR_WORKFLOW", correlationId);
+    record.timeline.push(
+      timelineEvent(this.clock, "revision_restarted", "Case restarted from board revision for a new workflow cycle."),
+    );
+    record.auditEvents.push(
+      auditEvent(this.clock, "revision.restarted", "Pipeline restarted after board revision request.", correlationId),
+    );
+    record.updatedAt = this.clock.nowIso();
+    await this.appendCaseEvent(
+      this.createCaseEvent(caseId, "revision.restarted" as unknown as CaseDomainEventType, {}, correlationId),
+    );
+    return this.rebuildCaseProjection(caseId);
   }
 }

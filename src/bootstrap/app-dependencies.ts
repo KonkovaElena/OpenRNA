@@ -52,6 +52,7 @@ export interface AppDependencies {
   requestLogWriter?: RequestLogWriter;
   enableRateLimiting?: boolean;
   rateLimitOptions?: RateLimiterOptions;
+  readinessCheck?: () => Promise<boolean>;
 }
 
 export interface ResolvedAppDependencies {
@@ -69,6 +70,7 @@ export interface ResolvedAppDependencies {
   rbacProvider: IRbacProvider;
   auditSignatureProvider: IAuditSignatureProvider;
   fhirExporter: IFhirExporter;
+  readinessCheck: () => Promise<boolean>;
 }
 
 const passThroughConsentGate: RequestHandler = (_req, _res, next) => {
@@ -115,5 +117,6 @@ export function resolveAppDependencies(
     rbacProvider,
     auditSignatureProvider,
     fhirExporter,
+    readinessCheck: dependencies.readinessCheck ?? (async () => true),
   };
 }
