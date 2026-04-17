@@ -4,98 +4,68 @@
 
 Русский · [English](README.md)
 
-**Контур управления для персонализированных РНК-вакцин по неоантигенам.**
+Контур управления для персонализированных РНК-вакцин по неоантигенам.
 
-Перепроверено 2026-04-17: 461 тест (22 набора), 94.92% покрытия по строкам (83.30% по ветвлениям, 94.33% по функциям), 17 порт-интерфейсов, `npm audit` по зависимостям рантайма чистый.
-Формальный базовый снимок (2026-04-05): [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
+## Коротко
 
-## Что это
+- Перепроверено 2026-04-17: 461 тест (22 набора), 94.92% покрытия по строкам, 83.30% по ветвлениям, 94.33% по функциям, `npm audit --omit=dev --audit-level=high` - без уязвимостей.
+- Архитектурная опора: 17 порт-интерфейсов, 20 адаптеров (16 в памяти + 4 интеграционных), 15 состояний жизненного цикла кейса.
+- Репозиторий готов к технической проверке, но не заявляет клиническую эксплуатацию и не заявляет полное соответствие 21 CFR Part 11.
 
-Этот репозиторий — фрагмент контура управления для фаз 1–2 процесса персонализированной РНК-вакцины по неоантигенам:
-ввод клинического случая → оркестрация молекулярного профилирования → ранжирование неоантигенов → дизайн конструкта → экспертный разбор → передача в производство → фиксация исходов.
+Базовый формальный срез доказательности: [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
 
-Клинические программы в этой области (например, Moderna/Merck V940 / INTerpath-001, NCT05933577 и BioNTech autogene cevumeran / IMCODE003, NCT05968326) хорошо иллюстрируют, где именно возникает «операционная сложность на пациента»: согласия, происхождение образцов, версии референсных бандлов, пакеты для комиссии, трассируемость передачи и привязка исходов.
-Первичные якоря и ссылки собраны в [`docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) и в разделе внешних якорей в [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
+## Почему это нужно
 
-**Чем это не является:** это не био-информатический пайплайн, не дизайнер РНК-последовательностей и не клиническая система принятия решений. Все вычислительные/предиктивные компоненты остаются внешними и подключаются через порт-интерфейсы.
+Персонализированная противоопухолевая РНК-терапия уже не выглядит как экспериментальная экзотика. В открытых клинических реестрах и публикациях видно, что отрасль перешла к масштабным программам: от ранних фаз к крупным многоцентровым исследованиям.
 
-Полная архитектура и модель доказательности — в [`design.md`](design.md).
+На этом этапе главным ограничением становится не один алгоритм, а операционная связность процесса на уровне конкретного пациента: согласия, происхождение образцов, версии референсных наборов, воспроизводимый запуск пайплайнов, экспертный разбор, передача в производство и последующее наблюдение.
 
-## С чего начать
+OpenRNA закрывает именно этот слой. Это не «еще один предсказатель», а слой координации между биоинформатическими инструментами, клиническим контуром и операционными процедурами.
 
-- [`docs/PUBLIC_ARCHITECTURE_INDEX.md`](docs/PUBLIC_ARCHITECTURE_INDEX.md) — роутер по активным документам и слою доказательности.
-- [`design.md`](design.md) — основной архитектурный документ + модель доказательности (T1–T4).
-- [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) — публичная HTTP-поверхность, заголовки, конвенции ответов.
-- [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) — режимы запуска, пробы, метрики, типовые классы отказов.
-- [`docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md`](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md) — границы публичной публикации и текущий статус технической проверки.
-- [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) — формальный базовый снимок по метрикам верификации и внешним якорям.
+Клинические якоря, с которыми проект сверяется: NCT05933577 (V940/INTerpath-001), NCT05968326 (autogene cevumeran/IMCODE003). Подробный контекст собран в [`docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md).
 
-## Что реализовано
+## Что делает OpenRNA
 
-- Реестр клинических случаев с 15-состояниями жизненного цикла (`INTAKING` → `HANDOFF_PENDING`)
-- Происхождение образцов и артефактов (ДНК/РНК опухоли, ДНК нормы, производные артефакты)
-- Оркестрация вычислительных пайплайнов (workflow) с идемпотентной подачей (`x-idempotency-key`)
-- Порт интеграции с Nextflow для запуска внешних пайплайнов
-- Супервизор периодического опроса для мониторинга выполнения пайплайнов
-- Реестр референсных наборов, привязанных к запускам
-- Консенсус HLA на нескольких инструментах с настраиваемыми порогами расхождения
-- Проверка QC-гейтов по завершённым прогонам
-- Порт хранения результатов ранжирования неоантигенов
-- Дизайн конструкта по модальностям (mRNA, saRNA, circRNA) + модальность как объект управления
-- Генерация пакетов для экспертного разбора / консилиума
-- Генерация пакета передачи в производство из утверждённого решения комиссии
-- Таймлайн исходов (введение, иммуномониторинг, клиническое наблюдение)
-- Полная трассируемость через машинно-читаемые события аудита
-- Хуки аутентификации и авторизации (опционально: API-ключ или JWT bearer; проверки RBAC; middleware проверки согласия)
-- Операционные маршруты: `/healthz`, `/readyz`, `/metrics`, `/api/operations/summary`
+- Ведет кейс пациента через управляемый жизненный цикл (15 статусов).
+- Учетно фиксирует происхождение образцов и производных артефактов.
+- Оркестрирует запуск вычислительных процессов (workflow) с идемпотентностью (`x-idempotency-key`).
+- Поддерживает консенсус HLA из нескольких инструментов с порогами расхождения.
+- Выполняет контроль качества прогонов и фиксирует решения QC.
+- Сохраняет результаты ранжирования неоантигенов и дизайн конструкта.
+- Формирует пакет для экспертного разбора, решение комиссии и пакет передачи в производство.
+- Ведет таймлайн исходов (введение, иммуномониторинг, клиническое наблюдение).
+- Обеспечивает сквозную трассируемость через журнал доменных событий.
+- Экспортирует операционные представления и FHIR-ориентированные данные через порты.
 
-## Чего здесь сознательно нет
+## Что OpenRNA сознательно не делает
 
-- Предсказание неоантигенов (делегируется внешним инструментам через `INeoantigenRankingEngine`)
-- Алгоритмы агрегации рангов
-- Координация outbox между разными ресурсами как транзакционный слой
+- Не выполняет предсказание неоантигенов внутри себя (делегирует внешним движкам через `INeoantigenRankingEngine`).
+- Не является заменой Nextflow/sarek/pVACtools и не конкурирует с ними как вычислительный пайплайн.
+- Не является клинической системой принятия решений.
+- Не заявляет завершенную валидацию для 21 CFR Part 11 и не позиционируется как готовый медицинский продукт.
 
-## Архитектура
+## Архитектурная модель
 
-- **17 порт-интерфейсов** для всех внешних зависимостей
-- **Две стратегии адаптеров**: в памяти (по умолчанию) + PostgreSQL для устойчивого хранения
-- **Внедрение зависимостей** через фабрику `AppDependencies` — без жёсткой связки с реализациями
-- **Zod-валидация** входов API в рантайме
-- **Единый контракт ошибок** (`ApiError` с операторскими кодами и маппингом на HTTP)
+- Бизнес-логика построена вокруг портов (`src/ports/*`) и не привязана к конкретным реализациям.
+- Адаптеры подключаются через `AppDependencies`; по умолчанию используется режим хранения в памяти, для устойчивого хранения - PostgreSQL.
+- Входные контракты валидируются через Zod на границе API.
+- Переходы статусов контролируются слоем проверки переходов (`IStateMachineGuard`).
+- Аудитные события и корреляционные идентификаторы формируют трассируемый контур.
+- Контур доступа строится вокруг API-ключей/JWT и RBAC, при этом безопасный режим по умолчанию - запрет по умолчанию.
 
-Список портов и схема слоёв — в [`design.md`](design.md).
+Архитектурный документ-источник: [`design.md`](design.md).
 
-## Технологический стек
+## Стадия готовности: честная оценка
 
-| Компонент | Версия | Примечание |
-|-----------|--------|------------|
-| Node.js | 24.x Active LTS | Базовая версия для публичного репозитория |
-| TypeScript | 6.0.2 | Strict mode, `module: "nodenext"`, рантайм CommonJS через `package.json` |
-| Express | 5.x | Нативная async-обработка ошибок |
-| Zod | 4.x | Валидация в рантайме |
-| pg | 8.x | Клиент PostgreSQL |
-| node:test | built-in | Тестовый раннер (без Jest/Vitest) |
+| Слой | Текущее состояние |
+|---|---|
+| Техническая реализация контура управления | Реализована, покрыта тестами |
+| Репозиторий и инженерный контур (CI/SAST/SBOM и аттестация происхождения сборок) | Реализован |
+| Клиническая эксплуатация | Не заявляется |
+| Полный контур электронных подписей и релиз-авторизации уровня Part 11 | Не завершен |
+| Ресурсно-ограниченная авторизация и часть регуляторных контуров | В активном плане усиления |
 
-## Переменные окружения
-
-Источник истины: [`src/config.ts`](src/config.ts) (Zod-валидация; ошибка конфигурации = остановка на старте).
-
-| Переменная | Значение по умолчанию | Назначение |
-|----------|---------|---------|
-| `PORT` | `4010` | Порт HTTP-сервера |
-| `CASE_STORE_DATABASE_URL` | unset | PostgreSQL для устойчивого хранения кейсов. Пусто → хранение в памяти |
-| `CASE_STORE_TABLE_NAME` | `case_records` | Имя таблицы для кейсов |
-| `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL для фиксации отправок workflow. Пусто → хранение в памяти |
-| `WORKFLOW_DISPATCH_TABLE_NAME` | `workflow_dispatches` | Имя таблицы отправок |
-| `API_KEY` | unset | Аутентификация по API-ключу через `x-api-key` (сравнение в константное время) |
-| `API_KEY_PRINCIPAL_ID` | `api-key-client` | Идентификатор субъекта (principal) для API-ключа (опциональная замена) |
-| `RBAC_ALLOW_ALL` | `false` | Если `true`, RBAC всегда разрешает (локальная разработка / совместимость) |
-| `JWT_SHARED_SECRET` | unset | JWT bearer (HS256). Минимум 32 байта |
-| `JWT_PUBLIC_KEY_PEM` | unset | JWT bearer (RS256) по PEM-публичному ключу |
-| `JWT_EXPECTED_ISSUER` | unset | Опциональная проверка `iss` |
-| `JWT_EXPECTED_AUDIENCE` | unset | Опциональная проверка `aud` |
-| `JWT_PRINCIPAL_CLAIM` | `sub` | Имя claim (поле токена) для идентификатора субъекта |
-| `JWT_ROLE_CLAIM` | `roles` | Имя claim (поле токена) для ролей |
+Детализация по ограничениям и плану усиления: [`docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md).
 
 ## Быстрый старт
 
@@ -108,60 +78,81 @@ npm run sbom:cyclonedx:file
 npm run dev
 ```
 
-Одна команда для верификации (сборка + тесты + аудит зависимостей рантайма): `npm run ci`.
+Интегральная проверка одной командой:
 
-Оставьте URL БД пустыми для режима «в памяти». Укажите `CASE_STORE_DATABASE_URL` и/или `WORKFLOW_DISPATCH_DATABASE_URL`, если нужен PostgreSQL.
+```bash
+npm run ci
+```
 
-## Публичные поверхности репозитория
+## Переменные окружения
 
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — порядок изменений и проверочные дорожки
-- [`SECURITY.md`](SECURITY.md) — политика безопасности и приватное сообщение об уязвимостях
-- [`SUPPORT.md`](SUPPORT.md) — поддержка и то, что не входит в область ответственности
-- [`RELEASE.md`](RELEASE.md) — контракт релиза и проверка артефактов
-- [`CHANGELOG.md`](CHANGELOG.md) — изменения, важные для потребителей и технической проверки
-- [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) — нормы участия
-- [`CITATION.cff`](CITATION.cff) — метаданные для цитирования
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — сборка, тесты, покрытие, `npm audit`, smoke-check `/healthz` (Node 24)
-- [`.github/workflows/node-ci.yml`](.github/workflows/node-ci.yml) — минимальный конвейер сборки и тестов (Node 24)
-- [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) — GitHub CodeQL (SAST)
-- [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml) — проверка рисков зависимостей в pull request
-- [`.github/workflows/supply-chain-provenance.yml`](.github/workflows/supply-chain-provenance.yml) — CycloneDX SBOM, контрольные суммы и аттестации для semver-тегов
+Источник истины: [`src/config.ts`](src/config.ts).
 
-## Документация
+| Переменная | По умолчанию | Назначение |
+|---|---|---|
+| `PORT` | `4010` | Порт HTTP-сервера |
+| `CASE_STORE_DATABASE_URL` | unset | PostgreSQL для кейсов; пусто = хранение в памяти |
+| `CASE_STORE_TABLE_NAME` | `case_records` | Имя таблицы кейсов |
+| `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL для записей диспетчеризации; пусто = хранение в памяти |
+| `WORKFLOW_DISPATCH_TABLE_NAME` | `workflow_dispatches` | Имя таблицы диспетчеризации |
+| `API_KEY` | unset | Аутентификация по API-ключу через `x-api-key` |
+| `API_KEY_PRINCIPAL_ID` | `api-key-client` | Идентификатор субъекта для API-ключа |
+| `RBAC_ALLOW_ALL` | `false` | Аварийный разрешающий режим (не для промышленного контура) |
+| `JWT_SHARED_SECRET` | unset | JWT HS256 (минимум 32 байта) |
+| `JWT_PUBLIC_KEY_PEM` | unset | JWT RS256 публичный ключ |
+| `JWT_EXPECTED_ISSUER` | unset | Проверка `iss` |
+| `JWT_EXPECTED_AUDIENCE` | unset | Проверка `aud` |
+| `JWT_PRINCIPAL_CLAIM` | `sub` | Имя claim с идентификатором субъекта |
+| `JWT_ROLE_CLAIM` | `roles` | Имя claim с ролями |
 
-| Документ | Назначение |
-|----------|---------|
-| [`docs/PUBLIC_ARCHITECTURE_INDEX.md`](docs/PUBLIC_ARCHITECTURE_INDEX.md) | Роутер по активным документам, пакетам доказательности и историческим аудитам |
-| [`design.md`](design.md) | Архитектура OpenRNA + модель доказательности (4 уровня) |
-| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Карта HTTP-роутов, auth-заголовки, конвенции ответов |
-| [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) | Режимы запуска, пробы, метрики и классы отказов |
-| [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) | Перепроверенные метрики, инструментальный стек и внешние якоря |
-| [`docs/REGULATORY_CONTEXT.md`](docs/REGULATORY_CONTEXT.md) | FDA/EMA/Part 11/GMP: рамка и gap analysis |
-| [`docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) | Клиническая база, конкуренты, каталог инструментов |
-| [`docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md`](docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md) | Базовые решения по зависимости/версии/инструментальному стеку |
-| [`docs/GITHUB_MAINTAINER_BASELINE_2026-04.md`](docs/GITHUB_MAINTAINER_BASELINE_2026-04.md) | Базовая конфигурация GitHub (branch protection/security) |
-| [`docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md`](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md) | Граница публичной публикации и готовность к технической проверке |
-| [`docs/INVESTOR_ONE_PAGER_2026-04.md`](docs/INVESTOR_ONE_PAGER_2026-04.md) | Короткое техническое резюме для инвестора |
-| [`docs/reports/OPENRNA_HYPER_AUDIT_2026.md`](docs/reports/OPENRNA_HYPER_AUDIT_2026.md) | Глубокий аудит архитектуры и безопасности |
-| [`docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md) | Последовательная программа укрепления (hardening) |
-| [`docs/reports/OPENRNA_IDENTITY_AND_CANONICALIZATION_AUDIT_2026-04-05.md`](docs/reports/OPENRNA_IDENTITY_AND_CANONICALIZATION_AUDIT_2026-04-05.md) | Аудит именования и границы публичной публикации |
+## Качество и безопасность цепочки поставки
 
-## Исторические артефакты доказательности
+Локально:
 
-Эти файлы сохранены для технической проверки и «археологии», но они не являются текущей точкой входа:
+```bash
+npm run build
+npm test
+npm run test:coverage
+npm audit --omit=dev --audit-level=high
+npm run sbom:cyclonedx:file
+```
 
-- [`ISOLATION_CERTIFICATION_2026-03-30.md`](ISOLATION_CERTIFICATION_2026-03-30.md)
-- [`DOCUMENTATION_RECONCILIATION_AUDIT_2026-03-31.md`](DOCUMENTATION_RECONCILIATION_AUDIT_2026-03-31.md)
-- [`DOCUMENTATION_RECONCILIATION_AUDIT_2026-04-02.md`](DOCUMENTATION_RECONCILIATION_AUDIT_2026-04-02.md)
+На GitHub:
 
-## API
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) - сборка, тесты, покрытие, аудит зависимостей, проверка системных маршрутов.
+- [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) - SAST.
+- [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml) - контроль рисков зависимостей в PR.
+- [`.github/workflows/supply-chain-provenance.yml`](.github/workflows/supply-chain-provenance.yml) - SBOM, контрольные суммы, аттестации и релизные артефакты.
 
-Полная карта и конвенции ошибок — в [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md).
-На верхнем уровне публичная поверхность делится на:
+## Документация, публикации, отчеты
 
-- кейсы и происхождение артефактов
-- исполнение пайплайнов и QC
-- ранжирование и дизайн конструкта
-- экспертный разбор, передача в производство и исходы
-- регламенты, согласия, аудит и экспорт FHIR
-- модальности, сводка операций и системные пробы
+| Источник | Роль |
+|---|---|
+| [`docs/PUBLIC_ARCHITECTURE_INDEX.md`](docs/PUBLIC_ARCHITECTURE_INDEX.md) | Главный роутер по активной документации |
+| [`design.md`](design.md) | Архитектурный документ-источник для OpenRNA |
+| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Карта HTTP-контрактов |
+| [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) | Операционный контур и классы отказов |
+| [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) | Формальный базовый срез по метрикам и внешним якорям |
+| [`docs/HYPER_DEEP_AUDIT_2026-04.md`](docs/HYPER_DEEP_AUDIT_2026-04.md) | Глубокий технический аудит кода |
+| [`docs/reports/OPENRNA_HYPER_AUDIT_2026.md`](docs/reports/OPENRNA_HYPER_AUDIT_2026.md) | Архитектурно-безопасностный аудит с перечнем находок |
+| [`docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md) | Последовательный план усиления |
+| [`docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md`](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md) | Граница публичной публикации и статус технической проверки |
+| [`docs/REGULATORY_CONTEXT.md`](docs/REGULATORY_CONTEXT.md) | Регуляторная карта и ограничения текущей реализации |
+
+Внешние опоры, использованные в апреле 2026:
+
+- ClinicalTrials.gov: NCT05933577, NCT05968326.
+- Node.js release schedule (LTS статус).
+- TypeScript Modules Reference (разделы `node16/node18/node20/nodenext`).
+- GitHub Docs по README и безопасности цепочки поставок.
+
+## Как участвовать
+
+- Правила вкладов: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+- Политика безопасности: [`SECURITY.md`](SECURITY.md)
+- Поддержка и каналы связи: [`SUPPORT.md`](SUPPORT.md)
+- Кодекс поведения: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+
+## Лицензия
+
+Apache-2.0. См. [`LICENSE`](LICENSE).
