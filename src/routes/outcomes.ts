@@ -65,7 +65,7 @@ export function registerOutcomeRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/outcomes", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/outcomes", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const timeline = await store.getOutcomeTimeline(caseId);
@@ -75,7 +75,7 @@ export function registerOutcomeRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/traceability", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/traceability", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const traceability = await store.getFullTraceability(caseId);

@@ -225,7 +225,7 @@ export function registerWorkflowRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/runs", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/runs", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const runs = await store.listWorkflowRuns(caseId);
@@ -235,7 +235,7 @@ export function registerWorkflowRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/runs/:runId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/runs/:runId", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const runId = getRequiredRouteParam(req, "runId");
@@ -274,7 +274,7 @@ export function registerWorkflowRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/hla-consensus", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/hla-consensus", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const consensus = await store.getHlaConsensus(caseId);
@@ -301,7 +301,7 @@ export function registerWorkflowRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/runs/:runId/qc", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/runs/:runId/qc", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const runId = getRequiredRouteParam(req, "runId");

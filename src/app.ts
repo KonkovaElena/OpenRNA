@@ -85,7 +85,7 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   registerSystemRoutes(app, store, readinessCheck);
   registerModalityRoutes(app, modalityRegistry);
-  registerFhirRoutes(app, { store, fhirExporter, rbacProvider, getRequiredRouteParam });
+  registerFhirRoutes(app, { store, fhirExporter, rbacProvider, consentGateMw, getRequiredRouteParam });
   registerAuditRoutes(app, { rbacProvider, auditSignatureProvider });
   registerReviewRoutes(app, { store, rbacProvider, consentGateMw, getRequiredRouteParam });
   registerGovernanceRoutes(app, {
@@ -93,6 +93,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     referenceBundleRegistry,
     stateMachineGuard,
     consentTracker,
+    consentGateMw,
     rbacProvider,
     getRequiredRouteParam,
   });

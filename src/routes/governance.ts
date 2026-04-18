@@ -16,6 +16,7 @@ interface GovernanceRouteDependencies {
   referenceBundleRegistry: IReferenceBundleRegistry;
   stateMachineGuard: IStateMachineGuard;
   consentTracker: IConsentTracker;
+  consentGateMw: RequestHandler;
   rbacProvider: IRbacProvider;
   getRequiredRouteParam: RouteParamResolver;
 }
@@ -29,6 +30,7 @@ export function registerGovernanceRoutes(
     referenceBundleRegistry,
     stateMachineGuard,
     consentTracker,
+    consentGateMw,
     rbacProvider,
     getRequiredRouteParam,
   }: GovernanceRouteDependencies,
@@ -133,7 +135,7 @@ export function registerGovernanceRoutes(
     }
   });
 
-  app.post("/api/cases/:caseId/restart-from-revision", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), async (req, res, next) => {
+  app.post("/api/cases/:caseId/restart-from-revision", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");

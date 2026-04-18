@@ -20,7 +20,8 @@ Route registration lives in [src/app.ts](../src/app.ts). The canonical route inv
 - Protected requests use `x-api-key` or `Authorization: Bearer <token>` when authentication is configured.
 - If no authentication settings are configured, the app resolves an unsigned or anonymous principal path instead of hard-failing every request.
 - RBAC enforcement is route-scoped. When no RBAC provider is supplied, requests pass through for backward compatibility.
-- Case-scoped write routes also pass through the consent gate and can fail with `consent_required` when no active consent exists.
+- Case-scoped write routes and regulated lifecycle/disclosure reads pass through the consent gate and can fail with `consent_required` when no active consent exists.
+- Route-level matrix: [CONSENT_ACCESS_POLICY_2026.md](CONSENT_ACCESS_POLICY_2026.md).
 
 ### Headers
 
@@ -121,6 +122,7 @@ Notes:
 | `POST` | `/api/cases/:caseId/validate-transition` |
 | `POST` | `/api/cases/:caseId/consent` |
 | `GET` | `/api/cases/:caseId/consent` |
+| `POST` | `/api/cases/:caseId/restart-from-revision` |
 | `GET` | `/api/cases/:caseId/fhir/bundle` |
 | `GET` | `/api/cases/:caseId/fhir/hla-consensus` |
 | `POST` | `/api/audit/sign` |
@@ -146,7 +148,7 @@ These codes appear repeatedly across route handlers, stores, and adapters.
 | `missing_credentials` | No usable API key or bearer token was supplied |
 | `invalid_api_key` | API key failed constant-time comparison |
 | `invalid_token` | JWT could not be parsed, verified, or validated |
-| `consent_required` | Case-scoped write operation attempted without active consent |
+| `consent_required` | Case-scoped write operation or consent-gated lifecycle/disclosure read attempted without active consent |
 | `not_found` | Resource type exists conceptually, but no record exists for this case or run |
 | `case_not_found` | `caseId` does not resolve to a stored case |
 | `run_not_found` | `runId` does not resolve to a stored workflow run |

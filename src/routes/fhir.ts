@@ -1,4 +1,4 @@
-import type { Express, Request } from "express";
+import type { Express, Request, RequestHandler } from "express";
 import { ApiError } from "../errors";
 import { rbacAuth } from "../middleware/rbac-auth";
 import type { IFhirExporter } from "../ports/IFhirExporter";
@@ -11,14 +11,15 @@ interface FhirRouteDependencies {
   store: CaseStore;
   fhirExporter: IFhirExporter;
   rbacProvider: IRbacProvider;
+  consentGateMw: RequestHandler;
   getRequiredRouteParam: RouteParamResolver;
 }
 
 export function registerFhirRoutes(
   app: Express,
-  { store, fhirExporter, rbacProvider, getRequiredRouteParam }: FhirRouteDependencies,
+  { store, fhirExporter, rbacProvider, consentGateMw, getRequiredRouteParam }: FhirRouteDependencies,
 ): void {
-  app.get("/api/cases/:caseId/fhir/bundle", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/fhir/bundle", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const record = await store.getCase(caseId);
@@ -29,7 +30,7 @@ export function registerFhirRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/fhir/hla-consensus", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/fhir/hla-consensus", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const record = await store.getCase(caseId);
