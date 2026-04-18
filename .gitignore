@@ -7,3 +7,4 @@ openrna-runtime-sbom.cdx.json
 .env
 .env.*
 !.env.example
+docs/archive/

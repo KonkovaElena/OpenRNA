@@ -36,7 +36,7 @@ Preferred path:
 1. Use GitHub private vulnerability reporting for this repository if it is enabled.
 2. If that channel is unavailable, contact the repository owner through the GitHub profile associated with this repository.
 
-Repository maintainers should treat private vulnerability reporting as part of the expected GitHub settings baseline documented in `docs/GITHUB_MAINTAINER_BASELINE_2026-04.md`.
+Repository maintainers should treat private vulnerability reporting as part of the expected GitHub settings baseline documented in `GITHUB_MAINTAINER_BASELINE_2026-04.md`.
 
 Please avoid posting exploit details in public issues, discussions, or pull requests.
 

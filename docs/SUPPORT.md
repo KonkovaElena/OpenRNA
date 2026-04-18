@@ -23,7 +23,7 @@
 
 ## Before Opening An Issue
 
-1. Read [README.md](README.md).
-2. Check [design.md](design.md) and the docs in `docs/`.
+1. Read [README.md](../README.md).
+2. Check [design.md](design.md) and related references in this `docs/` directory.
 3. Reproduce on the current Node 24 baseline from `.nvmrc`.
 4. Include commands, logs, expected behavior, and actual behavior.

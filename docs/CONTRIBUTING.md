@@ -40,7 +40,7 @@ Minimum verification:
 
 ### Docs lane
 
-Use this lane when changing `README.md`, `design.md`, `docs/**`, or other publication surfaces.
+Use this lane when changing `README.md`, `docs/design.md`, `docs/**`, or other publication surfaces.
 
 Rules:
 

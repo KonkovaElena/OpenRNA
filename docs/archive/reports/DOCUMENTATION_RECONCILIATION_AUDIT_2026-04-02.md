@@ -9,16 +9,16 @@ tags: [documentation, audit, evidence, academic-analysis, regulatory, clinical-t
 # Documentation Reconciliation Audit: OpenRNA (2026-04-02)
 
 > Historical evidence only.
-> Current public routing starts at [README.md](README.md) and [docs/PUBLIC_ARCHITECTURE_INDEX.md](docs/PUBLIC_ARCHITECTURE_INDEX.md).
-> Current publication posture lives in [docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md).
+> Current public routing starts at [README.md](../README.md) and [docs/PUBLIC_ARCHITECTURE_INDEX.md](../PUBLIC_ARCHITECTURE_INDEX.md).
+> Current publication posture lives in [docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md](../GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md).
 
 ## Scope
 
 This memo captures the April 2, 2026 refresh of the OpenRNA authority analysis layer in the standalone OpenRNA repository.
 
 Assessment boundary:
-- [docs/ACADEMIC_ANALYSIS_2026-04.md](docs/ACADEMIC_ANALYSIS_2026-04.md)
-- [docs/REGULATORY_CONTEXT.md](docs/REGULATORY_CONTEXT.md)
+- [docs/ACADEMIC_ANALYSIS_2026-04.md](../ACADEMIC_ANALYSIS_2026-04.md)
+- [docs/REGULATORY_CONTEXT.md](../REGULATORY_CONTEXT.md)
 - direct repository seams referenced by the refreshed recommendation layer
 - official-source spot checks for state-machine, regulatory, and trial-anchor language
 
@@ -56,14 +56,14 @@ This refresh did not widen the claim surface indiscriminately. Several candidate
 
 ### Recommendation framing
 
-- [docs/ACADEMIC_ANALYSIS_2026-04.md](docs/ACADEMIC_ANALYSIS_2026-04.md) now includes a recommendation-status matrix that explicitly distinguishes `implemented`, `partially implemented`, and `missing` capabilities.
+- [docs/ACADEMIC_ANALYSIS_2026-04.md](../ACADEMIC_ANALYSIS_2026-04.md) now includes a recommendation-status matrix that explicitly distinguishes `implemented`, `partially implemented`, and `missing` capabilities.
 - XState is now framed as an evolution of the existing state-machine guard.
 - Event sourcing is now framed as an evolution of the current state-oriented store plus audit trail.
 - Event-driven orchestration is now framed as an evolution of the current polling and workflow-runner seams.
 
 ### Regulatory precision
 
-- [docs/REGULATORY_CONTEXT.md](docs/REGULATORY_CONTEXT.md) now names the exact Part 11 hooks most relevant to OpenRNA's current gap analysis.
+- [docs/REGULATORY_CONTEXT.md](../REGULATORY_CONTEXT.md) now names the exact Part 11 hooks most relevant to OpenRNA's current gap analysis.
 - The access-control row now reflects the real current state: API-key plus RBAC seam, but no per-user OIDC or JWT identity.
 - The electronic-signature rows now reflect the existing audit-signature seam rather than describing the repository as having no signature boundary at all.
 
