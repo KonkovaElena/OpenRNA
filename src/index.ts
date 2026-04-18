@@ -17,10 +17,18 @@ async function bootstrap() {
   const app = createApp({
     store: durable.store,
     workflowRunner: durable.runner,
+    consentTracker: durable.consentTracker,
+    caseAccessStore: durable.caseAccessStore,
     apiKey: config.apiKey,
     apiKeyPrincipalId: config.apiKeyPrincipalId,
     jwtAuthOptions: config.jwt,
     rbacAllowAll: config.rbacAllowAll,
+    enableRateLimiting: config.rateLimitEnabled,
+    rateLimitOptions: {
+      maxTokens: config.rateLimitMaxTokens,
+      refillRate: config.rateLimitRefillRate,
+    },
+    enforceServerDerivedConsentOnCreate: true,
   });
   const server = createServer(app);
   let shutdownPromise: Promise<void> | undefined;
