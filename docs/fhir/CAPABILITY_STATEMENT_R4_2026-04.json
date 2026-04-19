@@ -1,0 +1,45 @@
+{
+  "resourceType": "CapabilityStatement",
+  "id": "openrna-capabilitystatement-r4-2026-04",
+  "url": "urn:openrna:fhir:capabilitystatement:r4:2026-04",
+  "version": "2026.04",
+  "name": "OpenRNACapabilityStatementR4",
+  "title": "OpenRNA FHIR Interoperability Baseline (R4)",
+  "status": "active",
+  "date": "2026-04-19",
+  "publisher": "OpenRNA",
+  "kind": "instance",
+  "fhirVersion": "4.0.1",
+  "format": [
+    "json"
+  ],
+  "implementation": {
+    "description": "Repository-scoped capability baseline for OpenRNA FHIR export seams"
+  },
+  "rest": [
+    {
+      "mode": "server",
+      "documentation": "OpenRNA exposes case-scoped FHIR export endpoints as interoperability projections.",
+      "resource": [
+        {
+          "type": "Bundle",
+          "interaction": [
+            {
+              "code": "read"
+            }
+          ],
+          "documentation": "Case export bundle via GET /api/cases/{caseId}/fhir/bundle"
+        },
+        {
+          "type": "Observation",
+          "interaction": [
+            {
+              "code": "read"
+            }
+          ],
+          "documentation": "HLA consensus observations via GET /api/cases/{caseId}/fhir/hla-consensus"
+        }
+      ]
+    }
+  ]
+}

@@ -25,6 +25,9 @@ Provide a single release-gate evidence index covering IQ baseline capture, OQ/PQ
 - `docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md`
 - `docs/validation/IQ_ENVIRONMENT_CHECKLIST_2026.md`
 - `docs/validation/PQ_THROUGHPUT_AND_RECOVERY_DRILL_2026.md`
+- `docs/security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md`
+- `docs/fhir/FHIR_CONFORMANCE_BASELINE_2026.md`
+- `docs/fhir/CAPABILITY_STATEMENT_R4_2026-04.json`
 
 ### Filled validation reports
 
@@ -53,6 +56,7 @@ Provide a single release-gate evidence index covering IQ baseline capture, OQ/PQ
 | IQ baseline snapshot capture | PASS (captured) | `IQ_BASELINE_SNAPSHOT_2026-04-19.md` |
 | PQ throughput p95 evidence | PASS (captured) | `PQ_DRILL_REPORT_2026-04-19.md`, `pq_latency_metrics_2026-04-19.json` |
 | PQ recovery integrity drill | PASS (captured) | `pq_recovery_summary_2026-04-19.json` |
+| Privacy/FHIR control baseline docs | PASS (captured) | `PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md`, `FHIR_CONFORMANCE_BASELINE_2026.md`, `CAPABILITY_STATEMENT_R4_2026-04.json` |
 
 ## Decision State
 

@@ -10,13 +10,14 @@ It does not claim to replace bioinformatics engines, clinical decision systems, 
 
 ## Evidence Snapshot (2026-04-19)
 
-- Local full lane (`npm run ci`) passed: 487 tests across 22 suites, 0 failures.
+- Local full lane (`npm run ci`) passed: 489 tests across 22 suites, 0 failures.
 - Security gate (`npm audit --omit=dev --audit-level=high`) reported 0 vulnerabilities.
 - Case lifecycle model includes 16 explicit states.
 - Release authorization flow includes board review, independent QA release, and manufacturing handoff.
 - Critical authorization supports step-up electronic signature assertions (`totp`, `webauthn`) for approved review and QA release actions.
 - Audit trail integrity includes persisted hash-chain links (`previousEventHash`, `eventHash`) in durable storage.
 - Validation package now includes intended use, IQ/OQ/PQ plan, and URS traceability matrix.
+- Active governance set includes PHI minimization/crypto-shredding policy and a versioned FHIR capability baseline artifact.
 
 Formal baseline register: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
 
@@ -110,6 +111,7 @@ Configuration authority: [src/config.ts](src/config.ts).
 | `CASE_STORE_DATABASE_URL` | unset | PostgreSQL case persistence; empty means in-memory |
 | `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL dispatch persistence; empty means in-memory |
 | `API_KEY` | unset | API key authentication (`x-api-key`) |
+| `REQUIRE_AUTH` | `false` | When `true`, startup fails unless API key or JWT auth is configured |
 | `JWT_SHARED_SECRET` / `JWT_PUBLIC_KEY_PEM` | unset | JWT verification configuration |
 | `RBAC_ALLOW_ALL` | `false` | Emergency permissive mode (not for production) |
 
@@ -122,6 +124,8 @@ Configuration authority: [src/config.ts](src/config.ts).
 | [docs/OPERATIONS_AND_FAILURE_MODES.md](docs/OPERATIONS_AND_FAILURE_MODES.md) | Runtime and failure-mode model |
 | [docs/CONSENT_ACCESS_POLICY_2026.md](docs/CONSENT_ACCESS_POLICY_2026.md) | Consent-gating policy matrix |
 | [docs/INTENDED_USE_STATEMENT_2026.md](docs/INTENDED_USE_STATEMENT_2026.md) | Intended-use and deployment-boundary statement |
+| [docs/security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md](docs/security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md) | PHI minimization and crypto-shredding control baseline |
+| [docs/fhir/FHIR_CONFORMANCE_BASELINE_2026.md](docs/fhir/FHIR_CONFORMANCE_BASELINE_2026.md) | FHIR R4 conformance boundary and capability artifact linkage |
 | [docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md](docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md) | Qualification planning scaffold |
 | [docs/validation/URS_TRACEABILITY_MATRIX_2026.md](docs/validation/URS_TRACEABILITY_MATRIX_2026.md) | Requirement-to-evidence traceability map |
 | [docs/RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md](docs/RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md) | Payer-policy context note (April 2026) |

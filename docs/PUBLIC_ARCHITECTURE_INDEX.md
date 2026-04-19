@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA Public Architecture Index"
 status: "active"
-version: "1.0.1"
-last_updated: "2026-04-06"
+version: "1.1.0"
+last_updated: "2026-04-19"
 tags: [navigation, architecture, evidence, public-export]
 ---
 
@@ -36,6 +36,8 @@ The active layer is intentionally smaller than the total evidence layer. Start w
 | Document | Role |
 |----------|------|
 | [REGULATORY_CONTEXT.md](REGULATORY_CONTEXT.md) | Regulatory framing and current gap analysis |
+| [security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md](security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md) | Active PHI minimization and crypto-shredding control baseline |
+| [fhir/FHIR_CONFORMANCE_BASELINE_2026.md](fhir/FHIR_CONFORMANCE_BASELINE_2026.md) | Active FHIR R4 conformance boundary and capability artifact map |
 | [CONSENT_ACCESS_POLICY_2026.md](CONSENT_ACCESS_POLICY_2026.md) | Consent-gating matrix for route families |
 | [archive/](archive/) | Archived evidence, publication packs, and historical audits |
 | [archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) | Current verified metrics, toolchain facts, and live registry anchors |

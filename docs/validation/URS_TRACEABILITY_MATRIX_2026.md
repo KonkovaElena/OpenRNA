@@ -1,7 +1,7 @@
 ---
 title: "OpenRNA URS Traceability Matrix"
 status: active
-version: "1.0.0"
+version: "1.1.0"
 last_updated: "2026-04-19"
 tags: [validation, urs, traceability, oq, pq]
 ---
@@ -36,6 +36,10 @@ Applies to the durable deployment path used for regulated operations:
 | URS-008 | The durable store shall preserve review, QA release, and handoff records across process restart. | `src/adapters/PostgresCaseStore.ts`, `src/migrations/001_full_schema.sql` | `tests/outcomes.test.ts` (Postgres persistence and reload case) | PQ | Implemented, automated evidence available |
 | URS-009 | API reference shall reflect live route inventory for regulated-critical endpoints. | `docs/API_REFERENCE.md`, `src/routes/system.ts` | Documentation review against runtime route inventory | IQ/OQ | Implemented, manual docs check required during closure |
 | URS-010 | Validation package shall include intended use, regulatory context, IQ/OQ/PQ plan, IQ checklist, PQ drill template, and URS matrix. | `docs/INTENDED_USE_STATEMENT_2026.md`, `docs/REGULATORY_CONTEXT.md`, `docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md`, `docs/validation/IQ_ENVIRONMENT_CHECKLIST_2026.md`, `docs/validation/PQ_THROUGHPUT_AND_RECOVERY_DRILL_2026.md`, this file | Documentation closure rail outputs plus completed IQ checklist snapshot and PQ drill report for target deployment | IQ/OQ/PQ | Implemented, closure evidence required per release |
+| URS-011 | The system shall enforce pseudonymous case identity in primary case records and prohibit undeclared direct-identifier fields on case input contracts. | `src/types.ts` (`CaseProfile`), `src/validation.ts` (`caseProfileSchema.strict()`), `docs/security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md` | Schema review + strict-schema behavior verification in validation tests; documentation review of privacy boundary | OQ | Implemented baseline, site policy evidence required |
+| URS-012 | The system shall maintain tamper-evident audit lineage for regulated lifecycle events. | `src/store-helpers.ts` (hash-chain generation), `src/types.ts` (`previousEventHash`, `eventHash`) | `tests/outcomes.test.ts` (hash uniqueness and chain-link continuity checks) | OQ/PQ | Implemented, automated evidence available |
+| URS-013 | Workflow execution evidence shall include structured manifest and provenance-chain fields suitable for replay and integrity checks. | `src/validation.ts` (`WorkflowRunManifest`, `WorkflowOutputManifest`), run-manifest ingestion in workflow runtime surfaces | `tests/output-contract.test.ts`, `tests/contract-conformance.test.ts`, `tests/phase2.test.ts` (manifest replay and provenance scenarios) | OQ/PQ | Implemented, automated evidence available |
+| URS-014 | The repository shall publish a versioned FHIR interoperability baseline and capability artifact for deployment qualification. | `docs/fhir/FHIR_CONFORMANCE_BASELINE_2026.md`, `docs/fhir/CAPABILITY_STATEMENT_R4_2026-04.json`, `src/routes/fhir.ts`, `src/adapters/InMemoryFhirExporter.ts` | `tests/fhir-exporter.test.ts` + docs closure review of capability artifact versioning | IQ/OQ | Implemented baseline, site-level interoperability qualification required |
 
 ## Open Qualification Items
 
@@ -49,6 +53,9 @@ Applies to the durable deployment path used for regulated operations:
 - `docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md`
 - `docs/validation/IQ_ENVIRONMENT_CHECKLIST_2026.md`
 - `docs/validation/PQ_THROUGHPUT_AND_RECOVERY_DRILL_2026.md`
+- `docs/security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md`
+- `docs/fhir/FHIR_CONFORMANCE_BASELINE_2026.md`
+- `docs/fhir/CAPABILITY_STATEMENT_R4_2026-04.json`
 - `docs/validation/evidence/IQ_BASELINE_SNAPSHOT_2026-04-19.md`
 - `docs/validation/evidence/PQ_DRILL_REPORT_2026-04-19.md`
 - `docs/validation/evidence/RELEASE_EVIDENCE_BUNDLE_2026-04-19.md`

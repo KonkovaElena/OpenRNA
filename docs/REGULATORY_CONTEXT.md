@@ -1,10 +1,10 @@
 ---
 title: "Regulatory Context for Personalized Neoantigen RNA Vaccines"
 status: active
-version: "1.1.0"
-last_updated: "2026-04-02"
+version: "1.2.0"
+last_updated: "2026-04-19"
 tags: [regulatory, fda, ema, part-11, atmp, oncology]
-evidence_cutoff: "2026-04-02"
+evidence_cutoff: "2026-04-19"
 ---
 
 # Regulatory Context
@@ -23,6 +23,7 @@ This is a regulatory-orientation and gap-analysis note, not a formal product-cla
 |-----------|-------|-----------|
 | **21 USC §351** (Biologics License Application) | Marketing authorization for biological products | Required for commercial deployment of any individualized neoantigen vaccine |
 | **21 CFR Part 11** | Electronic records and electronic signatures | FDA guidance says Part 11 should be interpreted narrowly: it applies when predicate-rule records/signatures are kept or submitted electronically |
+| **FDA Guidance: Clinical Decision Support Software** (January 2026) | Clarifies section 520(o)(1)(E) non-device CDS criteria | Defines boundary between clinician-support software and device-class software functions |
 | **21 CFR Parts 210/211** | Current Good Manufacturing Practice (cGMP) | Manufacturing facility and process requirements |
 | **21 CFR Part 312** | Investigational New Drug (IND) | Clinical trial authorization |
 | **FDA Guidance: Data Integrity and Compliance with Drug cGMP** (2018) | ALCOA+ principles for data integrity | Audit trail design, metadata, backup/recovery |
@@ -61,7 +62,7 @@ This is a regulatory-orientation and gap-analysis note, not a formal product-cla
 
 ## April 2026 Part 11 Precision Points
 
-The eCFR page for Title 21 Part 11 was rechecked on April 2, 2026. It was displayed as up to date as of March 31, 2026 and last amended on March 25, 2026.
+The eCFR page for Title 21 Part 11 was rechecked on April 19, 2026. It was displayed as up to date as of April 16, 2026.
 
 For this repository, the most operational sections are:
 
@@ -92,6 +93,20 @@ FDA's `General Principles of Software Validation` guidance remains a stable refe
 For OpenRNA, this means engineering verification is necessary but not sufficient. Current tests, typed schemas, and CI gates are useful software evidence, but they are not a replacement for a documented intended-use statement, user requirements, risk assessment, traceability matrix, and IQ/OQ/PQ-style qualification package on the durable deployment path.
 
 This pass deliberately anchors validation language on rechecked eCFR text and stable FDA guidance pages. A newer CSA framing may still be useful internally, but it is not promoted here until its official page path is re-confirmed.
+
+## Clinical Decision Support Boundary (FDA Guidance, January 2026)
+
+FDA's January 2026 CDS guidance (section 520(o)(1)(E) clarification) is a key boundary source for this repository.
+
+Operational interpretation for OpenRNA:
+
+- OpenRNA is intended to support clinician and QA workflows by organizing and presenting evidence.
+- OpenRNA is not intended to independently diagnose, select therapy, or generate autonomous treatment recommendations.
+- Human reviewers remain the accountable decision point for approval and release actions.
+
+Escalation boundary:
+
+- If a deployment introduces opaque recommendation logic that cannot be independently reviewed by the intended healthcare professional user, or introduces autonomous patient-level treatment selection, the non-device CDS framing must be re-evaluated before use.
 
 ## 21 CFR Part 11 Compliance Mapping
 
@@ -124,6 +139,24 @@ FDA's 2003 scope-and-application guidance explicitly says the Agency intends to 
 | +**C**onsistent | Consistent timestamp format (ISO 8601) | ✅ |
 | +**E**nduring | PostgreSQL with configurable retention | ⚠️ No formal retention policy |
 | +**A**vailable | API-accessible, no offline-only data | ✅ |
+
+## FHIR Interoperability Baseline (R4)
+
+OpenRNA currently exposes FHIR export seams for case-level bundle export and HLA consensus views.
+
+To keep interoperability claims bounded and auditable:
+
+- FHIR baseline conformance is documented in `docs/fhir/FHIR_CONFORMANCE_BASELINE_2026.md`.
+- A versioned capability artifact is published at `docs/fhir/CAPABILITY_STATEMENT_R4_2026-04.json`.
+- Current claim boundary remains: implementation seam exists; site-level interoperability qualification and profile validation are deployment responsibilities.
+
+## Data Minimization And Crypto-Shredding Boundary
+
+This repository stores pseudonymous case identifiers (`patientKey`) in its core case profile model and avoids direct patient identifiers in the primary case aggregate.
+
+Policy-level controls for PHI minimization, field classification, and crypto-shredding workflow are documented in:
+
+- `docs/security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md`
 
 ## cGMP Considerations for Personalized Manufacturing
 
@@ -201,10 +234,13 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 
 - FDA: 21 CFR Part 11 — Electronic Records; Electronic Signatures
 - FDA: Part 11, Electronic Records; Electronic Signatures — Scope and Application (Guidance for Industry, 2003)
+- FDA: Clinical Decision Support Software (Guidance for Industry and FDA Staff, January 2026)
 - FDA: General Principles of Software Validation (Guidance for Industry and FDA Staff, 2002)
 - FDA: Data Integrity and Compliance With Drug CGMP (December 2018)
 - EU: Regulation (EC) No 1394/2007 on Advanced Therapy Medicinal Products
 - EU: EudraLex Volume 4, GMP Annex 13 — Investigational Medicinal Products
+- HL7: FHIR standard overview (`hl7.org/fhir`)
+- HL7 Clinical Genomics Work Group: FHIR Genomics Reporting IG (`hl7.org/fhir/uv/genomics-reporting`)
 - ICH: Q5E Comparability of Biotechnological/Biological Products
 - ICH: E6(R2) Good Clinical Practice
 - FDA: Guidance for Industry: Individualized Antisense Oligonucleotide Drug Products (2021) — analogous framework for individualized products

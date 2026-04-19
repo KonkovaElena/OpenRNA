@@ -9,6 +9,7 @@ export interface AppConfig {
   workflowDispatchTableName: string;
   apiKey?: string;
   apiKeyPrincipalId?: string;
+  requireAuth: boolean;
   rbacAllowAll: boolean;
   rateLimitEnabled: boolean;
   rateLimitMaxTokens: number;
@@ -71,6 +72,7 @@ const configSchema = z.object({
   ),
   API_KEY: optionalEnvText(),
   API_KEY_PRINCIPAL_ID: optionalEnvText(),
+  REQUIRE_AUTH: optionalEnvBoolean(false),
   RBAC_ALLOW_ALL: optionalEnvBoolean(false),
   RATE_LIMIT_ENABLED: optionalEnvBoolean(true),
   RATE_LIMIT_MAX_TOKENS: z.preprocess(
@@ -118,6 +120,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     workflowDispatchTableName: result.data.WORKFLOW_DISPATCH_TABLE_NAME,
     apiKey: result.data.API_KEY,
     apiKeyPrincipalId: result.data.API_KEY_PRINCIPAL_ID,
+    requireAuth: result.data.REQUIRE_AUTH,
     rbacAllowAll: result.data.RBAC_ALLOW_ALL,
     rateLimitEnabled: result.data.RATE_LIMIT_ENABLED,
     rateLimitMaxTokens: result.data.RATE_LIMIT_MAX_TOKENS,

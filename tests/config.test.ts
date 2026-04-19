@@ -10,6 +10,7 @@ test("loadConfig uses safe defaults for local development", () => {
   assert.equal(config.caseStoreTableName, "case_records");
   assert.equal(config.workflowDispatchDatabaseUrl, undefined);
   assert.equal(config.workflowDispatchTableName, "workflow_dispatches");
+  assert.equal(config.requireAuth, false);
   assert.equal(config.rateLimitEnabled, true);
   assert.equal(config.rateLimitMaxTokens, 100);
   assert.equal(config.rateLimitRefillRate, 10);
@@ -32,9 +33,20 @@ test("loadConfig trims explicit environment values", () => {
   assert.equal(config.caseStoreTableName, "case_records_v1");
   assert.equal(config.workflowDispatchDatabaseUrl, "postgres://localhost:5432/mrna");
   assert.equal(config.workflowDispatchTableName, "workflow_dispatch_queue");
+  assert.equal(config.requireAuth, false);
   assert.equal(config.rateLimitEnabled, false);
   assert.equal(config.rateLimitMaxTokens, 250);
   assert.equal(config.rateLimitRefillRate, 25);
+});
+
+test("loadConfig parses REQUIRE_AUTH as strict startup gate", () => {
+  const config = loadConfig({
+    REQUIRE_AUTH: "true",
+    API_KEY: "secret-key-42",
+  });
+
+  assert.equal(config.requireAuth, true);
+  assert.equal(config.apiKey, "secret-key-42");
 });
 
 test("loadConfig rejects an invalid case store table identifier", () => {

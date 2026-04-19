@@ -1,7 +1,7 @@
 ---
 title: "OpenRNA Intended Use Statement"
 status: active
-version: "1.0.0"
+version: "1.1.0"
 last_updated: "2026-04-19"
 tags: [intended-use, regulatory-boundary, gxp, part-11]
 ---
@@ -24,6 +24,29 @@ Intended technical functions:
 - HLA, QC, ranking, design, and outcome traceability joins
 - Controlled review, QA release, and manufacturing handoff packet generation
 - Structured audit/event records with signature and chain metadata
+
+## Regulatory Positioning Boundary (April 2026)
+
+OpenRNA is positioned as coordination software for clinical and translational operations, not as an autonomous treatment recommendation engine.
+
+For U.S. deployment framing, the relevant external reference is FDA's January 2026 guidance "Clinical Decision Support Software" (section 520(o)(1)(E) interpretation).
+
+Repository-level boundary:
+- OpenRNA may aggregate, normalize, and present evidence for clinician-led review.
+- OpenRNA does not independently determine diagnosis, treatment selection, or dose decisions.
+- OpenRNA is designed so that review/approval decisions remain attributable to identified human reviewers.
+
+Escalation trigger:
+- If deployment introduces opaque model outputs that clinicians cannot independently review, or introduces autonomous patient-specific recommendation logic, a new regulatory classification review is required before release.
+
+## Data Minimization And Identity Boundary
+
+OpenRNA uses pseudonymous case keys (`patientKey`) in its primary case profile model.
+
+Direct patient identifiers are expected to remain out of band from the core case aggregate and should be managed by an approved identity vault or hospital master system.
+
+Operational policy and control targets are defined in:
+- `docs/security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md`
 
 ## Not Intended Use
 
@@ -60,4 +83,6 @@ Changes to intended-use scope or regulatory record classification must update al
 - This file
 - docs/REGULATORY_CONTEXT.md
 - docs/validation/URS_TRACEABILITY_MATRIX_2026.md
+- docs/security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md
+- docs/fhir/FHIR_CONFORMANCE_BASELINE_2026.md
 - Any impacted API contract documentation in docs/API_REFERENCE.md

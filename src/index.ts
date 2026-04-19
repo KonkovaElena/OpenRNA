@@ -5,14 +5,16 @@ import {
   createDurableRuntimeDependencies,
   createWorkflowDispatchDependency,
 } from "./bootstrap/runtime-dependencies";
+import { assertSecurityPosture } from "./bootstrap/security-posture";
 import { closeServerAndResources } from "./runtime-shutdown";
 
 async function bootstrap() {
   const config = loadConfig();
   const dispatch = await createWorkflowDispatchDependency(config);
   const durable = await createDurableRuntimeDependencies(config, dispatch.sink);
-  if (!config.apiKey) {
-    process.stderr.write("WARNING: API_KEY not set — API endpoints are unprotected.\n");
+  const securityPosture = assertSecurityPosture(config);
+  if (!securityPosture.hasAuthenticationConfig) {
+    process.stderr.write("WARNING: no authentication configured (API_KEY/JWT) — API endpoints are unprotected.\n");
   }
   const app = createApp({
     store: durable.store,

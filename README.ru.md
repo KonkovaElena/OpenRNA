@@ -10,13 +10,14 @@ OpenRNA — это операционный контур управления д
 
 ## Доказательный срез (2026-04-19)
 
-- Полный локальный контур (`npm run ci`) пройден: 487 тестов, 22 набора, 0 падений.
+- Полный локальный контур (`npm run ci`) пройден: 489 тестов, 22 набора, 0 падений.
 - Security gate (`npm audit --omit=dev --audit-level=high`) вернул 0 уязвимостей.
 - Модель жизненного цикла кейса содержит 16 явных состояний.
 - Контур релиз-авторизации включает board review, независимый QA release и manufacturing handoff.
 - Для критических действий поддерживаются step-up подписи (`totp`, `webauthn`) при approved review и QA release.
 - Целостность аудита усилена хеш-цепочкой (`previousEventHash`, `eventHash`) с сохранением в durable storage.
 - В пакет валидационной документации добавлены Intended Use, IQ/OQ/PQ план и URS traceability matrix.
+- В активный контур governance добавлены политика PHI minimization/crypto-shredding и versioned FHIR capability baseline.
 
 Формальный базовый реестр: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
 
@@ -110,6 +111,7 @@ npm run ci
 | `CASE_STORE_DATABASE_URL` | unset | PostgreSQL для кейсов; пусто означает in-memory |
 | `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL для dispatch; пусто означает in-memory |
 | `API_KEY` | unset | Аутентификация по API-ключу (`x-api-key`) |
+| `REQUIRE_AUTH` | `false` | При `true` запуск завершится ошибкой, если не настроены API key или JWT |
 | `JWT_SHARED_SECRET` / `JWT_PUBLIC_KEY_PEM` | unset | Конфигурация валидации JWT |
 | `RBAC_ALLOW_ALL` | `false` | Аварийный permissive-режим (не для production) |
 
@@ -122,6 +124,8 @@ npm run ci
 | [docs/OPERATIONS_AND_FAILURE_MODES.md](docs/OPERATIONS_AND_FAILURE_MODES.md) | Runtime-модель и классы отказов |
 | [docs/CONSENT_ACCESS_POLICY_2026.md](docs/CONSENT_ACCESS_POLICY_2026.md) | Матрица consent-gating политики |
 | [docs/INTENDED_USE_STATEMENT_2026.md](docs/INTENDED_USE_STATEMENT_2026.md) | Intended-use и границы применения |
+| [docs/security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md](docs/security/PHI_MINIMIZATION_AND_CRYPTO_SHREDDING_2026.md) | Базовая политика PHI minimization и crypto-shredding |
+| [docs/fhir/FHIR_CONFORMANCE_BASELINE_2026.md](docs/fhir/FHIR_CONFORMANCE_BASELINE_2026.md) | Граница FHIR R4 conformance и capability baseline |
 | [docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md](docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md) | Каркас квалификационного плана |
 | [docs/validation/URS_TRACEABILITY_MATRIX_2026.md](docs/validation/URS_TRACEABILITY_MATRIX_2026.md) | Трассируемость требований к доказательствам |
 | [docs/RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md](docs/RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md) | Аналитическая записка по payer-policy (апрель 2026) |

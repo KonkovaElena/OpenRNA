@@ -1,7 +1,7 @@
 ---
 title: "OpenRNA API Reference"
 status: "active"
-version: "1.0.0"
+version: "1.1.0"
 last_updated: "2026-04-19"
 tags: [api, reference, http, public-export]
 ---
@@ -136,6 +136,10 @@ Notes:
 | `GET` | `/api/cases/:caseId/fhir/hla-consensus` |
 | `POST` | `/api/audit/sign` |
 | `POST` | `/api/audit/verify` |
+
+FHIR conformance baseline artifacts:
+- `docs/fhir/FHIR_CONFORMANCE_BASELINE_2026.md`
+- `docs/fhir/CAPABILITY_STATEMENT_R4_2026-04.json`
 
 ## Modalities And Operations Summary
 
