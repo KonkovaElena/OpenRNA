@@ -10,6 +10,7 @@ export const caseStatuses = [
   "QC_PASSED",
   "QC_FAILED",
   "AWAITING_REVIEW",
+  "AWAITING_FINAL_RELEASE",
   "APPROVED_FOR_HANDOFF",
   "REVISION_REQUESTED",
   "REVIEW_REJECTED",
@@ -99,6 +100,7 @@ export const caseAuditEventTypes = [
   "outcome.recorded",
   "board.packet.generated",
   "review.outcome.recorded",
+  "qa.release.recorded",
   "handoff.packet.generated",
   "consent.updated",
   "revision.restarted",
@@ -109,6 +111,33 @@ export type CaseAuditEventType = (typeof caseAuditEventTypes)[number];
 export const authMechanisms = ["anonymous", "api-key", "jwt-bearer"] as const;
 
 export type AuthMechanism = (typeof authMechanisms)[number];
+
+export const stepUpAuthMethods = ["totp", "webauthn"] as const;
+
+export type StepUpAuthMethod = (typeof stepUpAuthMethods)[number];
+
+export interface StepUpAuthAssertion {
+  method: StepUpAuthMethod;
+  totpCode?: string;
+  webAuthnAssertion?: string;
+  challengeId?: string;
+}
+
+export interface ElectronicSignatureInput {
+  printedName: string;
+  meaning: string;
+  stepUpAuth: StepUpAuthAssertion;
+}
+
+export interface ElectronicSignatureManifest {
+  printedName: string;
+  meaning: string;
+  signedBy: string;
+  signedAt: string;
+  signatureMethod: string;
+  signatureHash: string;
+  stepUpMethod?: StepUpAuthMethod;
+}
 
 export interface AuditContext {
   correlationId: string;
@@ -185,6 +214,15 @@ export interface CaseAuditEventRecord {
   actorId: string;
   authMechanism: AuthMechanism;
   occurredAt: string;
+  printedName?: string;
+  signatureMeaning?: string;
+  signedBy?: string;
+  signedAt?: string;
+  signatureMethod?: string;
+  signatureHash?: string;
+  stepUpMethod?: StepUpAuthMethod;
+  previousEventHash?: string;
+  eventHash?: string;
 }
 
 export interface CaseRecord {
@@ -205,6 +243,7 @@ export interface CaseRecord {
   qcGates: QcGateRecord[];
   boardPackets: BoardPacketRecord[];
   reviewOutcomes: ReviewOutcomeRecord[];
+  qaReleases: QaReleaseRecord[];
   handoffPackets: HandoffPacketRecord[];
   neoantigenRanking?: RankingResult;
   constructDesign?: ConstructDesignPackage;
@@ -672,6 +711,7 @@ export interface FullTraceabilityRecord {
   immuneMonitoringRecords: ImmuneMonitoringRecord[];
   clinicalFollowUpRecords: ClinicalFollowUpRecord[];
   reviewOutcomes: ReviewOutcomeRecord[];
+  qaReleases: QaReleaseRecord[];
   handoffPackets: HandoffPacketRecord[];
 }
 
@@ -690,6 +730,7 @@ export const caseDomainEventTypes = [
   "qc.evaluated",
   "board.packet.generated",
   "review.outcome.recorded",
+  "qa.release.recorded",
   "handoff.packet.generated",
   "neoantigen.ranking.recorded",
   "construct.design.recorded",
@@ -783,6 +824,11 @@ export interface ReviewOutcomeRecordedEventPayload {
   nextStatus: CaseStatus;
 }
 
+export interface QaReleaseRecordedEventPayload {
+  qaRelease: QaReleaseRecord;
+  nextStatus: CaseStatus;
+}
+
 export interface HandoffPacketGeneratedEventPayload {
   handoffPacket: HandoffPacketRecord;
   nextStatus: CaseStatus;
@@ -821,6 +867,7 @@ export type CaseDomainEventInput =
   | DomainEventInput<"qc.evaluated", QcEvaluatedEventPayload>
   | DomainEventInput<"board.packet.generated", BoardPacketGeneratedEventPayload>
   | DomainEventInput<"review.outcome.recorded", ReviewOutcomeRecordedEventPayload>
+  | DomainEventInput<"qa.release.recorded", QaReleaseRecordedEventPayload>
   | DomainEventInput<"handoff.packet.generated", HandoffPacketGeneratedEventPayload>
   | DomainEventInput<"neoantigen.ranking.recorded", NeoantigenRankingRecordedEventPayload>
   | DomainEventInput<"construct.design.recorded", ConstructDesignRecordedEventPayload>
@@ -841,6 +888,7 @@ export type CaseDomainEventRecord =
   | DomainEventRecord<"qc.evaluated", QcEvaluatedEventPayload>
   | DomainEventRecord<"board.packet.generated", BoardPacketGeneratedEventPayload>
   | DomainEventRecord<"review.outcome.recorded", ReviewOutcomeRecordedEventPayload>
+  | DomainEventRecord<"qa.release.recorded", QaReleaseRecordedEventPayload>
   | DomainEventRecord<"handoff.packet.generated", HandoffPacketGeneratedEventPayload>
   | DomainEventRecord<"neoantigen.ranking.recorded", NeoantigenRankingRecordedEventPayload>
   | DomainEventRecord<"construct.design.recorded", ConstructDesignRecordedEventPayload>
@@ -1005,6 +1053,8 @@ export interface RecordReviewOutcomeInput {
   rationale: string;
   comments?: string;
   signatureManifestation?: SignatureManifestation;
+  signature?: ElectronicSignatureInput;
+  signatureManifest?: ElectronicSignatureManifest;
 }
 
 export interface ReviewOutcomeRecord {
@@ -1018,6 +1068,7 @@ export interface ReviewOutcomeRecord {
   comments?: string;
   signatureManifestation?: SignatureManifestation;
   reviewedAt: string;
+  signature?: ElectronicSignatureManifest;
 }
 
 export interface ReviewOutcomeResult {
@@ -1026,8 +1077,37 @@ export interface ReviewOutcomeResult {
   created: boolean;
 }
 
+export interface RecordQaReleaseInput {
+  reviewId: string;
+  qaReviewerId: string;
+  qaReviewerRole?: string;
+  rationale: string;
+  comments?: string;
+  signature: ElectronicSignatureInput;
+  signatureManifest?: ElectronicSignatureManifest;
+}
+
+export interface QaReleaseRecord {
+  qaReleaseId: string;
+  caseId: string;
+  reviewId: string;
+  qaReviewerId: string;
+  qaReviewerRole?: string;
+  rationale: string;
+  comments?: string;
+  releasedAt: string;
+  signature: ElectronicSignatureManifest;
+}
+
+export interface QaReleaseResult {
+  case: CaseRecord;
+  qaRelease: QaReleaseRecord;
+  created: boolean;
+}
+
 export interface GenerateHandoffPacketInput {
   reviewId: string;
+  qaReleaseId: string;
   handoffTarget: string;
   requestedBy: string;
   turnaroundDays: number;
@@ -1046,6 +1126,7 @@ export interface HandoffPacketSnapshot {
   caseSummary: BoardPacketCaseSummary;
   boardPacket: HandoffPacketBoardReference;
   reviewOutcome: ReviewOutcomeRecord;
+  qaRelease: QaReleaseRecord;
   constructDesign: ConstructDesignPackage;
   handoffTarget: string;
   requestedBy: string;
@@ -1057,6 +1138,7 @@ export interface HandoffPacketRecord {
   handoffId: string;
   caseId: string;
   reviewId: string;
+  qaReleaseId: string;
   packetId: string;
   artifactClass: "HANDOFF_PACKET";
   constructId: string;

@@ -109,11 +109,29 @@ CREATE TABLE IF NOT EXISTS audit_events (
   correlation_id TEXT        NOT NULL,
   actor_id       TEXT        NOT NULL,
   auth_mechanism TEXT        NOT NULL,
-  occurred_at    TIMESTAMPTZ NOT NULL
+  occurred_at    TIMESTAMPTZ NOT NULL,
+  printed_name   TEXT,
+  signature_meaning TEXT,
+  signed_by      TEXT,
+  signed_at      TIMESTAMPTZ,
+  signature_method TEXT,
+  signature_hash TEXT,
+  step_up_method TEXT,
+  previous_event_hash TEXT,
+  event_hash     TEXT
 );
 
 ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS actor_id TEXT NOT NULL DEFAULT 'system:anonymous';
 ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS auth_mechanism TEXT NOT NULL DEFAULT 'anonymous';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS printed_name TEXT;
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS signature_meaning TEXT;
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS signed_by TEXT;
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS signed_at TIMESTAMPTZ;
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS signature_method TEXT;
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS signature_hash TEXT;
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS step_up_method TEXT;
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS previous_event_hash TEXT;
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS event_hash TEXT;
 
 CREATE INDEX IF NOT EXISTS audit_events_case_idx ON audit_events (case_id, occurred_at);
 
@@ -189,16 +207,35 @@ CREATE TABLE IF NOT EXISTS review_outcomes (
   review_disposition  TEXT        NOT NULL,
   rationale           TEXT        NOT NULL,
   comments            TEXT,
-  reviewed_at         TIMESTAMPTZ NOT NULL
+  reviewed_at         TIMESTAMPTZ NOT NULL,
+  signature           JSONB
 );
 
+ALTER TABLE review_outcomes ADD COLUMN IF NOT EXISTS signature JSONB;
+
 CREATE INDEX IF NOT EXISTS review_outcomes_case_idx ON review_outcomes (case_id, reviewed_at);
+
+-- ─── QA Releases (maker-checker final release authorization) ──────
+CREATE TABLE IF NOT EXISTS qa_releases (
+  qa_release_id       TEXT        PRIMARY KEY,
+  case_id             TEXT        NOT NULL REFERENCES cases (case_id),
+  review_id           TEXT        NOT NULL REFERENCES review_outcomes (review_id),
+  qa_reviewer_id      TEXT        NOT NULL,
+  qa_reviewer_role    TEXT,
+  rationale           TEXT        NOT NULL,
+  comments            TEXT,
+  released_at         TIMESTAMPTZ NOT NULL,
+  signature           JSONB       NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS qa_releases_case_idx ON qa_releases (case_id, released_at);
 
 -- ─── Handoff Packets ───────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS handoff_packets (
   handoff_id          TEXT        PRIMARY KEY,
   case_id             TEXT        NOT NULL REFERENCES cases (case_id),
   review_id           TEXT        NOT NULL REFERENCES review_outcomes (review_id),
+  qa_release_id       TEXT        NOT NULL REFERENCES qa_releases (qa_release_id),
   packet_id           TEXT        NOT NULL REFERENCES board_packets (packet_id),
   artifact_class      TEXT        NOT NULL DEFAULT 'HANDOFF_PACKET',
   construct_id        TEXT        NOT NULL,

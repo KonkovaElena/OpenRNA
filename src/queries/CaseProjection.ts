@@ -19,6 +19,7 @@ import type {
   WorkflowRequestRecord,
   WorkflowRunRecord,
 } from "../types.js";
+import { sealAuditHashChain } from "../store-helpers.js";
 
 function timelineEvent(at: string, type: string, detail: string): TimelineEvent {
   return { at, type, detail };
@@ -104,6 +105,7 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
       qcGates: [],
       boardPackets: [],
       reviewOutcomes: [],
+      qaReleases: [],
       handoffPackets: [],
       outcomeTimeline: [],
     };
@@ -323,12 +325,57 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
           `Recorded ${event.payload.reviewOutcome.reviewDisposition} review outcome ${event.payload.reviewOutcome.reviewId} for packet ${event.payload.reviewOutcome.packetId}.`,
         ),
       );
+      const reviewSignature = event.payload.reviewOutcome.signature;
       record.auditEvents.push(
-        auditEvent(
-          event,
-          "review.outcome.recorded",
-          `Recorded ${event.payload.reviewOutcome.reviewDisposition} review outcome ${event.payload.reviewOutcome.reviewId} for packet ${event.payload.reviewOutcome.packetId}.`,
+        {
+          ...auditEvent(
+            event,
+            "review.outcome.recorded",
+            `Recorded ${event.payload.reviewOutcome.reviewDisposition} review outcome ${event.payload.reviewOutcome.reviewId} for packet ${event.payload.reviewOutcome.packetId}.`,
+          ),
+          ...(reviewSignature
+            ? {
+                printedName: reviewSignature.printedName,
+                signatureMeaning: reviewSignature.meaning,
+                signedBy: reviewSignature.signedBy,
+                signedAt: reviewSignature.signedAt,
+                signatureMethod: reviewSignature.signatureMethod,
+                signatureHash: reviewSignature.signatureHash,
+                stepUpMethod: reviewSignature.stepUpMethod,
+              }
+            : {}),
+        },
+      );
+      record.updatedAt = event.updatedAt;
+      return record;
+    }
+
+    case "qa.release.recorded": {
+      record.qaReleases.push(structuredClone(event.payload.qaRelease));
+      record.status = event.payload.nextStatus;
+      record.timeline.push(
+        timelineEvent(
+          event.occurredAt,
+          "qa_release_recorded",
+          `Recorded QA release ${event.payload.qaRelease.qaReleaseId} for review ${event.payload.qaRelease.reviewId}.`,
         ),
+      );
+      const qaSignature = event.payload.qaRelease.signature;
+      record.auditEvents.push(
+        {
+          ...auditEvent(
+            event,
+            "qa.release.recorded",
+            `Recorded QA release ${event.payload.qaRelease.qaReleaseId} for review ${event.payload.qaRelease.reviewId}.`,
+          ),
+          printedName: qaSignature.printedName,
+          signatureMeaning: qaSignature.meaning,
+          signedBy: qaSignature.signedBy,
+          signedAt: qaSignature.signedAt,
+          signatureMethod: qaSignature.signatureMethod,
+          signatureHash: qaSignature.signatureHash,
+          stepUpMethod: qaSignature.stepUpMethod,
+        },
       );
       record.updatedAt = event.updatedAt;
       return record;
@@ -344,12 +391,22 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
           `Generated manufacturing handoff packet ${event.payload.handoffPacket.handoffId} for ${event.payload.handoffPacket.handoffTarget}.`,
         ),
       );
+      const handoffQaSignature = event.payload.handoffPacket.snapshot.qaRelease.signature;
       record.auditEvents.push(
-        auditEvent(
-          event,
-          "handoff.packet.generated",
-          `Generated manufacturing handoff packet ${event.payload.handoffPacket.handoffId} for ${event.payload.handoffPacket.handoffTarget}.`,
-        ),
+        {
+          ...auditEvent(
+            event,
+            "handoff.packet.generated",
+            `Generated manufacturing handoff packet ${event.payload.handoffPacket.handoffId} for ${event.payload.handoffPacket.handoffTarget}.`,
+          ),
+          printedName: handoffQaSignature.printedName,
+          signatureMeaning: handoffQaSignature.meaning,
+          signedBy: handoffQaSignature.signedBy,
+          signedAt: handoffQaSignature.signedAt,
+          signatureMethod: handoffQaSignature.signatureMethod,
+          signatureHash: handoffQaSignature.signatureHash,
+          stepUpMethod: handoffQaSignature.stepUpMethod,
+        },
       );
       record.updatedAt = event.updatedAt;
       return record;
@@ -478,6 +535,8 @@ export function replayCaseEvents(events: readonly CaseDomainEventRecord[]): Case
   if (!record) {
     throw new Error("Case replay produced no aggregate state.");
   }
+
+  sealAuditHashChain(record.auditEvents);
 
   return record;
 }

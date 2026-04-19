@@ -37,8 +37,13 @@ test("State Machine Guard", async (t) => {
     assert.strictEqual(result.allowed, true);
   });
 
-  await t.test("allows AWAITING_REVIEW → APPROVED_FOR_HANDOFF transition", async () => {
-    const result = await guard.validateTransition("case-1", "AWAITING_REVIEW", "APPROVED_FOR_HANDOFF");
+  await t.test("allows AWAITING_REVIEW → AWAITING_FINAL_RELEASE transition", async () => {
+    const result = await guard.validateTransition("case-1", "AWAITING_REVIEW", "AWAITING_FINAL_RELEASE");
+    assert.strictEqual(result.allowed, true);
+  });
+
+  await t.test("allows AWAITING_FINAL_RELEASE → APPROVED_FOR_HANDOFF transition", async () => {
+    const result = await guard.validateTransition("case-1", "AWAITING_FINAL_RELEASE", "APPROVED_FOR_HANDOFF");
     assert.strictEqual(result.allowed, true);
   });
 
@@ -82,7 +87,8 @@ test("State Machine Guard", async (t) => {
       ["WORKFLOW_RUNNING", "WORKFLOW_COMPLETED"],
       ["WORKFLOW_COMPLETED", "QC_PASSED"],
       ["QC_PASSED", "AWAITING_REVIEW"],
-      ["AWAITING_REVIEW", "APPROVED_FOR_HANDOFF"],
+      ["AWAITING_REVIEW", "AWAITING_FINAL_RELEASE"],
+      ["AWAITING_FINAL_RELEASE", "APPROVED_FOR_HANDOFF"],
       ["APPROVED_FOR_HANDOFF", "HANDOFF_PENDING"],
     ] as const;
 

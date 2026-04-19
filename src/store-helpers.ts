@@ -12,6 +12,7 @@ import type {
   EvidenceLineageGraph,
   GenerateHandoffPacketInput,
   RecordReviewOutcomeInput,
+  ReviewOutcomeRecord,
   RunArtifact,
   SampleRecord,
   TimelineEvent,
@@ -59,6 +60,15 @@ export function auditEvent(
   detail: string,
   correlationId: AuditContextInput,
   occurredAt: string = clock.nowIso(),
+  signatureMetadata?: {
+    printedName?: string;
+    signatureMeaning?: string;
+    signedBy?: string;
+    signedAt?: string;
+    signatureMethod?: string;
+    signatureHash?: string;
+    stepUpMethod?: "totp" | "webauthn";
+  },
 ): CaseAuditEventRecord {
   const context = normalizeAuditContext(correlationId);
   return {
@@ -69,7 +79,50 @@ export function auditEvent(
     actorId: context.actorId,
     authMechanism: context.authMechanism,
     occurredAt,
+    printedName: signatureMetadata?.printedName,
+    signatureMeaning: signatureMetadata?.signatureMeaning,
+    signedBy: signatureMetadata?.signedBy,
+    signedAt: signatureMetadata?.signedAt,
+    signatureMethod: signatureMetadata?.signatureMethod,
+    signatureHash: signatureMetadata?.signatureHash,
+    stepUpMethod: signatureMetadata?.stepUpMethod,
   };
+}
+
+function stableAuditEventOrdering(left: CaseAuditEventRecord, right: CaseAuditEventRecord): number {
+  const byTimestamp = left.occurredAt.localeCompare(right.occurredAt);
+  return byTimestamp !== 0 ? byTimestamp : left.eventId.localeCompare(right.eventId);
+}
+
+function buildAuditChainPayload(event: CaseAuditEventRecord, previousEventHash: string | null): string {
+  return JSON.stringify({
+    eventId: event.eventId,
+    type: event.type,
+    detail: event.detail,
+    correlationId: event.correlationId,
+    actorId: event.actorId,
+    authMechanism: event.authMechanism,
+    occurredAt: event.occurredAt,
+    printedName: event.printedName ?? null,
+    signatureMeaning: event.signatureMeaning ?? null,
+    signedBy: event.signedBy ?? null,
+    signedAt: event.signedAt ?? null,
+    signatureMethod: event.signatureMethod ?? null,
+    signatureHash: event.signatureHash ?? null,
+    stepUpMethod: event.stepUpMethod ?? null,
+    previousEventHash,
+  });
+}
+
+export function sealAuditHashChain(events: CaseAuditEventRecord[]): void {
+  const ordered = [...events].sort(stableAuditEventOrdering);
+  let previousEventHash: string | null = null;
+
+  for (const event of ordered) {
+    event.previousEventHash = previousEventHash ?? undefined;
+    event.eventHash = computePacketHash(buildAuditChainPayload(event, previousEventHash));
+    previousEventHash = event.eventHash;
+  }
 }
 
 export function emptyStatusCounts(): Record<CaseStatus, number> {
@@ -85,6 +138,7 @@ export function emptyStatusCounts(): Record<CaseStatus, number> {
     QC_PASSED: 0,
     QC_FAILED: 0,
     AWAITING_REVIEW: 0,
+    AWAITING_FINAL_RELEASE: 0,
     APPROVED_FOR_HANDOFF: 0,
     REVISION_REQUESTED: 0,
     REVIEW_REJECTED: 0,
@@ -163,7 +217,14 @@ export function sortOutcomeTimeline(
   });
 }
 
-export function stableReviewOutcomeSignature(value: RecordReviewOutcomeInput): string {
+export function stableReviewOutcomeSignature(value: RecordReviewOutcomeInput | ReviewOutcomeRecord): string {
+  const signatureCandidate = value.signature as {
+    printedName?: string;
+    meaning?: string;
+    stepUpAuth?: { method?: "totp" | "webauthn" };
+    stepUpMethod?: "totp" | "webauthn";
+  } | undefined;
+
   return JSON.stringify({
     packetId: value.packetId,
     reviewerId: value.reviewerId,
@@ -171,12 +232,20 @@ export function stableReviewOutcomeSignature(value: RecordReviewOutcomeInput): s
     reviewDisposition: value.reviewDisposition,
     rationale: value.rationale,
     comments: value.comments ?? null,
+    signature: signatureCandidate
+      ? {
+          printedName: signatureCandidate.printedName,
+          meaning: signatureCandidate.meaning,
+          stepUpMethod: signatureCandidate.stepUpAuth?.method ?? signatureCandidate.stepUpMethod ?? null,
+        }
+      : null,
   });
 }
 
 export function stableHandoffPacketSignature(value: GenerateHandoffPacketInput): string {
   return JSON.stringify({
     reviewId: value.reviewId,
+    qaReleaseId: value.qaReleaseId,
     handoffTarget: value.handoffTarget,
     requestedBy: value.requestedBy,
     turnaroundDays: value.turnaroundDays,

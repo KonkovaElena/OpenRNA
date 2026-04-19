@@ -50,6 +50,12 @@ function assertReviewOutcomeMatchesCase(caseRecord: CaseRecord, reviewOutcome: R
   }
 }
 
+function assertQaReleaseMatchesCase(caseRecord: CaseRecord, qaRelease: CaseRecord["qaReleases"][number]): void {
+  if (qaRelease.caseId !== caseRecord.caseId) {
+    throw new Error("QA release caseId does not match the target case.");
+  }
+}
+
 function assertHandoffPacketMatchesConstruct(
   caseRecord: CaseRecord,
   handoffPacket: HandoffPacketRecord,
@@ -86,6 +92,11 @@ export function buildFullTraceability(
     assertReviewOutcomeMatchesCase(caseRecord, reviewOutcome);
   }
 
+  const qaReleases = structuredClone(caseRecord.qaReleases);
+  for (const qaRelease of qaReleases) {
+    assertQaReleaseMatchesCase(caseRecord, qaRelease);
+  }
+
   const handoffPackets = structuredClone(caseRecord.handoffPackets);
   for (const handoffPacket of handoffPackets) {
     assertHandoffPacketMatchesConstruct(caseRecord, handoffPacket, constructId, constructVersion);
@@ -108,6 +119,7 @@ export function buildFullTraceability(
       .filter((entry): entry is Extract<OutcomeTimelineEntry, { entryType: "clinical-follow-up" }> => entry.entryType === "clinical-follow-up")
       .map((entry) => structuredClone(entry.clinicalFollowUp)),
     reviewOutcomes,
+    qaReleases,
     handoffPackets,
   };
 }

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { MemoryCaseStore } from "../src/store.js";
 import { replayCaseEvents } from "../src/queries/CaseProjection.js";
 import { buildFullTraceability } from "../src/traceability.js";
@@ -275,6 +276,14 @@ function buildCompletedRun(startedRun: WorkflowRunRecord): WorkflowRunRecord {
   };
 }
 
+function buildWebAuthnAssertion(challengeId: string): string {
+  const prefix = createHmac("sha256", "openrna-audit-hmac-default-key")
+    .update(`webauthn:${challengeId}`)
+    .digest("hex")
+    .slice(0, 16);
+  return `webauthn:${challengeId}:${prefix}`;
+}
+
 test("event journal appends sequential events and replays intake-to-request state", async () => {
   const store = new MemoryCaseStore();
   const auditContext = buildAuditContext("corr-event-journal-intake");
@@ -507,13 +516,45 @@ test("event journal replays board review and handoff state exactly", async () =>
       reviewDisposition: "approved",
       rationale: "Evidence bundle is sufficient for manufacturing handoff.",
       comments: "Proceed to GMP handoff.",
+      signature: {
+        printedName: "Dr. Board Chair",
+        meaning: "Board approval for final QA release",
+        stepUpAuth: {
+          method: "webauthn",
+          challengeId: "event-journal-review-approval",
+          webAuthnAssertion: buildWebAuthnAssertion("event-journal-review-approval"),
+        },
+      },
     },
     auditContext,
   );
+
+  const qaReleaseResult = await store.recordQaRelease(
+    caseId,
+    {
+      reviewId: reviewOutcomeResult.reviewOutcome.reviewId,
+      qaReviewerId: "qa-chair",
+      qaReviewerRole: "qa-chair",
+      rationale: "Independent QA release prior to manufacturing handoff.",
+      comments: "Maker-checker separation confirmed.",
+      signature: {
+        printedName: "Dr. QA Chair",
+        meaning: "Final QA release authorization",
+        stepUpAuth: {
+          method: "webauthn",
+          challengeId: "event-journal-qa-release",
+          webAuthnAssertion: buildWebAuthnAssertion("event-journal-qa-release"),
+        },
+      },
+    },
+    auditContext,
+  );
+
   await store.generateHandoffPacket(
     caseId,
     {
       reviewId: reviewOutcomeResult.reviewOutcome.reviewId,
+      qaReleaseId: qaReleaseResult.qaRelease.qaReleaseId,
       handoffTarget: "gmp-site-alpha",
       requestedBy: "oncology-board",
       turnaroundDays: 14,
@@ -527,8 +568,8 @@ test("event journal replays board review and handoff state exactly", async () =>
   const replayed = replayCaseEvents(events);
 
   assert.deepEqual(events.slice(-3).map((event) => event.type), [
-    "board.packet.generated",
     "review.outcome.recorded",
+    "qa.release.recorded",
     "handoff.packet.generated",
   ]);
   assert.deepEqual(replayed.boardPackets, live.boardPackets);

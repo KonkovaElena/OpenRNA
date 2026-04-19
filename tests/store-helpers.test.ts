@@ -91,6 +91,7 @@ test("store helpers keep review and handoff signatures deterministic", () => {
 
   const handoffInput: GenerateHandoffPacketInput = {
     reviewId: "review-001",
+    qaReleaseId: "qa-release-001",
     handoffTarget: "cmc-facility-a",
     requestedBy: "operator-001",
     turnaroundDays: 14,

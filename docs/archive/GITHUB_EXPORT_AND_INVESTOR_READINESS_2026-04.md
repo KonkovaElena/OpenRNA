@@ -1,17 +1,17 @@
 ---
 title: "GitHub Export And Investor Readiness Audit — April 2026"
 status: active-evidence
-version: "1.5.1"
-last_updated: "2026-04-05"
+version: "1.6.0"
+last_updated: "2026-04-06"
 tags: [github, investor, audit, evidence, toolchain, oncology]
-evidence_cutoff: "2026-04-05"
+evidence_cutoff: "2026-04-06"
 ---
 
 # GitHub Export & Investor Readiness
 
 ## Scope
 
-This memo draws the public-export boundary for the standalone OpenRNA repository and records what we've verified as of April 4, 2026.
+This memo draws the public-export boundary for the standalone OpenRNA repository and records what we've verified as of April 6, 2026.
 
 **What we checked:**
 
@@ -19,7 +19,7 @@ This memo draws the public-export boundary for the standalone OpenRNA repository
 - Toolchain and dependency freshness
 - GitHub community-health and automation surfaces
 - Investor-facing technical narrative and evidence posture
-- Current clinical and regulatory anchor claims
+- Current clinical, regulatory, and payer-signal anchor claims
 
 **What's out of scope:** legal opinions, regulatory submissions, CMC qualification packages, manufacturing materials, clinical decision support.
 
@@ -53,6 +53,7 @@ This does not make the repository clinically deployable, Part 11 complete, or in
 | `README.md` | Primary entrypoint for external readers |
 | `docs/design.md` | Authority architecture note |
 | `docs/REGULATORY_CONTEXT.md` | Regulatory orientation and gap map |
+| `docs/RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md` | April 2026 Russia-specific payer and policy signal note with explicit claim boundaries |
 | `docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md` | Clinical and competitor evidence baseline |
 | `docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md` | Runtime, dependency, and ecosystem baseline |
 | `docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md` | Current publication and investor-readiness audit |
@@ -83,6 +84,7 @@ This does not make the repository clinically deployable, Part 11 complete, or in
 | BNT-122 registry anchor | ClinicalTrials.gov `NCT05968326` | Recruiting Phase 2 PDAC study of autogene cevumeran plus atezolizumab and mFOLFIRINOX |
 | FDA Part 11 framing | FDA Part 11 scope-and-application guidance | FDA states Part 11 should be interpreted narrowly and remains predicate-rule driven |
 | EMA advanced-therapy framing | EMA ATMP overview | EMA centralizes ATMP authorization and explicitly warns against unregulated advanced-therapy claims |
+| Russian OMS oncology policy signal | `regulation.gov.ru` project `166217` + official `Правительство. Главное` announcement + Vedomosti corroboration | Evidence of an April 2026 payer-side signal for personalized mRNA vaccines, `Онкопепт`, and CAR-T in Russia; not treated here as proof of broad operational rollout or market traction |
 
 ## Dependency Currency Verdict
 

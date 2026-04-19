@@ -1,5 +1,6 @@
 ﻿import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { newDb } from "pg-mem";
@@ -341,6 +342,12 @@ async function createBoardPacketReadyHttpCase(
 }
 
 function buildReviewOutcomeInput(packetId: string, overrides: Record<string, unknown> = {}) {
+  const challengeId = "challenge-review-approved";
+  const assertionPrefix = createHmac("sha256", "openrna-audit-hmac-default-key")
+    .update(`webauthn:${challengeId}`)
+    .digest("hex")
+    .slice(0, 16);
+
   return {
     packetId,
     reviewerId: "board-md-001",
@@ -348,13 +355,49 @@ function buildReviewOutcomeInput(packetId: string, overrides: Record<string, unk
     reviewDisposition: "approved",
     rationale: "Board approved the current construct for bounded manufacturing handoff.",
     comments: "Proceed under existing trial governance.",
+    signature: {
+      printedName: "Dr. Board Reviewer",
+      meaning: "Board approval for final QA release",
+      stepUpAuth: {
+        method: "webauthn",
+        challengeId,
+        webAuthnAssertion: `webauthn:${challengeId}:${assertionPrefix}`,
+      },
+    },
     ...overrides,
   };
 }
 
-function buildHandoffPacketInput(reviewId: string, overrides: Record<string, unknown> = {}) {
+function buildQaReleaseInput(reviewId: string, overrides: Record<string, unknown> = {}) {
+  const challengeId = "challenge-qa-release";
+  const assertionPrefix = createHmac("sha256", "openrna-audit-hmac-default-key")
+    .update(`webauthn:${challengeId}`)
+    .digest("hex")
+    .slice(0, 16);
+
   return {
     reviewId,
+    qaReviewerId: "qa-md-001",
+    qaReviewerRole: "quality-assurance",
+    rationale: "Independent QA release after board approval.",
+    comments: "Maker-checker separation confirmed.",
+    signature: {
+      printedName: "Dr. QA Reviewer",
+      meaning: "Final QA release authorization",
+      stepUpAuth: {
+        method: "webauthn",
+        challengeId,
+        webAuthnAssertion: `webauthn:${challengeId}:${assertionPrefix}`,
+      },
+    },
+    ...overrides,
+  };
+}
+
+function buildHandoffPacketInput(reviewId: string, qaReleaseId: string, overrides: Record<string, unknown> = {}) {
+  return {
+    reviewId,
+    qaReleaseId,
     handoffTarget: "gmp-partner-a",
     requestedBy: "ops@example.org",
     turnaroundDays: 14,
@@ -873,7 +916,7 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
     assert.equal(response.body.reviewOutcome.caseId, caseId);
     assert.equal(response.body.reviewOutcome.packetId, packetId);
     assert.equal(response.body.reviewOutcome.reviewDisposition, "approved");
-    assert.equal(response.body.case.status, "APPROVED_FOR_HANDOFF");
+    assert.equal(response.body.case.status, "AWAITING_FINAL_RELEASE");
     assert.equal(response.headers["x-correlation-id"], "corr-wave15-review");
 
     const storedCase = await store.getCase(caseId) as unknown as {
@@ -912,6 +955,26 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
     assert.equal(conflictingResponse.body.code, "review_outcome_already_recorded");
   });
 
+  it("POST /api/cases/:caseId/qa-releases rejects maker-checker violations", async () => {
+    const store = new MemoryCaseStore();
+    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const { caseId, packetId } = await createBoardPacketReadyHttpCase(app);
+
+    const reviewResponse = await request(app)
+      .post(`/api/cases/${caseId}/review-outcomes`)
+      .send(buildReviewOutcomeInput(packetId));
+    assert.equal(reviewResponse.status, 201);
+
+    const reviewId = String(reviewResponse.body.reviewOutcome.reviewId);
+    const makerReviewerId = String(reviewResponse.body.reviewOutcome.reviewerId);
+    const qaReleaseResponse = await request(app)
+      .post(`/api/cases/${caseId}/qa-releases`)
+      .send(buildQaReleaseInput(reviewId, { qaReviewerId: makerReviewerId }));
+
+    assert.equal(qaReleaseResponse.status, 409);
+    assert.equal(qaReleaseResponse.body.code, "maker_checker_violation");
+  });
+
   it("POST /api/cases/:caseId/handoff-packets creates a bounded handoff packet from an approved review", async () => {
     const store = new MemoryCaseStore();
     const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
@@ -923,14 +986,23 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
     assert.equal(reviewResponse.status, 201);
     const reviewId = String(reviewResponse.body.reviewOutcome.reviewId);
 
+    const qaReleaseResponse = await request(app)
+      .post(`/api/cases/${caseId}/qa-releases`)
+      .set("x-correlation-id", "corr-wave15-qa-release")
+      .send(buildQaReleaseInput(reviewId));
+    assert.equal(qaReleaseResponse.status, 201);
+    assert.equal(qaReleaseResponse.body.case.status, "APPROVED_FOR_HANDOFF");
+    const qaReleaseId = String(qaReleaseResponse.body.qaRelease.qaReleaseId);
+
     const handoffResponse = await request(app)
       .post(`/api/cases/${caseId}/handoff-packets`)
       .set("x-correlation-id", "corr-wave15-handoff")
-      .send(buildHandoffPacketInput(reviewId));
+      .send(buildHandoffPacketInput(reviewId, qaReleaseId));
 
     assert.equal(handoffResponse.status, 201);
     assert.equal(handoffResponse.body.handoff.caseId, caseId);
     assert.equal(handoffResponse.body.handoff.reviewId, reviewId);
+    assert.equal(handoffResponse.body.handoff.qaReleaseId, qaReleaseId);
     assert.equal(handoffResponse.body.handoff.packetId, packetId);
     assert.equal(handoffResponse.body.handoff.handoffTarget, "gmp-partner-a");
     assert.equal(handoffResponse.body.handoff.snapshot.reviewOutcome.reviewDisposition, "approved");
@@ -939,10 +1011,16 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
     assert.equal(handoffResponse.headers["x-correlation-id"], "corr-wave15-handoff");
 
     const handoffId = String(handoffResponse.body.handoff.handoffId);
+    const qaReleaseListResponse = await request(app).get(`/api/cases/${caseId}/qa-releases`);
+    const qaReleaseGetResponse = await request(app).get(`/api/cases/${caseId}/qa-releases/${qaReleaseId}`);
     const listResponse = await request(app).get(`/api/cases/${caseId}/handoff-packets`);
     const getResponse = await request(app).get(`/api/cases/${caseId}/handoff-packets/${handoffId}`);
     const traceabilityResponse = await request(app).get(`/api/cases/${caseId}/traceability`);
 
+    assert.equal(qaReleaseListResponse.status, 200);
+    assert.equal(qaReleaseListResponse.body.meta.totalQaReleases, 1);
+    assert.equal(qaReleaseGetResponse.status, 200);
+    assert.equal(qaReleaseGetResponse.body.qaRelease.qaReleaseId, qaReleaseId);
     assert.equal(listResponse.status, 200);
     assert.equal(listResponse.body.meta.totalHandoffs, 1);
     assert.equal(listResponse.body.handoffs[0].handoffId, handoffId);
@@ -968,7 +1046,7 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
 
     const handoffResponse = await request(app)
       .post(`/api/cases/${caseId}/handoff-packets`)
-      .send(buildHandoffPacketInput(String(reviewResponse.body.reviewOutcome.reviewId)));
+      .send(buildHandoffPacketInput(String(reviewResponse.body.reviewOutcome.reviewId), "qa-release-missing"));
 
     assert.equal(handoffResponse.status, 409);
     assert.equal(handoffResponse.body.code, "review_outcome_not_approved");
@@ -986,10 +1064,17 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
         .send(buildReviewOutcomeInput(packetId));
       assert.equal(reviewResponse.status, 201);
       const reviewId = String(reviewResponse.body.reviewOutcome.reviewId);
+      const reviewSignatureHash = String(reviewResponse.body.reviewOutcome.signature.signatureHash);
+
+      const qaReleaseResponse = await request(app)
+        .post(`/api/cases/${caseId}/qa-releases`)
+        .send(buildQaReleaseInput(reviewId));
+      assert.equal(qaReleaseResponse.status, 201);
+      const qaReleaseId = String(qaReleaseResponse.body.qaRelease.qaReleaseId);
 
       const handoffResponse = await request(app)
         .post(`/api/cases/${caseId}/handoff-packets`)
-        .send(buildHandoffPacketInput(reviewId));
+        .send(buildHandoffPacketInput(reviewId, qaReleaseId));
       assert.equal(handoffResponse.status, 201);
       const handoffId = String(handoffResponse.body.handoff.handoffId);
 
@@ -997,19 +1082,41 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
       await reloadedStore.initialize();
 
       const reloadedCase = await reloadedStore.getCase(caseId) as unknown as {
-        reviewOutcomes: Array<{ reviewId: string }>;
+        reviewOutcomes: Array<{ reviewId: string; signature?: { signatureHash?: string } }>;
+        qaReleases: Array<{ qaReleaseId: string }>;
         handoffPackets: Array<{ handoffId: string }>;
+        auditEvents: Array<{ eventHash?: string; previousEventHash?: string }>;
       };
       assert.equal(reloadedCase.reviewOutcomes.length, 1);
       assert.equal(reloadedCase.reviewOutcomes[0].reviewId, reviewId);
+      assert.equal(reloadedCase.reviewOutcomes[0].signature?.signatureHash, reviewSignatureHash);
+      assert.equal(reloadedCase.qaReleases.length, 1);
+      assert.equal(reloadedCase.qaReleases[0].qaReleaseId, qaReleaseId);
       assert.equal(reloadedCase.handoffPackets.length, 1);
       assert.equal(reloadedCase.handoffPackets[0].handoffId, handoffId);
 
+      assert.ok(reloadedCase.auditEvents.length > 0);
+      const eventHashes = new Set(
+        reloadedCase.auditEvents
+          .map((event) => event.eventHash)
+          .filter((hash): hash is string => typeof hash === "string" && hash.length > 0),
+      );
+      assert.equal(eventHashes.size, reloadedCase.auditEvents.length);
+      const roots = reloadedCase.auditEvents.filter((event) => event.previousEventHash === undefined);
+      assert.equal(roots.length, 1);
+      for (const event of reloadedCase.auditEvents) {
+        if (event.previousEventHash) {
+          assert.ok(eventHashes.has(event.previousEventHash));
+        }
+      }
+
       const traceability = await reloadedStore.getFullTraceability(caseId) as unknown as {
         reviewOutcomes: Array<{ reviewId: string }>;
+        qaReleases: Array<{ qaReleaseId: string }>;
         handoffPackets: Array<{ handoffId: string }>;
       };
       assert.equal(traceability.reviewOutcomes.length, 1);
+      assert.equal(traceability.qaReleases.length, 1);
       assert.equal(traceability.handoffPackets.length, 1);
     } finally {
       await pool.end();

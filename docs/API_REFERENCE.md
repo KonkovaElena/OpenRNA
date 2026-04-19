@@ -2,7 +2,7 @@
 title: "OpenRNA API Reference"
 status: "active"
 version: "1.0.0"
-last_updated: "2026-04-05"
+last_updated: "2026-04-19"
 tags: [api, reference, http, public-export]
 ---
 
@@ -93,7 +93,7 @@ Notes:
 | `POST` | `/api/cases/:caseId/construct-design` |
 | `GET` | `/api/cases/:caseId/construct-design` |
 
-## Review, Handoff, And Outcomes
+## Review, QA Release, Handoff, And Outcomes
 
 | Method | Path |
 |--------|------|
@@ -103,6 +103,9 @@ Notes:
 | `POST` | `/api/cases/:caseId/review-outcomes` |
 | `GET` | `/api/cases/:caseId/review-outcomes` |
 | `GET` | `/api/cases/:caseId/review-outcomes/:reviewId` |
+| `POST` | `/api/cases/:caseId/qa-releases` |
+| `GET` | `/api/cases/:caseId/qa-releases` |
+| `GET` | `/api/cases/:caseId/qa-releases/:qaReleaseId` |
 | `POST` | `/api/cases/:caseId/handoff-packets` |
 | `GET` | `/api/cases/:caseId/handoff-packets` |
 | `GET` | `/api/cases/:caseId/handoff-packets/:handoffId` |
@@ -110,6 +113,12 @@ Notes:
 | `POST` | `/api/cases/:caseId/outcomes/immune-monitoring` |
 | `POST` | `/api/cases/:caseId/outcomes/clinical-follow-up` |
 | `GET` | `/api/cases/:caseId/outcomes` |
+
+Notes:
+
+- `POST /api/cases/:caseId/review-outcomes` with `reviewDisposition=approved` requires electronic signature evidence.
+- `POST /api/cases/:caseId/qa-releases` requires independent QA reviewer identity and signature evidence.
+- `POST /api/cases/:caseId/handoff-packets` requires matching `reviewId` and `qaReleaseId` for final release handoff.
 
 ## Governance, Consent, FHIR, And Audit
 

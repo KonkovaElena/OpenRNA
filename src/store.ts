@@ -17,6 +17,7 @@ import {
 import {
   generateBoardPacketForCase,
   generateHandoffPacketForCase,
+  recordQaReleaseForCase,
   recordReviewOutcomeForCase,
 } from "./store-review";
 import {
@@ -34,6 +35,7 @@ import {
   parseRecordAdministrationInput,
   parseRecordClinicalFollowUpInput,
   parseRecordImmuneMonitoringInput,
+  parseRecordQaReleaseInput,
   parseRecordReviewOutcomeInput,
   parseRegisterArtifactInput,
   parseRegisterSampleInput,
@@ -71,9 +73,12 @@ import type {
   ImmuneMonitoringRecord,
   OperationsSummary,
   OutcomeTimelineEntry,
+  QaReleaseRecord,
+  QaReleaseResult,
   QcGateRecord,
   RankingResult,
   ReferenceBundleManifest,
+  RecordQaReleaseInput,
   RecordReviewOutcomeInput,
   RetrievalProvenance,
   ReviewOutcomeRecord,
@@ -110,6 +115,7 @@ export {
   parseRecordClinicalFollowUpInput,
   parseRecordHlaConsensusInput,
   parseRecordImmuneMonitoringInput,
+  parseRecordQaReleaseInput,
   parseRecordReviewOutcomeInput,
   parseRegisterArtifactInput,
   parseRegisterBundleInput,
@@ -197,6 +203,9 @@ export interface CaseStore {
   recordReviewOutcome(caseId: string, input: RecordReviewOutcomeInput, correlationId: AuditContextInput): Promise<ReviewOutcomeResult>;
   listReviewOutcomes(caseId: string): Promise<ReviewOutcomeRecord[]>;
   getReviewOutcome(caseId: string, reviewId: string): Promise<ReviewOutcomeRecord>;
+  recordQaRelease(caseId: string, input: RecordQaReleaseInput, correlationId: AuditContextInput): Promise<QaReleaseResult>;
+  listQaReleases(caseId: string): Promise<QaReleaseRecord[]>;
+  getQaRelease(caseId: string, qaReleaseId: string): Promise<QaReleaseRecord>;
   generateHandoffPacket(caseId: string, input: GenerateHandoffPacketInput, correlationId: AuditContextInput): Promise<HandoffPacketGenerationResult>;
   listHandoffPackets(caseId: string): Promise<HandoffPacketRecord[]>;
   getHandoffPacket(caseId: string, handoffId: string): Promise<HandoffPacketRecord>;
@@ -351,6 +360,7 @@ export class MemoryCaseStore implements CaseStore {
       qcGates: [],
       boardPackets: [],
       reviewOutcomes: [],
+      qaReleases: [],
       handoffPackets: [],
       outcomeTimeline: [],
     };
@@ -1009,6 +1019,25 @@ export class MemoryCaseStore implements CaseStore {
     }
 
     return structuredClone(reviewOutcome);
+  }
+
+  async recordQaRelease(caseId: string, input: RecordQaReleaseInput, correlationId: AuditContextInput): Promise<QaReleaseResult> {
+    return recordQaReleaseForCase(this.getReviewMutationContext(), this.getMutableRecord(caseId), caseId, input, correlationId);
+  }
+
+  async listQaReleases(caseId: string): Promise<QaReleaseRecord[]> {
+    const record = await this.getCase(caseId);
+    return structuredClone(record.qaReleases);
+  }
+
+  async getQaRelease(caseId: string, qaReleaseId: string): Promise<QaReleaseRecord> {
+    const record = await this.getCase(caseId);
+    const qaRelease = record.qaReleases.find((candidate) => candidate.qaReleaseId === qaReleaseId);
+    if (!qaRelease) {
+      throw new ApiError(404, "qa_release_not_found", "QA release was not found for this case.", "Use a valid qaReleaseId from the QA release list endpoint.");
+    }
+
+    return structuredClone(qaRelease);
   }
 
   async generateHandoffPacket(caseId: string, input: GenerateHandoffPacketInput, correlationId: AuditContextInput): Promise<HandoffPacketGenerationResult> {

@@ -91,7 +91,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   registerModalityRoutes(app, modalityRegistry);
   registerFhirRoutes(app, { store, fhirExporter, rbacProvider, consentGateMw, getRequiredRouteParam });
   registerAuditRoutes(app, { rbacProvider, auditSignatureProvider });
-  registerReviewRoutes(app, { store, rbacProvider, consentGateMw, getRequiredRouteParam });
+  registerReviewRoutes(app, { store, rbacProvider, auditSignatureProvider, consentGateMw, getRequiredRouteParam });
   registerGovernanceRoutes(app, {
     store,
     referenceBundleRegistry,

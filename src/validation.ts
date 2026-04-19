@@ -30,6 +30,7 @@ import {
   type HlaToolEvidence,
   type NeoantigenCandidate,
   type RankingRationale,
+  type RecordQaReleaseInput,
   type ReferenceBundleManifest,
   type RecordHlaConsensusInput,
   type RecordReviewOutcomeInput,
@@ -405,6 +406,24 @@ const signatureManifestationSchema = z.object({
   signatureMethod: requiredText("signatureManifestation.signatureMethod"),
 }).strict();
 
+const stepUpAuthInputSchema = z.discriminatedUnion("method", [
+  z.object({
+    method: z.literal("totp"),
+    totpCode: requiredText("signature.stepUpAuth.totpCode").regex(/^\d{6}$/u, "signature.stepUpAuth.totpCode must be a 6-digit code."),
+  }).strict(),
+  z.object({
+    method: z.literal("webauthn"),
+    webAuthnAssertion: requiredText("signature.stepUpAuth.webAuthnAssertion"),
+    challengeId: requiredText("signature.stepUpAuth.challengeId"),
+  }).strict(),
+]);
+
+const electronicSignatureInputSchema = z.object({
+  printedName: requiredText("signature.printedName"),
+  meaning: requiredText("signature.meaning"),
+  stepUpAuth: stepUpAuthInputSchema,
+}).strict();
+
 const recordReviewOutcomeInputSchema = z.object({
   packetId: requiredText("packetId"),
   reviewerId: requiredText("reviewerId"),
@@ -415,10 +434,24 @@ const recordReviewOutcomeInputSchema = z.object({
   rationale: requiredText("rationale"),
   comments: optionalText("comments"),
   signatureManifestation: signatureManifestationSchema.optional(),
+  signature: z.preprocess(
+    (value) => (value === null || value === undefined ? undefined : value),
+    electronicSignatureInputSchema.optional(),
+  ),
 }).strict() satisfies z.ZodType<RecordReviewOutcomeInput>;
+
+const recordQaReleaseInputSchema = z.object({
+  reviewId: requiredText("reviewId"),
+  qaReviewerId: requiredText("qaReviewerId"),
+  qaReviewerRole: optionalText("qaReviewerRole"),
+  rationale: requiredText("rationale"),
+  comments: optionalText("comments"),
+  signature: electronicSignatureInputSchema,
+}).strict() satisfies z.ZodType<RecordQaReleaseInput>;
 
 const generateHandoffPacketInputSchema = z.object({
   reviewId: requiredText("reviewId"),
+  qaReleaseId: requiredText("qaReleaseId"),
   handoffTarget: requiredText("handoffTarget"),
   requestedBy: requiredText("requestedBy"),
   turnaroundDays: positiveInteger("turnaroundDays"),
@@ -570,11 +603,19 @@ export function parseRecordReviewOutcomeInput(value: unknown): RecordReviewOutco
   );
 }
 
+export function parseRecordQaReleaseInput(value: unknown): RecordQaReleaseInput {
+  return parseObjectWithSchema(
+    value,
+    recordQaReleaseInputSchema,
+    "Submit a JSON object with reviewId, qaReviewerId, rationale, and electronic signature evidence.",
+  );
+}
+
 export function parseGenerateHandoffPacketInput(value: unknown): GenerateHandoffPacketInput {
   return parseObjectWithSchema(
     value,
     generateHandoffPacketInputSchema,
-    "Submit a JSON object with reviewId, handoffTarget, requestedBy, and turnaroundDays.",
+    "Submit a JSON object with reviewId, qaReleaseId, handoffTarget, requestedBy, and turnaroundDays.",
   );
 }
 

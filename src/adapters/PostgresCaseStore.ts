@@ -22,8 +22,11 @@ import type {
   ImmuneMonitoringRecord,
   OperationsSummary,
   OutcomeTimelineEntry,
+  QaReleaseRecord,
+  QaReleaseResult,
   QcGateRecord,
   RankingResult,
+  RecordQaReleaseInput,
   RecordReviewOutcomeInput,
   RunArtifact,
   ReviewOutcomeRecord,
@@ -37,6 +40,7 @@ import type {
   ReferenceBundleManifest,
 } from "../types";
 import { MemoryCaseStore, SystemClock, type AuditContextInput, type CaseStore, type Clock } from "../store";
+import { sealAuditHashChain } from "../store-helpers";
 
 interface QueryResult<T> {
   rows: T[];
@@ -72,6 +76,7 @@ const caseStatuses: readonly CaseStatus[] = [
   "QC_PASSED",
   "QC_FAILED",
   "AWAITING_REVIEW",
+  "AWAITING_FINAL_RELEASE",
   "APPROVED_FOR_HANDOFF",
   "REVISION_REQUESTED",
   "REVIEW_REJECTED",
@@ -181,6 +186,29 @@ function mapAuditEventRow(r: Record<string, unknown>): CaseAuditEventRecord {
       ? String(r.auth_mechanism) as CaseAuditEventRecord["authMechanism"]
       : "anonymous",
     occurredAt: toIso(r.occurred_at),
+    printedName: r.printed_name != null ? String(r.printed_name) : undefined,
+    signatureMeaning: r.signature_meaning != null ? String(r.signature_meaning) : undefined,
+    signedBy: r.signed_by != null ? String(r.signed_by) : undefined,
+    signedAt: r.signed_at != null ? toIso(r.signed_at) : undefined,
+    signatureMethod: r.signature_method != null ? String(r.signature_method) : undefined,
+    signatureHash: r.signature_hash != null ? String(r.signature_hash) : undefined,
+    stepUpMethod: r.step_up_method != null ? String(r.step_up_method) as CaseAuditEventRecord["stepUpMethod"] : undefined,
+    previousEventHash: r.previous_event_hash != null ? String(r.previous_event_hash) : undefined,
+    eventHash: r.event_hash != null ? String(r.event_hash) : undefined,
+  };
+}
+
+function mapQaReleaseRow(r: Record<string, unknown>): QaReleaseRecord {
+  return {
+    qaReleaseId: String(r.qa_release_id),
+    caseId: String(r.case_id),
+    reviewId: String(r.review_id),
+    qaReviewerId: String(r.qa_reviewer_id),
+    qaReviewerRole: r.qa_reviewer_role != null ? String(r.qa_reviewer_role) : undefined,
+    rationale: String(r.rationale),
+    comments: r.comments != null ? String(r.comments) : undefined,
+    releasedAt: toIso(r.released_at),
+    signature: parseJsonb<QaReleaseRecord["signature"]>(r.signature),
   };
 }
 
@@ -240,6 +268,7 @@ function mapReviewOutcomeRow(r: Record<string, unknown>): ReviewOutcomeRecord {
     rationale: String(r.rationale),
     comments: r.comments != null ? String(r.comments) : undefined,
     reviewedAt: toIso(r.reviewed_at),
+    signature: r.signature != null ? parseJsonb<ReviewOutcomeRecord["signature"]>(r.signature) : undefined,
   };
 }
 
@@ -248,6 +277,7 @@ function mapHandoffPacketRow(r: Record<string, unknown>): HandoffPacketRecord {
     handoffId: String(r.handoff_id),
     caseId: String(r.case_id),
     reviewId: String(r.review_id),
+    qaReleaseId: String(r.qa_release_id),
     packetId: String(r.packet_id),
     artifactClass: "HANDOFF_PACKET",
     constructId: String(r.construct_id),
@@ -501,6 +531,36 @@ export class PostgresCaseStore implements CaseStore {
     return store.getReviewOutcome(caseId, reviewId);
   }
 
+  async recordQaRelease(caseId: string, input: RecordQaReleaseInput, correlationId: Parameters<MemoryCaseStore["recordQaRelease"]>[2]): Promise<QaReleaseResult> {
+    await this.initialize();
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const store = await this.createMemoryStoreForCase(caseId, client, true);
+      const result = await store.recordQaRelease(caseId, input, correlationId);
+      await this.saveCaseRecord(client, result.case);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listQaReleases(caseId: string) {
+    await this.initialize();
+    const store = await this.createMemoryStoreForCase(caseId);
+    return store.listQaReleases(caseId);
+  }
+
+  async getQaRelease(caseId: string, qaReleaseId: string) {
+    await this.initialize();
+    const store = await this.createMemoryStoreForCase(caseId);
+    return store.getQaRelease(caseId, qaReleaseId);
+  }
+
   async generateHandoffPacket(caseId: string, input: GenerateHandoffPacketInput, correlationId: Parameters<MemoryCaseStore["generateHandoffPacket"]>[2]): Promise<HandoffPacketGenerationResult> {
     await this.initialize();
     const client = await this.pool.connect();
@@ -607,11 +667,11 @@ export class PostgresCaseStore implements CaseStore {
     if (!caseResult.rows[0]) return null;
     const c = caseResult.rows[0];
 
-    // HD-003: Fan out all 13 child queries in parallel — they are independent given the parent case_id.
+    // HD-003: Fan out child reads in parallel; all are independent for the same case_id.
     const [
       samplesR, artifactsR, requestsR, runsR, runArtsR,
       auditsR, timelineR, outcomesR, hlaR, qcR,
-      packetsR, reviewOutcomesR, handoffPacketsR,
+      packetsR, reviewOutcomesR, qaReleasesR, handoffPacketsR,
     ] = await Promise.all([
       queryable.query<Record<string, unknown>>(`SELECT * FROM samples WHERE case_id = $1 ORDER BY registered_at`, [caseId]),
       queryable.query<Record<string, unknown>>(`SELECT * FROM artifacts WHERE case_id = $1 ORDER BY registered_at`, [caseId]),
@@ -625,6 +685,7 @@ export class PostgresCaseStore implements CaseStore {
       queryable.query<Record<string, unknown>>(`SELECT * FROM qc_gates WHERE case_id = $1`, [caseId]),
       queryable.query<Record<string, unknown>>(`SELECT * FROM board_packets WHERE case_id = $1 ORDER BY created_at`, [caseId]),
       queryable.query<Record<string, unknown>>(`SELECT * FROM review_outcomes WHERE case_id = $1 ORDER BY reviewed_at`, [caseId]),
+      queryable.query<Record<string, unknown>>(`SELECT * FROM qa_releases WHERE case_id = $1 ORDER BY released_at`, [caseId]),
       queryable.query<Record<string, unknown>>(`SELECT * FROM handoff_packets WHERE case_id = $1 ORDER BY created_at`, [caseId]),
     ]);
 
@@ -645,6 +706,7 @@ export class PostgresCaseStore implements CaseStore {
       qcGates: qcR.rows.map(mapQcGateRow),
       boardPackets: packetsR.rows.map(mapBoardPacketRow),
       reviewOutcomes: reviewOutcomesR.rows.map(mapReviewOutcomeRow),
+      qaReleases: qaReleasesR.rows.map(mapQaReleaseRow),
       handoffPackets: handoffPacketsR.rows.map(mapHandoffPacketRow),
       neoantigenRanking: c.neoantigen_ranking != null ? parseJsonb<RankingResult>(c.neoantigen_ranking) : undefined,
       constructDesign: c.construct_design != null ? parseJsonb<ConstructDesignPackage>(c.construct_design) : undefined,
@@ -655,8 +717,12 @@ export class PostgresCaseStore implements CaseStore {
   private async saveCaseRecord(queryable: PostgresCaseStoreQueryable, record: CaseRecord): Promise<void> {
     const id = record.caseId;
 
+    // Ensure every persisted audit event is linked into a deterministic hash chain.
+    sealAuditHashChain(record.auditEvents);
+
     // Delete children in FK-safe order (leaves first)
     await queryable.query(`DELETE FROM handoff_packets WHERE case_id = $1`, [id]);
+    await queryable.query(`DELETE FROM qa_releases WHERE case_id = $1`, [id]);
     await queryable.query(`DELETE FROM review_outcomes WHERE case_id = $1`, [id]);
     await queryable.query(`DELETE FROM board_packets WHERE case_id = $1`, [id]);
     await queryable.query(`DELETE FROM outcome_timeline WHERE case_id = $1`, [id]);
@@ -743,9 +809,27 @@ export class PostgresCaseStore implements CaseStore {
     // Insert audit events
     for (const e of record.auditEvents) {
       await queryable.query(
-        `INSERT INTO audit_events (event_id, case_id, event_type, detail, correlation_id, actor_id, auth_mechanism, occurred_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [e.eventId, id, e.type, e.detail, e.correlationId, e.actorId, e.authMechanism, e.occurredAt],
+        `INSERT INTO audit_events (event_id, case_id, event_type, detail, correlation_id, actor_id, auth_mechanism, occurred_at, printed_name, signature_meaning, signed_by, signed_at, signature_method, signature_hash, step_up_method, previous_event_hash, event_hash)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+        [
+          e.eventId,
+          id,
+          e.type,
+          e.detail,
+          e.correlationId,
+          e.actorId,
+          e.authMechanism,
+          e.occurredAt,
+          e.printedName ?? null,
+          e.signatureMeaning ?? null,
+          e.signedBy ?? null,
+          e.signedAt ?? null,
+          e.signatureMethod ?? null,
+          e.signatureHash ?? null,
+          e.stepUpMethod ?? null,
+          e.previousEventHash ?? null,
+          e.eventHash ?? null,
+        ],
       );
     }
 
@@ -788,8 +872,8 @@ export class PostgresCaseStore implements CaseStore {
 
     for (const reviewOutcome of record.reviewOutcomes) {
       await queryable.query(
-        `INSERT INTO review_outcomes (review_id, case_id, packet_id, reviewer_id, reviewer_role, review_disposition, rationale, comments, reviewed_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        `INSERT INTO review_outcomes (review_id, case_id, packet_id, reviewer_id, reviewer_role, review_disposition, rationale, comments, reviewed_at, signature)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
         [
           reviewOutcome.reviewId,
           id,
@@ -800,18 +884,38 @@ export class PostgresCaseStore implements CaseStore {
           reviewOutcome.rationale,
           reviewOutcome.comments ?? null,
           reviewOutcome.reviewedAt,
+          reviewOutcome.signature ? JSON.stringify(reviewOutcome.signature) : null,
+        ],
+      );
+    }
+
+    for (const qaRelease of record.qaReleases) {
+      await queryable.query(
+        `INSERT INTO qa_releases (qa_release_id, case_id, review_id, qa_reviewer_id, qa_reviewer_role, rationale, comments, released_at, signature)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [
+          qaRelease.qaReleaseId,
+          id,
+          qaRelease.reviewId,
+          qaRelease.qaReviewerId,
+          qaRelease.qaReviewerRole ?? null,
+          qaRelease.rationale,
+          qaRelease.comments ?? null,
+          qaRelease.releasedAt,
+          JSON.stringify(qaRelease.signature),
         ],
       );
     }
 
     for (const handoff of record.handoffPackets) {
       await queryable.query(
-        `INSERT INTO handoff_packets (handoff_id, case_id, review_id, packet_id, artifact_class, construct_id, construct_version, handoff_target, schema_version, packet_hash, created_at, snapshot)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        `INSERT INTO handoff_packets (handoff_id, case_id, review_id, qa_release_id, packet_id, artifact_class, construct_id, construct_version, handoff_target, schema_version, packet_hash, created_at, snapshot)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
         [
           handoff.handoffId,
           id,
           handoff.reviewId,
+          handoff.qaReleaseId,
           handoff.packetId,
           handoff.artifactClass,
           handoff.constructId,
