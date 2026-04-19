@@ -115,6 +115,29 @@ npm run ci
 | `JWT_SHARED_SECRET` / `JWT_PUBLIC_KEY_PEM` | unset | Конфигурация валидации JWT |
 | `RBAC_ALLOW_ALL` | `false` | Аварийный permissive-режим (не для production) |
 
+## Профили безопасного запуска
+
+- Локальный профиль разработки (open): оставьте `REQUIRE_AUTH=false` и запускайте без auth-учетных данных.
+- Production-профиль (strict): установите `REQUIRE_AUTH=true` и настройте минимум один метод аутентификации (`API_KEY` или JWT).
+
+Рекомендуемый strict-базис:
+
+```bash
+REQUIRE_AUTH=true
+API_KEY=<strong-random-secret>
+RBAC_ALLOW_ALL=false
+```
+
+JWT strict-базис (альтернатива):
+
+```bash
+REQUIRE_AUTH=true
+JWT_SHARED_SECRET=<32+ bytes>
+RBAC_ALLOW_ALL=false
+```
+
+Если `REQUIRE_AUTH=true`, но auth-метод не настроен, приложение завершит запуск с ошибкой (fail-fast).
+
 ## Карта документации
 
 | Документ | Роль |

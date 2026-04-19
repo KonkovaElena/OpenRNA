@@ -115,6 +115,29 @@ Configuration authority: [src/config.ts](src/config.ts).
 | `JWT_SHARED_SECRET` / `JWT_PUBLIC_KEY_PEM` | unset | JWT verification configuration |
 | `RBAC_ALLOW_ALL` | `false` | Emergency permissive mode (not for production) |
 
+## Startup Security Profiles
+
+- Local development profile (open): keep `REQUIRE_AUTH=false` and run without auth credentials.
+- Production profile (strict): set `REQUIRE_AUTH=true` and configure at least one auth method (`API_KEY` or JWT options).
+
+Recommended strict baseline:
+
+```bash
+REQUIRE_AUTH=true
+API_KEY=<strong-random-secret>
+RBAC_ALLOW_ALL=false
+```
+
+JWT strict baseline (alternative):
+
+```bash
+REQUIRE_AUTH=true
+JWT_SHARED_SECRET=<32+ bytes>
+RBAC_ALLOW_ALL=false
+```
+
+If `REQUIRE_AUTH=true` and no auth method is configured, startup fails fast.
+
 ## Documentation Map
 
 | Document | Role |
