@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import request from "supertest";
 import { createApp } from "../src/app";
 import { InMemoryConsentTracker } from "../src/adapters/InMemoryConsentTracker";
@@ -76,6 +77,23 @@ async function createReadyCase(app: ReturnType<typeof createApp>, caseInputOverr
 
   const getRes = await request(app).get(`/api/cases/${caseId}`);
   return getRes.body.case;
+}
+
+function buildWebAuthnSignature(challengeId: string, printedName: string, meaning: string) {
+  const assertionPrefix = createHmac("sha256", "openrna-audit-hmac-default-key")
+    .update(`webauthn:${challengeId}`)
+    .digest("hex")
+    .slice(0, 16);
+
+  return {
+    printedName,
+    meaning,
+    stepUpAuth: {
+      method: "webauthn" as const,
+      challengeId,
+      webAuthnAssertion: `webauthn:${challengeId}:${assertionPrefix}`,
+    },
+  };
 }
 
 // ─── 1. Consent Interlock ──────────────────────────────────────────
@@ -200,20 +218,12 @@ async function advanceThroughReview(app: ReturnType<typeof createApp>, caseId: s
 }
 
 test("Part 11 Signature Manifestation", async (t) => {
-  await t.test("review outcome accepts and persists signature manifestation", async () => {
+  await t.test("review outcome accepts and persists step-up signature evidence", async () => {
     const consentTracker = new InMemoryConsentTracker();
     const app = createApp({ consentTracker, rbacAllowAll: true });
 
     const rec = await createReadyCase(app);
     const packetId = await advanceThroughReview(app, rec.caseId);
-
-    const signatureManifestation = {
-      meaning: "review" as const,
-      signedBy: "dr-reviewer-001",
-      signedAt: new Date().toISOString(),
-      signatureHash: "abc123def456",
-      signatureMethod: "hmac-sha256",
-    };
 
     const reviewRes = await request(app).post(`/api/cases/${rec.caseId}/review-outcomes`).send({
       packetId,
@@ -221,16 +231,20 @@ test("Part 11 Signature Manifestation", async (t) => {
       reviewerRole: "molecular-pathologist",
       reviewDisposition: "approved",
       rationale: "All QC metrics within specification.",
-      signatureManifestation,
+      signature: buildWebAuthnSignature(
+        "challenge-compliance-review-signature",
+        "Dr. Reviewer",
+        "Board approval for final QA release",
+      ),
     });
 
     assert.strictEqual(reviewRes.status, 201, `Review failed: ${JSON.stringify(reviewRes.body)}`);
-    assert.ok(reviewRes.body.reviewOutcome.signatureManifestation);
-    assert.strictEqual(reviewRes.body.reviewOutcome.signatureManifestation.meaning, "review");
-    assert.strictEqual(reviewRes.body.reviewOutcome.signatureManifestation.signedBy, "dr-reviewer-001");
+    assert.ok(reviewRes.body.reviewOutcome.signature);
+    assert.strictEqual(reviewRes.body.reviewOutcome.signature.signedBy, "dr-reviewer-001");
+    assert.strictEqual(reviewRes.body.reviewOutcome.signature.stepUpMethod, "webauthn");
   });
 
-  await t.test("review outcome works without signature (backward compat)", async () => {
+  await t.test("review outcome rejects approved disposition without signature evidence", async () => {
     const consentTracker = new InMemoryConsentTracker();
     const app = createApp({ consentTracker, rbacAllowAll: true });
 
@@ -244,8 +258,8 @@ test("Part 11 Signature Manifestation", async (t) => {
       rationale: "Approved after board discussion.",
     });
 
-    assert.strictEqual(reviewRes.status, 201);
-    assert.strictEqual(reviewRes.body.reviewOutcome.signatureManifestation, undefined);
+    assert.strictEqual(reviewRes.status, 400);
+    assert.strictEqual(reviewRes.body.code, "signature_required");
   });
 });
 
@@ -278,18 +292,38 @@ test("Two-Person Release Control", async (t) => {
       reviewerRole: "molecular-pathologist",
       reviewDisposition: "approved",
       rationale: "Board approval consensus.",
+      signature: buildWebAuthnSignature(
+        "challenge-compliance-review-approved",
+        "Dr. Reviewer Alpha",
+        "Board approval for final QA release",
+      ),
     });
     assert.strictEqual(reviewRes.status, 201, `Review failed: ${JSON.stringify(reviewRes.body)}`);
     const reviewId = reviewRes.body.reviewOutcome.reviewId;
 
-    return { app, caseId, reviewId };
+    const qaReleaseRes = await request(app).post(`/api/cases/${caseId}/qa-releases`).send({
+      reviewId,
+      qaReviewerId: "qa-reviewer-beta",
+      qaReviewerRole: "quality-assurance",
+      rationale: "Independent QA release for manufacturing handoff.",
+      signature: buildWebAuthnSignature(
+        "challenge-compliance-qa-release",
+        "QA Reviewer Beta",
+        "Final QA release authorization",
+      ),
+    });
+    assert.strictEqual(qaReleaseRes.status, 201, `QA release failed: ${JSON.stringify(qaReleaseRes.body)}`);
+    const qaReleaseId = qaReleaseRes.body.qaRelease.qaReleaseId;
+
+    return { app, caseId, reviewId, qaReleaseId };
   }
 
   await t.test("rejects handoff when requestedBy === reviewerId (same person)", async () => {
-    const { app, caseId, reviewId } = await buildApprovedCase();
+    const { app, caseId, reviewId, qaReleaseId } = await buildApprovedCase();
 
     const res = await request(app).post(`/api/cases/${caseId}/handoff-packets`).send({
       reviewId,
+      qaReleaseId,
       handoffTarget: "manufacturing-site-A",
       requestedBy: "dr-reviewer-alpha", // same as reviewer — must be rejected
       turnaroundDays: 14,
@@ -300,10 +334,11 @@ test("Two-Person Release Control", async (t) => {
   });
 
   await t.test("allows handoff when requestedBy is independent (different person)", async () => {
-    const { app, caseId, reviewId } = await buildApprovedCase();
+    const { app, caseId, reviewId, qaReleaseId } = await buildApprovedCase();
 
     const res = await request(app).post(`/api/cases/${caseId}/handoff-packets`).send({
       reviewId,
+      qaReleaseId,
       handoffTarget: "manufacturing-site-A",
       requestedBy: "qa-manager-beta", // different person
       turnaroundDays: 14,
