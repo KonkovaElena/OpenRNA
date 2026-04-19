@@ -87,4 +87,6 @@ Any failed IQ/OQ/PQ checkpoint requires:
 
 - docs/INTENDED_USE_STATEMENT_2026.md
 - docs/validation/URS_TRACEABILITY_MATRIX_2026.md
+- docs/validation/IQ_ENVIRONMENT_CHECKLIST_2026.md
+- docs/validation/PQ_THROUGHPUT_AND_RECOVERY_DRILL_2026.md
 - docs/REGULATORY_CONTEXT.md

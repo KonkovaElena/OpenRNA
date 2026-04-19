@@ -35,15 +35,17 @@ Applies to the durable deployment path used for regulated operations:
 | URS-007 | The system shall expose full traceability including review outcomes, QA releases, and handoff packets. | `src/traceability.ts`, `src/routes/review.ts`, `src/routes/outcomes.ts` | `tests/outcomes.test.ts` (`GET /api/cases/:caseId/traceability`) | OQ | Implemented, automated evidence available |
 | URS-008 | The durable store shall preserve review, QA release, and handoff records across process restart. | `src/adapters/PostgresCaseStore.ts`, `src/migrations/001_full_schema.sql` | `tests/outcomes.test.ts` (Postgres persistence and reload case) | PQ | Implemented, automated evidence available |
 | URS-009 | API reference shall reflect live route inventory for regulated-critical endpoints. | `docs/API_REFERENCE.md`, `src/routes/system.ts` | Documentation review against runtime route inventory | IQ/OQ | Implemented, manual docs check required during closure |
-| URS-010 | Validation package shall include intended use, regulatory context, IQ/OQ/PQ plan, and URS matrix. | `docs/INTENDED_USE_STATEMENT_2026.md`, `docs/REGULATORY_CONTEXT.md`, `docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md`, this file | Documentation closure rail outputs (`sync:metrics`, `sync:metrics:check`, `agent:preflight`) | IQ/OQ/PQ | Implemented, closure evidence required per release |
+| URS-010 | Validation package shall include intended use, regulatory context, IQ/OQ/PQ plan, IQ checklist, PQ drill template, and URS matrix. | `docs/INTENDED_USE_STATEMENT_2026.md`, `docs/REGULATORY_CONTEXT.md`, `docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md`, `docs/validation/IQ_ENVIRONMENT_CHECKLIST_2026.md`, `docs/validation/PQ_THROUGHPUT_AND_RECOVERY_DRILL_2026.md`, this file | Documentation closure rail outputs plus completed IQ checklist snapshot and PQ drill report for target deployment | IQ/OQ/PQ | Implemented, closure evidence required per release |
 
 ## Open Qualification Items
 
-- Attach IQ environment checklist and approved baseline snapshot to the release evidence bundle.
-- Record PQ throughput and restart/recovery drill evidence for the target deployment profile.
+- Populate and approve the IQ checklist and baseline snapshot for each target deployment environment.
+- Execute and approve the PQ throughput/recovery drill template for the target deployment profile.
 
 ## Linked Artifacts
 
 - `docs/INTENDED_USE_STATEMENT_2026.md`
 - `docs/REGULATORY_CONTEXT.md`
 - `docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md`
+- `docs/validation/IQ_ENVIRONMENT_CHECKLIST_2026.md`
+- `docs/validation/PQ_THROUGHPUT_AND_RECOVERY_DRILL_2026.md`
