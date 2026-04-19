@@ -39,8 +39,8 @@ Applies to the durable deployment path used for regulated operations:
 
 ## Open Qualification Items
 
-- Populate and approve the IQ checklist and baseline snapshot for each target deployment environment.
-- Execute and approve the PQ throughput/recovery drill template for the target deployment profile.
+- Populate deployment-site values and approvals in IQ baseline snapshot/checklist package.
+- Execute the same PQ drill on target deployment infrastructure and attach signed acceptance thresholds.
 
 ## Linked Artifacts
 
@@ -49,3 +49,6 @@ Applies to the durable deployment path used for regulated operations:
 - `docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md`
 - `docs/validation/IQ_ENVIRONMENT_CHECKLIST_2026.md`
 - `docs/validation/PQ_THROUGHPUT_AND_RECOVERY_DRILL_2026.md`
+- `docs/validation/evidence/IQ_BASELINE_SNAPSHOT_2026-04-19.md`
+- `docs/validation/evidence/PQ_DRILL_REPORT_2026-04-19.md`
+- `docs/validation/evidence/RELEASE_EVIDENCE_BUNDLE_2026-04-19.md`

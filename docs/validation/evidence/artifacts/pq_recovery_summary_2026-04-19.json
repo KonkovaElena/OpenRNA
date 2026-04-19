@@ -1,0 +1,10 @@
+﻿{
+    "source":  "pq_recovery_run_2026-04-19.log",
+    "pass":  489,
+    "fail":  0,
+    "durationMs":  2749.0366,
+    "markers":  {
+                    "durableReload":  "тЬФ PostgresCaseStore persists review outcomes and handoff packets across reload (331.3334ms)",
+                    "failureReplayNoDuplication":  "тЬФ replaying workflow failure does not duplicate terminal history (48.9957ms)"
+                }
+}

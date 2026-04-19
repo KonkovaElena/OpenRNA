@@ -1,0 +1,42 @@
+﻿[
+    {
+        "metric":  "workflow_request_post",
+        "samples":  100,
+        "minMs":  0,
+        "p50Ms":  1,
+        "p95Ms":  2,
+        "maxMs":  52
+    },
+    {
+        "metric":  "review_outcome_post",
+        "samples":  17,
+        "minMs":  0,
+        "p50Ms":  1,
+        "p95Ms":  21,
+        "maxMs":  21
+    },
+    {
+        "metric":  "qa_release_post",
+        "samples":  7,
+        "minMs":  0,
+        "p50Ms":  1,
+        "p95Ms":  19,
+        "maxMs":  19
+    },
+    {
+        "metric":  "handoff_packet_post",
+        "samples":  8,
+        "minMs":  0,
+        "p50Ms":  1,
+        "p95Ms":  23,
+        "maxMs":  23
+    },
+    {
+        "metric":  "traceability_get",
+        "samples":  7,
+        "minMs":  0,
+        "p50Ms":  1,
+        "p95Ms":  1,
+        "maxMs":  1
+    }
+]
