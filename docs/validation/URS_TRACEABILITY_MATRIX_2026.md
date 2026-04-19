@@ -28,7 +28,7 @@ Applies to the durable deployment path used for regulated operations:
 |--------|-------------|------------------------|-----------------------|---------------------|--------|
 | URS-001 | The system shall enforce role-based access controls on case and governance endpoints. | `src/middleware/rbac-auth.ts`, route guards in `src/app.ts` and route registrars | `tests/rbac-coverage.test.ts` | OQ | Implemented, automated evidence available |
 | URS-002 | The system shall expose review, QA release, and handoff routes as first-class API surface. | `src/routes/review.ts`, `src/routes/system.ts`, route wiring in `src/app.ts` | `tests/route-registrars.test.ts`, `tests/outcomes.test.ts` | OQ | Implemented, automated evidence available |
-| URS-003 | Approved review outcomes shall require electronic signature evidence and step-up authentication assertion input. | `src/routes/review.ts` (`signCriticalAction`), `src/store.ts` validation parsing | Route-level behavior covered by `tests/outcomes.test.ts`; negative signature-path tests pending targeted qualification scripts | OQ | Implemented, additional negative OQ cases pending |
+| URS-003 | Approved review outcomes shall require electronic signature evidence and step-up authentication assertion input. | `src/routes/review.ts` (`signCriticalAction`), `src/store.ts` validation parsing | `tests/outcomes.test.ts`, `tests/compliance-controls.test.ts` (missing-signature and malformed step-up rejection paths) | OQ | Implemented, automated evidence available |
 | URS-004 | QA release shall enforce maker-checker separation from board reviewer identity. | `src/store-review.ts` (`recordQaReleaseForCase`) | `tests/outcomes.test.ts` (maker-checker violation case) | OQ | Implemented, automated evidence available |
 | URS-005 | Manufacturing handoff shall require approved review and matching QA release context. | `src/store-review.ts` (`generateHandoffPacketForCase`) | `tests/outcomes.test.ts` (positive handoff and non-approved rejection cases) | OQ | Implemented, automated evidence available |
 | URS-006 | The system shall persist and replay review, QA release, and handoff events with deterministic ordering. | `src/store-review.ts`, event journal replay in `src/event-journal.ts` | `tests/event-journal-foundation.test.ts` | OQ/PQ | Implemented, automated evidence available |
@@ -39,7 +39,6 @@ Applies to the durable deployment path used for regulated operations:
 
 ## Open Qualification Items
 
-- Add explicit negative OQ tests for malformed signature evidence on approved review and QA release endpoints.
 - Attach IQ environment checklist and approved baseline snapshot to the release evidence bundle.
 - Record PQ throughput and restart/recovery drill evidence for the target deployment profile.
 

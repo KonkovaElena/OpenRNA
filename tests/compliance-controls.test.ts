@@ -96,6 +96,18 @@ function buildWebAuthnSignature(challengeId: string, printedName: string, meanin
   };
 }
 
+function buildInvalidWebAuthnSignature(challengeId: string, printedName: string, meaning: string) {
+  return {
+    printedName,
+    meaning,
+    stepUpAuth: {
+      method: "webauthn" as const,
+      challengeId,
+      webAuthnAssertion: `webauthn:${challengeId}:invalid-signature`,
+    },
+  };
+}
+
 // ─── 1. Consent Interlock ──────────────────────────────────────────
 
 test("Consent Interlock", async (t) => {
@@ -260,6 +272,68 @@ test("Part 11 Signature Manifestation", async (t) => {
 
     assert.strictEqual(reviewRes.status, 400);
     assert.strictEqual(reviewRes.body.code, "signature_required");
+  });
+
+  await t.test("review outcome rejects malformed step-up signature evidence", async () => {
+    const consentTracker = new InMemoryConsentTracker();
+    const app = createApp({ consentTracker, rbacAllowAll: true });
+
+    const rec = await createReadyCase(app);
+    const packetId = await advanceThroughReview(app, rec.caseId);
+
+    const reviewRes = await request(app).post(`/api/cases/${rec.caseId}/review-outcomes`).send({
+      packetId,
+      reviewerId: "dr-reviewer-002",
+      reviewerRole: "molecular-pathologist",
+      reviewDisposition: "approved",
+      rationale: "Attempt with malformed signature evidence.",
+      signature: buildInvalidWebAuthnSignature(
+        "challenge-compliance-review-invalid",
+        "Dr. Reviewer Invalid",
+        "Board approval for final QA release",
+      ),
+    });
+
+    assert.strictEqual(reviewRes.status, 403);
+    assert.strictEqual(reviewRes.body.code, "step_up_auth_required");
+  });
+
+  await t.test("qa release rejects malformed step-up signature evidence", async () => {
+    const consentTracker = new InMemoryConsentTracker();
+    const app = createApp({ consentTracker, rbacAllowAll: true });
+
+    const rec = await createReadyCase(app);
+    const packetId = await advanceThroughReview(app, rec.caseId);
+
+    const reviewRes = await request(app).post(`/api/cases/${rec.caseId}/review-outcomes`).send({
+      packetId,
+      reviewerId: "dr-reviewer-003",
+      reviewerRole: "molecular-pathologist",
+      reviewDisposition: "approved",
+      rationale: "Valid board approval before QA malformed-path test.",
+      signature: buildWebAuthnSignature(
+        "challenge-compliance-review-valid-before-qa-invalid",
+        "Dr. Reviewer Valid",
+        "Board approval for final QA release",
+      ),
+    });
+    assert.strictEqual(reviewRes.status, 201, `Review failed: ${JSON.stringify(reviewRes.body)}`);
+
+    const reviewId = reviewRes.body.reviewOutcome.reviewId;
+    const qaReleaseRes = await request(app).post(`/api/cases/${rec.caseId}/qa-releases`).send({
+      reviewId,
+      qaReviewerId: "qa-reviewer-invalid",
+      qaReviewerRole: "quality-assurance",
+      rationale: "Attempt QA release with malformed signature evidence.",
+      signature: buildInvalidWebAuthnSignature(
+        "challenge-compliance-qa-invalid",
+        "QA Reviewer Invalid",
+        "Final QA release authorization",
+      ),
+    });
+
+    assert.strictEqual(qaReleaseRes.status, 403);
+    assert.strictEqual(qaReleaseRes.body.code, "step_up_auth_required");
   });
 });
 
