@@ -4,68 +4,84 @@
 
 English · [Русский](README.ru.md)
 
-A control plane for personalized neoantigen RNA vaccine workflows.
+OpenRNA is an operational control plane for personalized neoantigen RNA vaccine workflows.
 
-## At a glance
+It does not claim to replace bioinformatics engines, clinical decision systems, or regulatory qualification procedures. Its purpose is to provide a testable, auditable, and reproducible coordination layer between sample provenance, computational workflows, expert review, release authorization, and outcome tracking.
 
-- Re-verified on 2026-04-17: 461 tests (22 suites), 94.92% line coverage, 83.30% branch coverage, 94.33% function coverage, `npm audit --omit=dev --audit-level=high` clean.
-- Architecture baseline: 17 port interfaces, 20 adapters (16 in-memory + 4 integration), 15 case lifecycle states.
-- The repository is ready for engineering diligence, but it does not claim clinical deployment readiness and does not claim full 21 CFR Part 11 completion.
+## Evidence Snapshot (2026-04-19)
 
-Formal baseline snapshot: [`docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
+- Local full lane (`npm run ci`) passed: 487 tests across 22 suites, 0 failures.
+- Security gate (`npm audit --omit=dev --audit-level=high`) reported 0 vulnerabilities.
+- Case lifecycle model includes 16 explicit states.
+- Release authorization flow includes board review, independent QA release, and manufacturing handoff.
+- Critical authorization supports step-up electronic signature assertions (`totp`, `webauthn`) for approved review and QA release actions.
+- Audit trail integrity includes persisted hash-chain links (`previousEventHash`, `eventHash`) in durable storage.
+- Validation package now includes intended use, IQ/OQ/PQ plan, and URS traceability matrix.
 
-## Why this project exists
+Formal baseline register: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
 
-Personalized anti-cancer RNA therapy has moved beyond early exploratory framing. Public registries and peer-reviewed evidence show the field shifting toward larger, multi-center programs.
+## Why This Layer Exists
 
-At this stage, the bottleneck is rarely a single algorithm. The real constraint is per-patient operational continuity: consent governance, sample provenance, reference bundle versioning, reproducible pipeline execution, expert review, manufacturing handoff, and follow-up outcomes.
+The practical bottleneck in personalized cancer RNA programs is rarely a single prediction model. The operational bottleneck is continuity at the case level:
 
-OpenRNA addresses exactly this layer. It is not "yet another predictor". It is the coordination layer between bioinformatics tooling, clinical governance, and operational control.
+- consent state and authorization boundaries
+- sample and artifact provenance
+- reference bundle version pinning
+- reproducible workflow dispatch and completion
+- multidisciplinary review and release control
+- handoff packets for manufacturing
+- longitudinal outcome traceability
 
-Clinical anchors used by this project include NCT05933577 (V940/INTerpath-001) and NCT05968326 (autogene cevumeran/IMCODE003). See [`docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) for detailed context.
+OpenRNA addresses this coordination layer.
 
-## What OpenRNA does
+Clinical context anchors used by this repository include NCT05933577 and NCT05968326. Detailed notes are maintained in [docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md](docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md).
 
-- Manages patient cases through a governed lifecycle (15 states).
-- Records sample and derived artifact provenance.
-- Orchestrates workflow submission with idempotency (`x-idempotency-key`).
-- Supports multi-tool HLA consensus with configurable disagreement thresholds.
-- Evaluates QC gates and records QC decisions.
-- Persists neoantigen ranking outputs and construct design payloads.
-- Generates expert-review packets, review outcomes, and manufacturing handoff packets.
-- Maintains an outcome timeline (administration, immune monitoring, clinical follow-up).
-- Provides end-to-end traceability through domain audit events.
-- Exposes operational and FHIR-oriented export surfaces through explicit ports.
+## Implemented Capability Surface
 
-## What OpenRNA intentionally does not do
+- Case lifecycle governance with explicit status transitions.
+- Provenance registration for samples and source artifacts.
+- Workflow request and run lifecycle orchestration with idempotency support (`x-idempotency-key`).
+- HLA consensus integration and QC gate persistence.
+- Neoantigen ranking and construct design persistence through explicit ports.
+- Board packet generation and review outcome recording.
+- Independent QA release route with maker-checker enforcement.
+- Manufacturing handoff generation bound to approved review plus matching QA release.
+- Outcome timeline aggregation (administration, immune monitoring, clinical follow-up).
+- End-to-end traceability projection over review, release, handoff, and outcomes.
 
-- It does not perform neoantigen prediction internally (it delegates to external engines via `INeoantigenRankingEngine`).
-- It is not a replacement for Nextflow/sarek/pVACtools and does not compete as a computational pipeline.
-- It is not a clinical decision system.
-- It does not claim full 21 CFR Part 11 validation and is not positioned as a clinically validated medical product.
+## Security, Authorization, and Compliance Controls
 
-## Architecture model
-
-- Business logic is built around explicit ports (`src/ports/*`) and is not coupled to concrete implementations.
-- Adapters are wired through `AppDependencies`; in-memory is the default mode, PostgreSQL is the durable mode.
-- Input contracts are validated at the API boundary with Zod.
-- Lifecycle transitions are guarded through `IStateMachineGuard`.
-- Audit events and correlation IDs provide a traceable operational chain.
-- Access control is structured around API key/JWT and RBAC, with deny-by-default as the secure baseline.
-
-Architecture authority document: [`docs/design.md`](docs/design.md).
-
-## Maturity status: explicit and honest
-
-| Layer | Current status |
+| Control | Implementation direction |
 |---|---|
-| Technical control-plane implementation | Implemented and test-covered |
-| Repository engineering posture (CI/SAST/SBOM/provenance) | Implemented |
-| Clinical deployment | Not claimed |
-| Full electronic-signature and Part 11 release authority | Not complete |
-| Resource-scoped authorization and part of regulatory controls | In active hardening roadmap |
+| Authentication | API key or JWT, resolved into request principal context |
+| Authorization | RBAC route guards with deny-by-default posture |
+| Consent interlock | Case-scoped write routes are consent-gated |
+| Step-up signature assertions | Required for approved review outcomes and QA release actions |
+| Maker-checker separation | QA reviewer identity must differ from board reviewer |
+| Dual-authorization handoff guard | Handoff requestor is validated against reviewer identity constraints |
+| Audit integrity | Hash-chained case audit events with deterministic linking |
 
-Hardening details: [`docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md).
+For current boundaries and non-claims, see [docs/REGULATORY_CONTEXT.md](docs/REGULATORY_CONTEXT.md).
+
+## Architecture Summary
+
+- Business logic is organized around explicit ports in [src/ports](src/ports).
+- Adapter implementations are wired through dependency injection in `AppDependencies`.
+- In-memory mode is supported for deterministic local and CI execution.
+- PostgreSQL mode is supported for durable persistence and reload tests.
+- Input contracts are validated at API boundaries via Zod.
+- Status transitions are enforced through `IStateMachineGuard`.
+
+Architecture source of truth: [docs/design.md](docs/design.md).
+
+## Explicit Boundaries
+
+OpenRNA is not:
+
+- a substitute for external workflow engines (for example Nextflow ecosystems)
+- a standalone neoantigen predictor
+- a clinical decision support system
+- a claim of completed 21 CFR Part 11 qualification
 
 ## Quickstart
 
@@ -78,78 +94,46 @@ npm run sbom:cyclonedx:file
 npm run dev
 ```
 
-One-command verification lane:
+Integrated verification lane:
 
 ```bash
 npm run ci
 ```
 
-## Environment variables
+## Key Environment Variables
 
-Source of truth: [`src/config.ts`](src/config.ts).
+Configuration authority: [src/config.ts](src/config.ts).
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `PORT` | `4010` | HTTP listener port |
-| `CASE_STORE_DATABASE_URL` | unset | PostgreSQL case persistence; empty = in-memory |
-| `CASE_STORE_TABLE_NAME` | `case_records` | Case table name |
-| `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL dispatch persistence; empty = in-memory |
-| `WORKFLOW_DISPATCH_TABLE_NAME` | `workflow_dispatches` | Dispatch table name |
-| `API_KEY` | unset | API key auth via `x-api-key` |
-| `API_KEY_PRINCIPAL_ID` | `api-key-client` | Principal id bound to API key auth |
+| `CASE_STORE_DATABASE_URL` | unset | PostgreSQL case persistence; empty means in-memory |
+| `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL dispatch persistence; empty means in-memory |
+| `API_KEY` | unset | API key authentication (`x-api-key`) |
+| `JWT_SHARED_SECRET` / `JWT_PUBLIC_KEY_PEM` | unset | JWT verification configuration |
 | `RBAC_ALLOW_ALL` | `false` | Emergency permissive mode (not for production) |
-| `JWT_SHARED_SECRET` | unset | JWT HS256 (minimum 32 bytes) |
-| `JWT_PUBLIC_KEY_PEM` | unset | JWT RS256 public key |
-| `JWT_EXPECTED_ISSUER` | unset | Optional `iss` validation |
-| `JWT_EXPECTED_AUDIENCE` | unset | Optional `aud` validation |
-| `JWT_PRINCIPAL_CLAIM` | `sub` | Claim containing principal id |
-| `JWT_ROLE_CLAIM` | `roles` | Claim containing roles |
 
-## Quality and supply-chain security
+## Documentation Map
 
-Local checks:
-
-```bash
-npm run build
-npm test
-npm run test:coverage
-npm audit --omit=dev --audit-level=high
-npm run sbom:cyclonedx:file
-```
-
-GitHub controls:
-
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) - build, tests, coverage, audit, smoke health checks.
-- [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) - SAST.
-- [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml) - dependency risk gate for PRs.
-- [`.github/workflows/supply-chain-provenance.yml`](.github/workflows/supply-chain-provenance.yml) - SBOM, checksums, attestations, release assets.
-
-## Documentation, publications, and reports
-
-| Source | Role |
+| Document | Role |
 |---|---|
-| [`docs/PUBLIC_ARCHITECTURE_INDEX.md`](docs/PUBLIC_ARCHITECTURE_INDEX.md) | Main router for active documentation |
-| [`docs/design.md`](docs/design.md) | Architecture SSOT for OpenRNA |
-| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | HTTP contract map |
-| [`docs/CONSENT_ACCESS_POLICY_2026.md`](docs/CONSENT_ACCESS_POLICY_2026.md) | Consent-gating matrix for write/read route families |
-| [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) | Operations model and failure classes |
-| [`docs/REGULATORY_CONTEXT.md`](docs/REGULATORY_CONTEXT.md) | Regulatory map and current implementation boundaries |
-| [`docs/archive/`](docs/archive/) | Archived evidence, publication packs, and historical audits |
+| [docs/PUBLIC_ARCHITECTURE_INDEX.md](docs/PUBLIC_ARCHITECTURE_INDEX.md) | Entry router for active documentation |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | HTTP contract and route groups |
+| [docs/OPERATIONS_AND_FAILURE_MODES.md](docs/OPERATIONS_AND_FAILURE_MODES.md) | Runtime and failure-mode model |
+| [docs/CONSENT_ACCESS_POLICY_2026.md](docs/CONSENT_ACCESS_POLICY_2026.md) | Consent-gating policy matrix |
+| [docs/INTENDED_USE_STATEMENT_2026.md](docs/INTENDED_USE_STATEMENT_2026.md) | Intended-use and deployment-boundary statement |
+| [docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md](docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md) | Qualification planning scaffold |
+| [docs/validation/URS_TRACEABILITY_MATRIX_2026.md](docs/validation/URS_TRACEABILITY_MATRIX_2026.md) | Requirement-to-evidence traceability map |
+| [docs/RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md](docs/RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md) | Payer-policy context note (April 2026) |
+| [docs/archive](docs/archive) | Archived audits, publication packs, and historical evidence |
 
-External anchors referenced in April 2026:
+## Contribution and Governance
 
-- ClinicalTrials.gov: NCT05933577, NCT05968326.
-- Node.js release schedule (LTS status).
-- TypeScript Modules Reference (`node16/node18/node20/nodenext` guidance).
-- GitHub Docs on README and supply-chain security.
-
-## Contributing
-
-- Contribution guide: [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)
-- Security policy: [`docs/SECURITY.md`](docs/SECURITY.md)
-- Support channels: [`docs/SUPPORT.md`](docs/SUPPORT.md)
-- Code of conduct: [`docs/CODE_OF_CONDUCT.md`](docs/CODE_OF_CONDUCT.md)
+- Contribution guide: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- Security policy: [docs/SECURITY.md](docs/SECURITY.md)
+- Support channels: [docs/SUPPORT.md](docs/SUPPORT.md)
+- Code of conduct: [docs/CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md)
 
 ## License
 
-Apache-2.0. See [`LICENSE`](LICENSE).
+Apache-2.0. See [LICENSE](LICENSE).

@@ -4,68 +4,84 @@
 
 Русский · [English](README.md)
 
-Контур управления для персонализированных РНК-вакцин по неоантигенам.
+OpenRNA — это операционный контур управления для персонализированных РНК-вакцин по неоантигенам.
 
-## Коротко
+Проект не заявляет замену вычислительных движков, клинических систем принятия решений или завершенных процедур квалификации. Его задача — дать воспроизводимый и аудируемый слой координации между происхождением образцов, запуском workflow, экспертным разбором, релиз-авторизацией и учетом исходов.
 
-- Перепроверено 2026-04-17: 461 тест (22 набора), 94.92% покрытия по строкам, 83.30% по ветвлениям, 94.33% по функциям, `npm audit --omit=dev --audit-level=high` - без уязвимостей.
-- Архитектурная опора: 17 порт-интерфейсов, 20 адаптеров (16 в памяти + 4 интеграционных), 15 состояний жизненного цикла кейса.
-- Репозиторий готов к технической проверке, но не заявляет клиническую эксплуатацию и не заявляет полное соответствие 21 CFR Part 11.
+## Доказательный срез (2026-04-19)
 
-Базовый формальный срез доказательности: [`docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
+- Полный локальный контур (`npm run ci`) пройден: 487 тестов, 22 набора, 0 падений.
+- Security gate (`npm audit --omit=dev --audit-level=high`) вернул 0 уязвимостей.
+- Модель жизненного цикла кейса содержит 16 явных состояний.
+- Контур релиз-авторизации включает board review, независимый QA release и manufacturing handoff.
+- Для критических действий поддерживаются step-up подписи (`totp`, `webauthn`) при approved review и QA release.
+- Целостность аудита усилена хеш-цепочкой (`previousEventHash`, `eventHash`) с сохранением в durable storage.
+- В пакет валидационной документации добавлены Intended Use, IQ/OQ/PQ план и URS traceability matrix.
 
-## Почему это нужно
+Формальный базовый реестр: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
 
-Персонализированная противоопухолевая РНК-терапия уже не выглядит как экспериментальная экзотика. В открытых клинических реестрах и публикациях видно, что отрасль перешла к масштабным программам: от ранних фаз к крупным многоцентровым исследованиям.
+## Зачем нужен этот слой
 
-На этом этапе главным ограничением становится не один алгоритм, а операционная связность процесса на уровне конкретного пациента: согласия, происхождение образцов, версии референсных наборов, воспроизводимый запуск пайплайнов, экспертный разбор, передача в производство и последующее наблюдение.
+В персонализированных онкологических РНК-программах узкое место обычно не в одном предсказателе. Узкое место — операционная связность на уровне кейса:
 
-OpenRNA закрывает именно этот слой. Это не «еще один предсказатель», а слой координации между биоинформатическими инструментами, клиническим контуром и операционными процедурами.
+- состояние согласия и контур доступа
+- происхождение образцов и артефактов
+- фиксация версий референсных наборов
+- воспроизводимый запуск и завершение workflow
+- экспертный разбор и релиз-контроль
+- передача в производство
+- продольная трассируемость исходов
 
-Клинические якоря, с которыми проект сверяется: NCT05933577 (V940/INTerpath-001), NCT05968326 (autogene cevumeran/IMCODE003). Подробный контекст собран в [`docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md).
+OpenRNA решает именно эту координационную задачу.
 
-## Что делает OpenRNA
+Клинические якоря, используемые в проекте: NCT05933577 и NCT05968326. Подробные заметки собраны в [docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md](docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md).
 
-- Ведет кейс пациента через управляемый жизненный цикл (15 статусов).
-- Учетно фиксирует происхождение образцов и производных артефактов.
-- Оркестрирует запуск вычислительных процессов (workflow) с идемпотентностью (`x-idempotency-key`).
-- Поддерживает консенсус HLA из нескольких инструментов с порогами расхождения.
-- Выполняет контроль качества прогонов и фиксирует решения QC.
-- Сохраняет результаты ранжирования неоантигенов и дизайн конструкта.
-- Формирует пакет для экспертного разбора, решение комиссии и пакет передачи в производство.
-- Ведет таймлайн исходов (введение, иммуномониторинг, клиническое наблюдение).
-- Обеспечивает сквозную трассируемость через журнал доменных событий.
-- Экспортирует операционные представления и FHIR-ориентированные данные через порты.
+## Реализованный функциональный контур
 
-## Что OpenRNA сознательно не делает
+- Управление жизненным циклом кейса с явной моделью переходов.
+- Регистрация provenance для образцов и исходных артефактов.
+- Оркестрация запросов и прогонов workflow с поддержкой идемпотентности (`x-idempotency-key`).
+- Интеграция HLA consensus и сохранение QC gate.
+- Сохранение neoantigen ranking и construct design через явные порты.
+- Формирование board packet и запись review outcome.
+- Независимый маршрут QA release с проверкой maker-checker.
+- Формирование manufacturing handoff только при approved review и связанном QA release.
+- Ведение outcome timeline (введение, иммуномониторинг, клиническое наблюдение).
+- Сквозная traceability-проекция по review, release, handoff и outcomes.
 
-- Не выполняет предсказание неоантигенов внутри себя (делегирует внешним движкам через `INeoantigenRankingEngine`).
-- Не является заменой Nextflow/sarek/pVACtools и не конкурирует с ними как вычислительный пайплайн.
-- Не является клинической системой принятия решений.
-- Не заявляет завершенную валидацию для 21 CFR Part 11 и не позиционируется как готовый медицинский продукт.
+## Контроли безопасности, авторизации и соответствия
 
-## Архитектурная модель
-
-- Бизнес-логика построена вокруг портов (`src/ports/*`) и не привязана к конкретным реализациям.
-- Адаптеры подключаются через `AppDependencies`; по умолчанию используется режим хранения в памяти, для устойчивого хранения - PostgreSQL.
-- Входные контракты валидируются через Zod на границе API.
-- Переходы статусов контролируются слоем проверки переходов (`IStateMachineGuard`).
-- Аудитные события и корреляционные идентификаторы формируют трассируемый контур.
-- Контур доступа строится вокруг API-ключей/JWT и RBAC, при этом безопасный режим по умолчанию - запрет по умолчанию.
-
-Архитектурный документ-источник: [`docs/design.md`](docs/design.md).
-
-## Стадия готовности: честная оценка
-
-| Слой | Текущее состояние |
+| Контроль | Направление реализации |
 |---|---|
-| Техническая реализация контура управления | Реализована, покрыта тестами |
-| Репозиторий и инженерный контур (CI/SAST/SBOM и аттестация происхождения сборок) | Реализован |
-| Клиническая эксплуатация | Не заявляется |
-| Полный контур электронных подписей и релиз-авторизации уровня Part 11 | Не завершен |
-| Ресурсно-ограниченная авторизация и часть регуляторных контуров | В активном плане усиления |
+| Аутентификация | API key или JWT с разрешением principal-контекста запроса |
+| Авторизация | RBAC-защита маршрутов с deny-by-default |
+| Consent interlock | Case-scoped write-маршруты защищены consent-gate |
+| Step-up подписи | Обязательны для approved review outcome и QA release |
+| Maker-checker разделение | QA reviewer должен отличаться от board reviewer |
+| Dual-authorization handoff guard | Идентичность handoff requestor проверяется относительно reviewer |
+| Целостность аудита | Хеш-цепочка audit events с детерминированной связностью |
 
-Детализация по ограничениям и плану усиления: [`docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md).
+Границы текущей реализации и non-claims: [docs/REGULATORY_CONTEXT.md](docs/REGULATORY_CONTEXT.md).
+
+## Кратко об архитектуре
+
+- Бизнес-логика построена вокруг явных портов в [src/ports](src/ports).
+- Адаптеры подключаются через dependency injection (`AppDependencies`).
+- In-memory режим поддерживается для локального и CI-контуров.
+- PostgreSQL режим поддерживается для durable persistence и reload-проверок.
+- Входные контракты валидируются на API-границе через Zod.
+- Переходы статусов контролируются `IStateMachineGuard`.
+
+Архитектурный источник истины: [docs/design.md](docs/design.md).
+
+## Явные ограничения
+
+OpenRNA не является:
+
+- заменой внешних workflow-движков (например, экосистемы Nextflow)
+- самостоятельным предсказателем неоантигенов
+- клинической системой поддержки принятия решений
+- заявлением о завершенной квалификации 21 CFR Part 11
 
 ## Быстрый старт
 
@@ -78,78 +94,46 @@ npm run sbom:cyclonedx:file
 npm run dev
 ```
 
-Интегральная проверка одной командой:
+Интегральный контур проверки:
 
 ```bash
 npm run ci
 ```
 
-## Переменные окружения
+## Ключевые переменные окружения
 
-Источник истины: [`src/config.ts`](src/config.ts).
+Источник конфигурации: [src/config.ts](src/config.ts).
 
 | Переменная | По умолчанию | Назначение |
 |---|---|---|
 | `PORT` | `4010` | Порт HTTP-сервера |
-| `CASE_STORE_DATABASE_URL` | unset | PostgreSQL для кейсов; пусто = хранение в памяти |
-| `CASE_STORE_TABLE_NAME` | `case_records` | Имя таблицы кейсов |
-| `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL для записей диспетчеризации; пусто = хранение в памяти |
-| `WORKFLOW_DISPATCH_TABLE_NAME` | `workflow_dispatches` | Имя таблицы диспетчеризации |
-| `API_KEY` | unset | Аутентификация по API-ключу через `x-api-key` |
-| `API_KEY_PRINCIPAL_ID` | `api-key-client` | Идентификатор субъекта для API-ключа |
-| `RBAC_ALLOW_ALL` | `false` | Аварийный разрешающий режим (не для промышленного контура) |
-| `JWT_SHARED_SECRET` | unset | JWT HS256 (минимум 32 байта) |
-| `JWT_PUBLIC_KEY_PEM` | unset | JWT RS256 публичный ключ |
-| `JWT_EXPECTED_ISSUER` | unset | Проверка `iss` |
-| `JWT_EXPECTED_AUDIENCE` | unset | Проверка `aud` |
-| `JWT_PRINCIPAL_CLAIM` | `sub` | Имя claim с идентификатором субъекта |
-| `JWT_ROLE_CLAIM` | `roles` | Имя claim с ролями |
+| `CASE_STORE_DATABASE_URL` | unset | PostgreSQL для кейсов; пусто означает in-memory |
+| `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL для dispatch; пусто означает in-memory |
+| `API_KEY` | unset | Аутентификация по API-ключу (`x-api-key`) |
+| `JWT_SHARED_SECRET` / `JWT_PUBLIC_KEY_PEM` | unset | Конфигурация валидации JWT |
+| `RBAC_ALLOW_ALL` | `false` | Аварийный permissive-режим (не для production) |
 
-## Качество и безопасность цепочки поставки
+## Карта документации
 
-Локально:
-
-```bash
-npm run build
-npm test
-npm run test:coverage
-npm audit --omit=dev --audit-level=high
-npm run sbom:cyclonedx:file
-```
-
-На GitHub:
-
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) - сборка, тесты, покрытие, аудит зависимостей, проверка системных маршрутов.
-- [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) - SAST.
-- [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml) - контроль рисков зависимостей в PR.
-- [`.github/workflows/supply-chain-provenance.yml`](.github/workflows/supply-chain-provenance.yml) - SBOM, контрольные суммы, аттестации и релизные артефакты.
-
-## Документация, публикации, отчеты
-
-| Источник | Роль |
+| Документ | Роль |
 |---|---|
-| [`docs/PUBLIC_ARCHITECTURE_INDEX.md`](docs/PUBLIC_ARCHITECTURE_INDEX.md) | Главный роутер по активной документации |
-| [`docs/design.md`](docs/design.md) | Архитектурный документ-источник для OpenRNA |
-| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Карта HTTP-контрактов |
-| [`docs/CONSENT_ACCESS_POLICY_2026.md`](docs/CONSENT_ACCESS_POLICY_2026.md) | Матрица consent-gating для write/read семейств маршрутов |
-| [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) | Операционный контур и классы отказов |
-| [`docs/REGULATORY_CONTEXT.md`](docs/REGULATORY_CONTEXT.md) | Регуляторная карта и ограничения текущей реализации |
-| [`docs/archive/`](docs/archive/) | Архив доказательной базы, публикационных пакетов и исторических аудитов |
+| [docs/PUBLIC_ARCHITECTURE_INDEX.md](docs/PUBLIC_ARCHITECTURE_INDEX.md) | Главный роутер по активной документации |
+| [docs/API_REFERENCE.md](docs/API_REFERENCE.md) | HTTP-контракт и группы маршрутов |
+| [docs/OPERATIONS_AND_FAILURE_MODES.md](docs/OPERATIONS_AND_FAILURE_MODES.md) | Runtime-модель и классы отказов |
+| [docs/CONSENT_ACCESS_POLICY_2026.md](docs/CONSENT_ACCESS_POLICY_2026.md) | Матрица consent-gating политики |
+| [docs/INTENDED_USE_STATEMENT_2026.md](docs/INTENDED_USE_STATEMENT_2026.md) | Intended-use и границы применения |
+| [docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md](docs/validation/IQ_OQ_PQ_QUALIFICATION_PLAN_2026.md) | Каркас квалификационного плана |
+| [docs/validation/URS_TRACEABILITY_MATRIX_2026.md](docs/validation/URS_TRACEABILITY_MATRIX_2026.md) | Трассируемость требований к доказательствам |
+| [docs/RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md](docs/RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md) | Аналитическая записка по payer-policy (апрель 2026) |
+| [docs/archive](docs/archive) | Архив аудитов, публикационных пакетов и исторической доказательной базы |
 
-Внешние опоры, использованные в апреле 2026:
+## Вклад и governance
 
-- ClinicalTrials.gov: NCT05933577, NCT05968326.
-- Node.js release schedule (LTS статус).
-- TypeScript Modules Reference (разделы `node16/node18/node20/nodenext`).
-- GitHub Docs по README и безопасности цепочки поставок.
-
-## Как участвовать
-
-- Правила вкладов: [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)
-- Политика безопасности: [`docs/SECURITY.md`](docs/SECURITY.md)
-- Поддержка и каналы связи: [`docs/SUPPORT.md`](docs/SUPPORT.md)
-- Кодекс поведения: [`docs/CODE_OF_CONDUCT.md`](docs/CODE_OF_CONDUCT.md)
+- Правила вкладов: [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)
+- Политика безопасности: [docs/SECURITY.md](docs/SECURITY.md)
+- Каналы поддержки: [docs/SUPPORT.md](docs/SUPPORT.md)
+- Кодекс поведения: [docs/CODE_OF_CONDUCT.md](docs/CODE_OF_CONDUCT.md)
 
 ## Лицензия
 
-Apache-2.0. См. [`LICENSE`](LICENSE).
+Apache-2.0. См. [LICENSE](LICENSE).
