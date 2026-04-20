@@ -12,7 +12,7 @@
 - Архитектурная опора: 17 порт-интерфейсов, 20 адаптеров (16 в памяти + 4 интеграционных), 15 состояний жизненного цикла кейса.
 - Репозиторий готов к технической проверке, но не заявляет клиническую эксплуатацию и не заявляет полное соответствие 21 CFR Part 11.
 
-Базовый формальный срез доказательности: [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
+Базовый формальный срез доказательности: [`docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
 
 ## Почему это нужно
 
@@ -22,7 +22,7 @@
 
 OpenRNA закрывает именно этот слой. Это не «еще один предсказатель», а слой координации между биоинформатическими инструментами, клиническим контуром и операционными процедурами.
 
-Клинические якоря, с которыми проект сверяется: NCT05933577 (V940/INTerpath-001), NCT05968326 (autogene cevumeran/IMCODE003). Подробный контекст собран в [`docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md).
+Клинические якоря, с которыми проект сверяется: NCT05933577 (V940/INTerpath-001), NCT05968326 (autogene cevumeran/IMCODE003). Подробный контекст собран в [`docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md).
 
 ## Что делает OpenRNA
 
@@ -53,7 +53,7 @@ OpenRNA закрывает именно этот слой. Это не «еще 
 - Аудитные события и корреляционные идентификаторы формируют трассируемый контур.
 - Контур доступа строится вокруг API-ключей/JWT и RBAC, при этом безопасный режим по умолчанию - запрет по умолчанию.
 
-Архитектурный документ-источник: [`design.md`](design.md).
+Архитектурный документ-источник: [`docs/design.md`](docs/design.md).
 
 ## Стадия готовности: честная оценка
 
@@ -65,7 +65,7 @@ OpenRNA закрывает именно этот слой. Это не «еще 
 | Полный контур электронных подписей и релиз-авторизации уровня Part 11 | Не завершен |
 | Ресурсно-ограниченная авторизация и часть регуляторных контуров | В активном плане усиления |
 
-Детализация по ограничениям и плану усиления: [`docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md).
+Детализация по ограничениям и плану усиления: [`docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md).
 
 ## Быстрый старт
 
@@ -129,15 +129,12 @@ npm run sbom:cyclonedx:file
 | Источник | Роль |
 |---|---|
 | [`docs/PUBLIC_ARCHITECTURE_INDEX.md`](docs/PUBLIC_ARCHITECTURE_INDEX.md) | Главный роутер по активной документации |
-| [`design.md`](design.md) | Архитектурный документ-источник для OpenRNA |
+| [`docs/design.md`](docs/design.md) | Архитектурный документ-источник для OpenRNA |
 | [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Карта HTTP-контрактов |
+| [`docs/CONSENT_ACCESS_POLICY_2026.md`](docs/CONSENT_ACCESS_POLICY_2026.md) | Матрица consent-gating для write/read семейств маршрутов |
 | [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) | Операционный контур и классы отказов |
-| [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) | Формальный базовый срез по метрикам и внешним якорям |
-| [`docs/HYPER_DEEP_AUDIT_2026-04.md`](docs/HYPER_DEEP_AUDIT_2026-04.md) | Глубокий технический аудит кода |
-| [`docs/reports/OPENRNA_HYPER_AUDIT_2026.md`](docs/reports/OPENRNA_HYPER_AUDIT_2026.md) | Архитектурно-безопасностный аудит с перечнем находок |
-| [`docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md) | Последовательный план усиления |
-| [`docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md`](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md) | Граница публичной публикации и статус технической проверки |
 | [`docs/REGULATORY_CONTEXT.md`](docs/REGULATORY_CONTEXT.md) | Регуляторная карта и ограничения текущей реализации |
+| [`docs/archive/`](docs/archive/) | Архив доказательной базы, публикационных пакетов и исторических аудитов |
 
 Внешние опоры, использованные в апреле 2026:
 
@@ -148,10 +145,10 @@ npm run sbom:cyclonedx:file
 
 ## Как участвовать
 
-- Правила вкладов: [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- Политика безопасности: [`SECURITY.md`](SECURITY.md)
-- Поддержка и каналы связи: [`SUPPORT.md`](SUPPORT.md)
-- Кодекс поведения: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- Правила вкладов: [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)
+- Политика безопасности: [`docs/SECURITY.md`](docs/SECURITY.md)
+- Поддержка и каналы связи: [`docs/SUPPORT.md`](docs/SUPPORT.md)
+- Кодекс поведения: [`docs/CODE_OF_CONDUCT.md`](docs/CODE_OF_CONDUCT.md)
 
 ## Лицензия
 

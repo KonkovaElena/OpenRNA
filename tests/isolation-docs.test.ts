@@ -7,8 +7,8 @@ function readRootDoc(fileName: string): string {
   return readFileSync(path.resolve(__dirname, `../${fileName}`), "utf8");
 }
 
-test("bundled root-level docs do not link outside the standalone repository", () => {
-  const rootDocs = ["README.md", "design.md"];
+test("bundled documentation surfaces do not link outside the standalone repository", () => {
+  const rootDocs = ["README.md", "docs/design.md"];
 
   for (const fileName of rootDocs) {
     const content = readRootDoc(fileName);

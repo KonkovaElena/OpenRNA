@@ -48,14 +48,14 @@ This register uses three evidence lanes:
 
 The following root-level memos remain intentionally historical and preserve earlier repository snapshots:
 
-- `ISOLATION_CERTIFICATION_2026-03-30.md`
-- `DOCUMENTATION_RECONCILIATION_AUDIT_2026-03-31.md`
-- `DOCUMENTATION_RECONCILIATION_AUDIT_2026-04-02.md`
+- `reports/ISOLATION_CERTIFICATION_2026-03-30.md`
+- `reports/DOCUMENTATION_RECONCILIATION_AUDIT_2026-03-31.md`
+- `reports/DOCUMENTATION_RECONCILIATION_AUDIT_2026-04-02.md`
 
 They are evidence artifacts, not the current baseline. The current baseline for public readers is:
 
 1. `README.md`
-2. `design.md`
+2. `docs/design.md`
 3. `docs/PUBLIC_ARCHITECTURE_INDEX.md`
 4. this register
 5. the April 2026 active docs under `docs/`

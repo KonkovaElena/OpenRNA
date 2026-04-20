@@ -12,7 +12,7 @@ A control plane for personalized neoantigen RNA vaccine workflows.
 - Architecture baseline: 17 port interfaces, 20 adapters (16 in-memory + 4 integration), 15 case lifecycle states.
 - The repository is ready for engineering diligence, but it does not claim clinical deployment readiness and does not claim full 21 CFR Part 11 completion.
 
-Formal baseline snapshot: [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
+Formal baseline snapshot: [`docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
 
 ## Why this project exists
 
@@ -22,7 +22,7 @@ At this stage, the bottleneck is rarely a single algorithm. The real constraint 
 
 OpenRNA addresses exactly this layer. It is not "yet another predictor". It is the coordination layer between bioinformatics tooling, clinical governance, and operational control.
 
-Clinical anchors used by this project include NCT05933577 (V940/INTerpath-001) and NCT05968326 (autogene cevumeran/IMCODE003). See [`docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) for detailed context.
+Clinical anchors used by this project include NCT05933577 (V940/INTerpath-001) and NCT05968326 (autogene cevumeran/IMCODE003). See [`docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) for detailed context.
 
 ## What OpenRNA does
 
@@ -53,7 +53,7 @@ Clinical anchors used by this project include NCT05933577 (V940/INTerpath-001) a
 - Audit events and correlation IDs provide a traceable operational chain.
 - Access control is structured around API key/JWT and RBAC, with deny-by-default as the secure baseline.
 
-Architecture authority document: [`design.md`](design.md).
+Architecture authority document: [`docs/design.md`](docs/design.md).
 
 ## Maturity status: explicit and honest
 
@@ -65,7 +65,7 @@ Architecture authority document: [`design.md`](design.md).
 | Full electronic-signature and Part 11 release authority | Not complete |
 | Resource-scoped authorization and part of regulatory controls | In active hardening roadmap |
 
-Hardening details: [`docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md).
+Hardening details: [`docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md).
 
 ## Quickstart
 
@@ -129,15 +129,12 @@ GitHub controls:
 | Source | Role |
 |---|---|
 | [`docs/PUBLIC_ARCHITECTURE_INDEX.md`](docs/PUBLIC_ARCHITECTURE_INDEX.md) | Main router for active documentation |
-| [`design.md`](design.md) | Architecture SSOT for OpenRNA |
+| [`docs/design.md`](docs/design.md) | Architecture SSOT for OpenRNA |
 | [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | HTTP contract map |
+| [`docs/CONSENT_ACCESS_POLICY_2026.md`](docs/CONSENT_ACCESS_POLICY_2026.md) | Consent-gating matrix for write/read route families |
 | [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) | Operations model and failure classes |
-| [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) | Formal baseline for metrics and external anchors |
-| [`docs/HYPER_DEEP_AUDIT_2026-04.md`](docs/HYPER_DEEP_AUDIT_2026-04.md) | Deep technical source audit |
-| [`docs/reports/OPENRNA_HYPER_AUDIT_2026.md`](docs/reports/OPENRNA_HYPER_AUDIT_2026.md) | Architecture and security findings report |
-| [`docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md) | Sequenced hardening plan |
-| [`docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md`](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md) | Public-export boundary and technical diligence posture |
 | [`docs/REGULATORY_CONTEXT.md`](docs/REGULATORY_CONTEXT.md) | Regulatory map and current implementation boundaries |
+| [`docs/archive/`](docs/archive/) | Archived evidence, publication packs, and historical audits |
 
 External anchors referenced in April 2026:
 
@@ -148,10 +145,10 @@ External anchors referenced in April 2026:
 
 ## Contributing
 
-- Contribution guide: [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- Security policy: [`SECURITY.md`](SECURITY.md)
-- Support channels: [`SUPPORT.md`](SUPPORT.md)
-- Code of conduct: [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)
+- Contribution guide: [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md)
+- Security policy: [`docs/SECURITY.md`](docs/SECURITY.md)
+- Support channels: [`docs/SUPPORT.md`](docs/SUPPORT.md)
+- Code of conduct: [`docs/CODE_OF_CONDUCT.md`](docs/CODE_OF_CONDUCT.md)
 
 ## License
 
