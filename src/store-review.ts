@@ -226,6 +226,7 @@ export async function recordReviewOutcomeForCase(
     reviewDisposition: input.reviewDisposition,
     rationale: input.rationale,
     comments: input.comments,
+    signatureManifestation: input.signatureManifestation,
     reviewedAt,
   };
 
@@ -294,6 +295,15 @@ export async function generateHandoffPacketForCase(
       "review_outcome_not_approved",
       "Only approved review outcomes can emit a manufacturing handoff packet.",
       "Record an approved review outcome before generating a handoff packet.",
+    );
+  }
+
+  if (input.requestedBy === reviewOutcome.reviewerId) {
+    throw new ApiError(
+      403,
+      "dual_authorization_required",
+      "Handoff requestor must differ from the reviewer who approved the board packet.",
+      "Provide a requestedBy principal independent from the approving reviewer.",
     );
   }
 

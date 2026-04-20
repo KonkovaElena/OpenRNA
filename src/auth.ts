@@ -58,7 +58,18 @@ export function anonymousPrincipal(): RequestPrincipal {
 }
 
 export function resolveUnsignedPrincipalHint(headers: IncomingHttpHeaders): RequestPrincipal {
-  void headers;
+  const hintedPrincipal = readSingleHeaderValue(headers["x-principal-id"]);
+
+  if (hintedPrincipal && hintedPrincipal.trim().length > 0) {
+    const principalId = hintedPrincipal.trim();
+    return {
+      principalId,
+      actorId: principalId,
+      authMechanism: "api-key",
+      roles: [],
+    };
+  }
+
   return anonymousPrincipal();
 }
 

@@ -1,8 +1,8 @@
 import type { Express } from "express";
-import { ApiError } from "../errors";
 import { rbacAuth } from "../middleware/rbac-auth";
 import type { IAuditSignatureProvider } from "../ports/IAuditSignatureProvider";
 import type { IRbacProvider } from "../ports/IRbacProvider";
+import { parseAuditSignInput, parseAuditVerifyInput } from "../validation";
 
 interface AuditRouteDependencies {
   rbacProvider: IRbacProvider;
@@ -15,16 +15,8 @@ export function registerAuditRoutes(
 ): void {
   app.post("/api/audit/sign", rbacAuth(rbacProvider, "ADMIN_OPERATIONS"), async (req, res, next) => {
     try {
-      const { entry, principal } = req.body;
-      if (!entry || !principal) {
-        throw new ApiError(
-          400,
-          "invalid_input",
-          "Both entry and principal are required.",
-          "Provide an audit entry and signing principal.",
-        );
-      }
-      const signed = await auditSignatureProvider.signAuditEntry(entry, principal);
+      const input = parseAuditSignInput(req.body);
+      const signed = await auditSignatureProvider.signAuditEntry(input.entry as unknown as Parameters<typeof auditSignatureProvider.signAuditEntry>[0], input.principal);
       res.status(201).json({ signedEntry: signed });
     } catch (error) {
       next(error);
@@ -33,16 +25,8 @@ export function registerAuditRoutes(
 
   app.post("/api/audit/verify", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const { entry } = req.body;
-      if (!entry) {
-        throw new ApiError(
-          400,
-          "invalid_input",
-          "Signed entry is required.",
-          "Provide a signed audit entry to verify.",
-        );
-      }
-      const valid = await auditSignatureProvider.verifySignature(entry);
+      const input = parseAuditVerifyInput(req.body);
+      const valid = await auditSignatureProvider.verifySignature(input.entry as unknown as Parameters<typeof auditSignatureProvider.verifySignature>[0]);
       res.json({ valid });
     } catch (error) {
       next(error);

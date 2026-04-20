@@ -56,7 +56,7 @@ const API_SURFACE = [
   "GET /metrics",
 ];
 
-export function registerSystemRoutes(app: Express, store: CaseStore): void {
+export function registerSystemRoutes(app: Express, store: CaseStore, readinessCheck: () => Promise<boolean>): void {
   app.get("/", (_req, res) => {
     res.json({
       name: "OpenRNA",
@@ -70,8 +70,14 @@ export function registerSystemRoutes(app: Express, store: CaseStore): void {
     res.status(200).json({ status: "ok" });
   });
 
-  app.get("/readyz", (_req, res) => {
-    res.status(200).json({ status: "ready" });
+  app.get("/readyz", async (_req, res) => {
+    try {
+      const ready = await readinessCheck();
+      res.status(ready ? 200 : 503).json({ status: ready ? "ready" : "not_ready" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(503).json({ status: "not_ready", error: message });
+    }
   });
 
   app.get("/metrics", async (_req: Request, res: Response, next: NextFunction) => {

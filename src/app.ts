@@ -58,6 +58,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     rbacProvider,
     auditSignatureProvider,
     fhirExporter,
+    readinessCheck,
   } = resolveAppDependencies(dependencies);
 
   app.disable("x-powered-by");
@@ -82,7 +83,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     }),
   );
 
-  registerSystemRoutes(app, store);
+  registerSystemRoutes(app, store, readinessCheck);
   registerModalityRoutes(app, modalityRegistry);
   registerFhirRoutes(app, { store, fhirExporter, rbacProvider, getRequiredRouteParam });
   registerAuditRoutes(app, { rbacProvider, auditSignatureProvider });
