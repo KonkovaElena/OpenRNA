@@ -2,15 +2,19 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
-**Control-plane for personalized neoantigen RNA vaccine workflows.**
+English · [Русский](README.ru.md)
 
-440 tests. 95.0% line coverage. 17 domain ports. Zero runtime vulnerabilities. Apache-2.0.
+**Control plane for personalized neoantigen RNA vaccine workflows.**
+
+Re-verified 2026-04-17: 461 tests (22 suites), 94.92% line coverage (83.30% branch, 94.33% function), 17 port interfaces, runtime audit clean.
+Formal snapshot baseline (2026-04-05): [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
 
 ## What This Is
 
-A production-shaped control-plane slice covering Phases 1–2 of a personalized neoantigen RNA vaccine workflow: patient case intake → molecular profiling orchestration → neoantigen ranking → construct design → expert review → manufacturing handoff → outcome tracking.
+A control-plane slice covering Phases 1–2 of a personalized neoantigen RNA vaccine workflow: patient case intake → molecular profiling orchestration → neoantigen ranking → construct design → expert review → manufacturing handoff → outcome tracking.
 
-The two largest clinical programs in this space — Moderna/Merck's V940 (INTerpath-001, 1,089 patients across 165 sites) and BioNTech's autogene cevumeran (IMCODE003) — demonstrate exactly the kind of per-patient operational complexity that a control plane manages: consent state, sample provenance, reference-bundle versioning, review packets, handoff traceability, outcome linkage.
+Recent clinical programs in this space—e.g., Moderna/Merck V940 / INTerpath-001 (NCT05933577) and BioNTech autogene cevumeran / IMCODE003 (NCT05968326)—illustrate the per-patient operational complexity a control plane has to manage: consent state, sample provenance, reference-bundle versioning, review packets, manufacturing handoffs, and outcome linkage.
+For primary anchors and citations, see [`docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) and the external-anchors section in [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
 
 **What it is not**: a bioinformatics pipeline, an RNA sequence designer, or a clinical decision system. Those are upstream/downstream systems that this platform orchestrates through well-defined port interfaces.
 
@@ -23,7 +27,7 @@ See [`design.md`](design.md) for full architecture and evidence classification.
 - [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) groups the public HTTP surface, headers, and response conventions.
 - [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) explains runtime modes, probes, and the main operational failure classes.
 - [`docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md`](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md) defines the public-export boundary and current diligence posture.
-- [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) records the currently re-verified repository metrics and external fact anchors.
+- [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) records a verified baseline snapshot for repository metrics and external anchors.
 
 ## Implemented Capabilities
 
@@ -41,6 +45,7 @@ See [`design.md`](design.md) for full architecture and evidence classification.
 - Manufacturing handoff packet generation from approved reviews
 - Outcome timeline (administration, immune monitoring, clinical follow-up)
 - Full traceability with machine-readable audit events
+- Auth and authorization hooks (optional API key / JWT bearer, RBAC checks, consent gate middleware)
 - Operations: `/healthz`, `/readyz`, `/metrics`, `/api/operations/summary`
 
 ## Non-Goals In This Slice
@@ -81,7 +86,15 @@ Source of truth: [`src/config.ts`](src/config.ts) (Zod-validated, fail-fast on s
 | `CASE_STORE_TABLE_NAME` | `case_records` | PostgreSQL table name |
 | `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL for workflow dispatch recording. Omit for in-memory |
 | `WORKFLOW_DISPATCH_TABLE_NAME` | `workflow_dispatches` | PostgreSQL table name |
-| `API_KEY` | unset | Optional API key for request authentication (constant-time comparison) |
+| `API_KEY` | unset | Optional API key auth via `x-api-key` (constant-time comparison) |
+| `API_KEY_PRINCIPAL_ID` | `api-key-client` | Principal id bound to API key auth (optional override) |
+| `RBAC_ALLOW_ALL` | `false` | When `true`, all RBAC permission checks allow (local dev / compatibility) |
+| `JWT_SHARED_SECRET` | unset | Enable JWT bearer auth (HS256). Must be at least 32 bytes |
+| `JWT_PUBLIC_KEY_PEM` | unset | Enable JWT bearer auth (RS256) using a PEM public key |
+| `JWT_EXPECTED_ISSUER` | unset | Optional `iss` claim check |
+| `JWT_EXPECTED_AUDIENCE` | unset | Optional `aud` claim check |
+| `JWT_PRINCIPAL_CLAIM` | `sub` | Claim path for principal id |
+| `JWT_ROLE_CLAIM` | `roles` | Claim path for roles |
 
 ## Quickstart
 
@@ -93,6 +106,8 @@ npm run test:coverage
 npm run sbom:cyclonedx:file
 npm run dev
 ```
+
+One-command verification lane (build + tests + runtime audit): `npm run ci`.
 
 Leave database URLs blank for the in-memory path. Set `CASE_STORE_DATABASE_URL` and/or `WORKFLOW_DISPATCH_DATABASE_URL` for PostgreSQL-backed persistence.
 
@@ -110,6 +125,7 @@ Leave database URLs blank for the in-memory path. Set `CASE_STORE_DATABASE_URL` 
 - [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) defines the review and evidence checklist.
 - [`.github/release.yml`](.github/release.yml) configures GitHub autogenerated release-note categories.
 - [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs build, tests, coverage, `npm audit`, and a `/healthz` smoke check on Node 24.
+- [`.github/workflows/node-ci.yml`](.github/workflows/node-ci.yml) provides a minimal build+test lane on Node 24 for pushes and pull requests.
 - [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) adds GitHub-native SAST scanning for JavaScript and TypeScript.
 - [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml) blocks pull requests that introduce high-severity runtime dependency risk.
 - [`.github/workflows/supply-chain-provenance.yml`](.github/workflows/supply-chain-provenance.yml) publishes an attestable build bundle, CycloneDX SBOM, checksums, GitHub-native attestations, and release assets on semver tags.
