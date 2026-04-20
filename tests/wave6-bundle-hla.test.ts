@@ -263,7 +263,7 @@ test("6.A parseRegisterBundleInput rejects extra fields (strict mode)", () => {
         annotationVersion: "v44",
         knownSitesVersion: "v156",
         hlaDatabaseVersion: "v3.55",
-        frozenAt: "2026-01-01",
+        frozenAt: "2026-01-01T00:00:00.000Z",
         unexpectedField: "surprise",
       }),
     (err: Error) => err.message.includes("Unrecognized"),

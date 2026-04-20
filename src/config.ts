@@ -6,6 +6,7 @@ export interface AppConfig {
   caseStoreTableName: string;
   workflowDispatchDatabaseUrl?: string;
   workflowDispatchTableName: string;
+  apiKey?: string;
 }
 
 function optionalEnvText() {
@@ -41,6 +42,7 @@ const configSchema = z.object({
     (value) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(value),
     "WORKFLOW_DISPATCH_TABLE_NAME must be a valid PostgreSQL identifier.",
   ),
+  API_KEY: optionalEnvText(),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -56,5 +58,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     caseStoreTableName: result.data.CASE_STORE_TABLE_NAME,
     workflowDispatchDatabaseUrl: result.data.WORKFLOW_DISPATCH_DATABASE_URL,
     workflowDispatchTableName: result.data.WORKFLOW_DISPATCH_TABLE_NAME,
+    apiKey: result.data.API_KEY,
   };
 }

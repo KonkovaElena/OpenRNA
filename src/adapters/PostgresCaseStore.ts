@@ -16,6 +16,7 @@ import type {
   HandoffPacketRecord,
   HandoffPacketSnapshot,
   HlaConsensusRecord,
+  HlaDisagreementRecord,
   ImmuneMonitoringRecord,
   OperationsSummary,
   OutcomeTimelineEntry,
@@ -194,6 +195,8 @@ function mapHlaConsensusRow(r: Record<string, unknown>): HlaConsensusRecord {
     tieBreakNotes: r.tie_break_notes != null ? String(r.tie_break_notes) : undefined,
     referenceVersion: String(r.reference_version),
     producedAt: toIso(r.produced_at),
+    disagreements: r.disagreements != null ? parseJsonb<HlaDisagreementRecord[]>(r.disagreements) : undefined,
+    confidenceDecomposition: r.confidence_decomposition != null ? parseJsonb<Record<string, number>>(r.confidence_decomposition) : undefined,
   };
 }
 
@@ -277,11 +280,15 @@ function mapOutcomeTimelineRow(r: Record<string, unknown>): OutcomeTimelineEntry
     };
   }
 
-  return {
-    ...base,
-    entryType: "clinical-follow-up",
-    clinicalFollowUp: parseJsonb<ClinicalFollowUpRecord>(r.payload),
-  };
+  if (entryType === "clinical-follow-up") {
+    return {
+      ...base,
+      entryType,
+      clinicalFollowUp: parseJsonb<ClinicalFollowUpRecord>(r.payload),
+    };
+  }
+
+  throw new Error(`Unknown outcome timeline entry_type: ${entryType}`);
 }
 
 // ── Store implementation ─────────────────────────────────────────────
@@ -310,21 +317,36 @@ export class PostgresCaseStore implements CaseStore {
     await this.initialize();
     const store = this.createMemoryStore();
     const record = await store.createCase(rawInput, correlationId);
-    await this.saveCaseRecord(this.pool, record);
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      await this.saveCaseRecord(client, record);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
     return record;
   }
 
-  async listCases(): Promise<CaseRecord[]> {
+  async listCases(options?: { limit?: number; offset?: number }): Promise<{ cases: CaseRecord[]; totalCount: number }> {
     await this.initialize();
+    const limit = options?.limit ?? 50;
+    const offset = options?.offset ?? 0;
+    const countResult = await this.pool.query<{ count: string }>(`SELECT COUNT(*) AS count FROM cases`);
+    const totalCount = Number(countResult.rows[0]?.count ?? 0);
     const result = await this.pool.query<{ case_id: string }>(
-      `SELECT case_id FROM cases ORDER BY created_at ASC, case_id ASC`,
+      `SELECT case_id FROM cases ORDER BY created_at ASC, case_id ASC LIMIT $1 OFFSET $2`,
+      [limit, offset],
     );
     const records: CaseRecord[] = [];
     for (const row of result.rows) {
       const record = await this.loadCaseRecord(this.pool, String(row.case_id));
       if (record) records.push(record);
     }
-    return records;
+    return { cases: records, totalCount };
   }
 
   async getCase(caseId: string): Promise<CaseRecord> {
@@ -739,9 +761,9 @@ export class PostgresCaseStore implements CaseStore {
     if (record.hlaConsensus) {
       const h = record.hlaConsensus;
       await queryable.query(
-        `INSERT INTO hla_consensus (case_id, alleles, per_tool_evidence, confidence_score, tie_break_notes, reference_version, produced_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [id, JSON.stringify(h.alleles), JSON.stringify(h.perToolEvidence), h.confidenceScore, h.tieBreakNotes ?? null, h.referenceVersion, h.producedAt],
+        `INSERT INTO hla_consensus (case_id, alleles, per_tool_evidence, confidence_score, tie_break_notes, reference_version, produced_at, disagreements, confidence_decomposition)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        [id, JSON.stringify(h.alleles), JSON.stringify(h.perToolEvidence), h.confidenceScore, h.tieBreakNotes ?? null, h.referenceVersion, h.producedAt, h.disagreements ? JSON.stringify(h.disagreements) : null, h.confidenceDecomposition ? JSON.stringify(h.confidenceDecomposition) : null],
       );
     }
 

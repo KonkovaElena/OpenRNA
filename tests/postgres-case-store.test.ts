@@ -198,8 +198,8 @@ test("PostgresCaseStore (normalized): full lifecycle round-trip", async () => {
 
     // 10. Final state verification: list and get
     const listed = await store.listCases();
-    assert.equal(listed.length, 1);
-    assert.equal(listed[0].caseId, caseId);
+    assert.equal(listed.cases.length, 1);
+    assert.equal(listed.cases[0].caseId, caseId);
 
     const summary = await store.getOperationsSummary();
     assert.equal(summary.totalCases, 1);
