@@ -8,6 +8,10 @@ tags: [documentation, audit, evidence, academic-analysis, regulatory, clinical-t
 
 # Documentation Reconciliation Audit: OpenRNA (2026-04-02)
 
+> Historical evidence only.
+> Current public routing starts at [README.md](README.md) and [docs/PUBLIC_ARCHITECTURE_INDEX.md](docs/PUBLIC_ARCHITECTURE_INDEX.md).
+> Current publication posture lives in [docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md).
+
 ## Scope
 
 This memo captures the April 2, 2026 refresh of the OpenRNA authority analysis layer in the standalone OpenRNA repository.

@@ -8,6 +8,10 @@ tags: [documentation, audit, evidence, regulatory, toolchain, clinical-trials]
 
 # Documentation Reconciliation Audit: OpenRNA
 
+> Historical evidence only.
+> Current public routing starts at [README.md](README.md) and [docs/PUBLIC_ARCHITECTURE_INDEX.md](docs/PUBLIC_ARCHITECTURE_INDEX.md).
+> Current publication posture lives in [docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md).
+
 ## Scope
 
 This memo captures the March 31, 2026 reconciliation pass for the standalone OpenRNA repository.

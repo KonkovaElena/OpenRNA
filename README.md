@@ -4,7 +4,7 @@
 
 **Control-plane for personalized neoantigen RNA vaccine workflows.**
 
-430 tests. 94.8% line coverage. 17 domain ports. Zero runtime vulnerabilities. Apache-2.0.
+440 tests. 94.8% line coverage. 17 domain ports. Zero runtime vulnerabilities. Apache-2.0.
 
 ## What This Is
 
@@ -15,6 +15,14 @@ The two largest clinical programs in this space — Moderna/Merck's V940 (INTerp
 **What it is not**: a bioinformatics pipeline, an RNA sequence designer, or a clinical decision system. Those are upstream/downstream systems that this platform orchestrates through well-defined port interfaces.
 
 See [`design.md`](design.md) for full architecture and evidence classification.
+
+## Start Here
+
+- [`docs/PUBLIC_ARCHITECTURE_INDEX.md`](docs/PUBLIC_ARCHITECTURE_INDEX.md) routes external readers to the right active and evidence docs.
+- [`design.md`](design.md) is the authority architecture memo with T1-T4 evidence tiers.
+- [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) groups the public HTTP surface, headers, and response conventions.
+- [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) explains runtime modes, probes, and the main operational failure classes.
+- [`docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md`](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md) defines the public-export boundary and current diligence posture.
 
 ## Implemented Capabilities
 
@@ -93,6 +101,7 @@ Leave database URLs blank for the in-memory path. Set `CASE_STORE_DATABASE_URL` 
 - [`SECURITY.md`](SECURITY.md) explains supported versions and private vulnerability reporting.
 - [`SUPPORT.md`](SUPPORT.md) routes usage questions and clarifies out-of-scope requests.
 - [`RELEASE.md`](RELEASE.md) defines the release contract and consumer verification path.
+- [`CHANGELOG.md`](CHANGELOG.md) tracks public repository changes that matter to release consumers and diligence readers.
 - [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) defines expected participation norms.
 - [`CITATION.cff`](CITATION.cff) defines citation metadata for research and diligence workflows.
 - [`.github/CODEOWNERS`](.github/CODEOWNERS) establishes review ownership for the standalone repository.
@@ -108,7 +117,10 @@ Leave database URLs blank for the in-memory path. Set `CASE_STORE_DATABASE_URL` 
 
 | Document | Purpose |
 |----------|---------|
+| [`docs/PUBLIC_ARCHITECTURE_INDEX.md`](docs/PUBLIC_ARCHITECTURE_INDEX.md) | Public router for active docs, evidence packs, and historical audit surfaces |
 | [`design.md`](design.md) | Authority architecture document for OpenRNA with 4-tier evidence classification |
+| [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Grouped HTTP route map, auth headers, and response conventions |
+| [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) | Runtime modes, health probes, metrics, and common operational failure classes |
 | [`docs/REGULATORY_CONTEXT.md`](docs/REGULATORY_CONTEXT.md) | FDA/EMA/Part 11/GMP mapping and compliance gap analysis |
 | [`docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) | Clinical evidence, competitor landscape, HLA/neoantigen tool catalog |
 | [`docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md`](docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md) | Dependency versions, migration decisions, bioinformatics ecosystem |
@@ -119,66 +131,23 @@ Leave database URLs blank for the in-memory path. Set `CASE_STORE_DATABASE_URL` 
 | [`docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/reports/OPENRNA_HARDENING_ROADMAP_2026.md) | Sequenced hardening program derived from the April 2026 audit |
 | [`docs/reports/OPENRNA_IDENTITY_AND_CANONICALIZATION_AUDIT_2026-04-05.md`](docs/reports/OPENRNA_IDENTITY_AND_CANONICALIZATION_AUDIT_2026-04-05.md) | Naming unification and repository-topology audit for the April 2026 OpenRNA cleanup |
 
+## Historical Evidence
+
+These files remain in the repository for diligence and archaeology, but they are not part of the primary routing path for current readers.
+
+- [`ISOLATION_CERTIFICATION_2026-03-30.md`](ISOLATION_CERTIFICATION_2026-03-30.md) preserves the March 30 repository isolation certification.
+- [`DOCUMENTATION_RECONCILIATION_AUDIT_2026-03-31.md`](DOCUMENTATION_RECONCILIATION_AUDIT_2026-03-31.md) preserves the March 31 documentation reconciliation pass.
+- [`DOCUMENTATION_RECONCILIATION_AUDIT_2026-04-02.md`](DOCUMENTATION_RECONCILIATION_AUDIT_2026-04-02.md) preserves the April 2 authority-analysis refresh.
+
 ## API Surface
 
-### Case Management
-- `POST /api/cases` — Create case
-- `GET /api/cases` — List cases
-- `GET /api/cases/:caseId` — Get case
+See [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) for the full grouped route map, auth expectations, error-envelope caveats, and operational endpoints.
 
-### Samples and Artifacts
-- `POST /api/cases/:caseId/samples` — Register sample
-- `POST /api/cases/:caseId/artifacts` — Register artifact
+At a high level, the public surface is split into:
 
-### Workflow Orchestration
-- `POST /api/cases/:caseId/workflows` — Submit workflow (idempotent)
-- `POST /api/cases/:caseId/runs/:runId/start` — Start run
-- `POST /api/cases/:caseId/runs/:runId/complete` — Complete run
-- `POST /api/cases/:caseId/runs/:runId/fail` — Fail run
-- `POST /api/cases/:caseId/runs/:runId/cancel` — Cancel run
-- `GET /api/cases/:caseId/runs` — List runs
-- `GET /api/cases/:caseId/runs/:runId` — Get run
-
-### HLA and QC
-- `POST /api/cases/:caseId/hla-consensus` — Submit HLA consensus
-- `GET /api/cases/:caseId/hla-consensus` — Get HLA consensus
-- `POST /api/cases/:caseId/runs/:runId/qc` — Submit QC result
-- `GET /api/cases/:caseId/runs/:runId/qc` — Get QC result
-
-### Construct Design
-- `POST /api/cases/:caseId/construct-design` — Generate construct
-- `GET /api/cases/:caseId/construct-design` — Get construct
-
-### Modality Governance
-- `GET /api/modalities` — List modalities
-- `GET /api/modalities/:modality` — Get modality
-- `POST /api/modalities/:modality/activate` — Activate modality
-
-### Outcomes
-- `POST /api/cases/:caseId/outcomes/administration` — Record administration
-- `POST /api/cases/:caseId/outcomes/immune-monitoring` — Record immune monitoring
-- `POST /api/cases/:caseId/outcomes/clinical-follow-up` — Record follow-up
-- `GET /api/cases/:caseId/outcomes` — Get outcomes
-
-### Expert Review and Handoff
-- `POST /api/cases/:caseId/board-packets` — Generate board packet
-- `GET /api/cases/:caseId/board-packets` — List board packets
-- `GET /api/cases/:caseId/board-packets/:packetId` — Get board packet
-- `POST /api/cases/:caseId/review-outcomes` — Submit review outcome
-- `GET /api/cases/:caseId/review-outcomes` — List review outcomes
-- `GET /api/cases/:caseId/review-outcomes/:reviewId` — Get review outcome
-- `POST /api/cases/:caseId/handoff-packets` — Generate handoff packet
-- `GET /api/cases/:caseId/handoff-packets` — List handoff packets
-- `GET /api/cases/:caseId/handoff-packets/:handoffId` — Get handoff packet
-
-### Reference Bundles
-- `GET /api/reference-bundles` — List bundles
-- `GET /api/reference-bundles/:bundleId` — Get bundle
-- `POST /api/reference-bundles` — Create bundle
-
-### Traceability and Operations
-- `GET /api/cases/:caseId/traceability` — Full evidence lineage graph
-- `GET /api/operations/summary` — Operational summary
-- `GET /healthz` — Liveness probe
-- `GET /readyz` — Readiness probe
-- `GET /metrics` — Prometheus-format metrics
+- case registry and provenance
+- workflow execution and QC
+- neoantigen ranking and construct design
+- review, handoff, and outcomes
+- governance, consent, audit, and FHIR export
+- modalities, operations summary, and system probes
