@@ -1,10 +1,10 @@
 ---
 title: "OpenRNA Platform Design"
 status: active
-version: "3.1.0"
-last_updated: "2026-04-04"
+version: "3.1.1"
+last_updated: "2026-04-05"
 tags: [oncology, mrna, circRNA, saRNA, neoantigen, platform-design]
-evidence_cutoff: "2026-04-04"
+evidence_cutoff: "2026-04-05"
 ---
 
 # Design: OpenRNA Platform
@@ -243,8 +243,8 @@ Full API surface documented in [README.md](README.md).
 
 | Component | Version (March 2026) | Migration note |
 |-----------|---------------------|----------------|
-| Node.js | 22.x LTS | Current runtime; Node 24 LTS expected Oct 2026 |
-| TypeScript | 6.0.2 (GA March 2026) | Migrated from 5.8; repo currently stays on `module: "CommonJS"` without explicit `moduleResolution` as a local compatibility choice |
+| Node.js | 24.x Active LTS | Current public runtime baseline; `engines.node` requires `>=24` |
+| TypeScript | 6.0.2 (GA March 2026) | Repo now uses `module: "nodenext"` while preserving a CommonJS runtime through `package.json` |
 | Express | 5.x | Migrated from 4.x; all route patterns compatible |
 | Zod | 4.x | Stable; ecosystem standard for TypeScript validation |
 | PostgreSQL | 16/17 | Both supported by pg 8.x driver |
@@ -393,7 +393,7 @@ Only after earlier layers are stable. Strict patient selection, combination stra
 - RNA design workbench producing multiple traceable construct candidates.
 - Manufacturing handoff package with provenance.
 - Expert review workflow with auditability.
-- 40+ API endpoints tested and stable (430 tests across 22 suites, 94.81% line coverage).
+- 40+ API endpoints tested and stable (440 tests across 22 suites, 95.00% line coverage).
 
 ### Mid-term [T2]
 - Prospective evidence of repeatable individualized product generation in clinically meaningful timeframe.

@@ -4,7 +4,7 @@
 
 **Control-plane for personalized neoantigen RNA vaccine workflows.**
 
-440 tests. 94.8% line coverage. 17 domain ports. Zero runtime vulnerabilities. Apache-2.0.
+440 tests. 95.0% line coverage. 17 domain ports. Zero runtime vulnerabilities. Apache-2.0.
 
 ## What This Is
 
@@ -23,6 +23,7 @@ See [`design.md`](design.md) for full architecture and evidence classification.
 - [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) groups the public HTTP surface, headers, and response conventions.
 - [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) explains runtime modes, probes, and the main operational failure classes.
 - [`docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md`](docs/GITHUB_EXPORT_AND_INVESTOR_READINESS_2026-04.md) defines the public-export boundary and current diligence posture.
+- [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) records the currently re-verified repository metrics and external fact anchors.
 
 ## Implemented Capabilities
 
@@ -121,6 +122,7 @@ Leave database URLs blank for the in-memory path. Set `CASE_STORE_DATABASE_URL` 
 | [`design.md`](design.md) | Authority architecture document for OpenRNA with 4-tier evidence classification |
 | [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) | Grouped HTTP route map, auth headers, and response conventions |
 | [`docs/OPERATIONS_AND_FAILURE_MODES.md`](docs/OPERATIONS_AND_FAILURE_MODES.md) | Runtime modes, health probes, metrics, and common operational failure classes |
+| [`docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) | Current verified metrics, toolchain facts, and registry anchors refreshed on April 5, 2026 |
 | [`docs/REGULATORY_CONTEXT.md`](docs/REGULATORY_CONTEXT.md) | FDA/EMA/Part 11/GMP mapping and compliance gap analysis |
 | [`docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md`](docs/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) | Clinical evidence, competitor landscape, HLA/neoantigen tool catalog |
 | [`docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md`](docs/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md) | Dependency versions, migration decisions, bioinformatics ecosystem |

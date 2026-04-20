@@ -1,18 +1,18 @@
 ---
 title: "OpenRNA Hyper Audit 2026"
 status: active
-version: "1.2.0"
-last_updated: "2026-04-04"
+version: "1.2.1"
+last_updated: "2026-04-05"
 tags: [openrna, audit, security, architecture, event-sourcing, compliance]
 mode: evidence
-evidence_cutoff: "2026-04-03"
+evidence_cutoff: "2026-04-05"
 ---
 
 # OpenRNA Hyper Audit 2026
 
 ## Executive Verdict
 
-OpenRNA, as of April 3, 2026, is a strong research-grade control plane with unusually good verification depth for a standalone public repository. We verified the local evidence chain directly: `npm run build`, `npm test`, `npm run test:coverage`, `npm audit --omit=dev --audit-level=high`, and CycloneDX SBOM emission all pass clean.
+OpenRNA, as of April 5, 2026, is a strong research-grade control plane with unusually good verification depth for a standalone public repository. We verified the local evidence chain directly: `npm run build`, `npm test`, `npm run test:coverage`, `npm audit --omit=dev --audit-level=high`, and CycloneDX SBOM emission all pass clean.
 
 The project is stronger than the initial audit snapshot suggested. Several previously open gaps are now closed:
 
@@ -55,7 +55,7 @@ Out of scope:
 The audit used four evidence layers.
 
 1. Static code inspection of runtime, persistence, and security-sensitive surfaces.
-2. Direct validation against current local verification outputs generated on 2026-04-03.
+2. Direct validation against current local verification outputs generated on 2026-04-05.
 3. Test-surface review to distinguish implemented guarantees from untested claims.
 4. External standards anchoring against current official references:
    - OWASP ASVS 5.0.0 for application security verification;
@@ -76,8 +76,8 @@ The following local verification results were reproduced during this audit:
 | Surface | Result | Evidence |
 |---|---:|---|
 | TypeScript build | PASS | `npm run build` exit code `0` |
-| Full test suite | PASS | `430/430` tests passed, `22` suites, `0` failed |
-| Coverage | PASS | line `94.81%`, branch `82.64%`, functions `94.07%` |
+| Full test suite | PASS | `440/440` tests passed, `22` suites, `0` failed |
+| Coverage | PASS | line `95.00%`, branch `83.44%`, functions `94.94%` |
 | Runtime dependency audit | PASS | `found 0 vulnerabilities` |
 | SBOM generation | PASS | `openrna-runtime-sbom.cdx.json` emitted successfully |
 
@@ -197,10 +197,10 @@ This is not a hidden defect. The codebase is honest about the boundary between i
 
 The repository is not lightly tested. On the audited revision it passed:
 
-- `430` tests across `22` suites;
-- `94.81%` line coverage;
-- `82.64%` branch coverage;
-- `94.07%` function coverage.
+- `440` tests across `22` suites;
+- `95.00%` line coverage;
+- `83.44%` branch coverage;
+- `94.94%` function coverage.
 
 The hot spots with comparatively lower branch coverage are visible and actionable rather than hidden.
 

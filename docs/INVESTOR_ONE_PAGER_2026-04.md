@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA — Investor Technical Summary"
 status: active
-version: "1.0.0"
-last_updated: "2026-04-04"
+version: "1.0.1"
+last_updated: "2026-04-05"
 tags: [investor, summary, oncology, mrna, control-plane]
 ---
 
@@ -35,14 +35,14 @@ No open-source tool does this. pVACtools ranks neoantigens. Nextflow runs pipeli
 
 OpenRNA is a TypeScript/Node.js control plane — not a pipeline, not a bioinformatics tool. It orchestrates the patient journey from intake to outcome.
 
-**By the numbers (verified April 3, 2026):**
+**By the numbers (verified April 5, 2026):**
 
 | Metric | Value |
 |--------|-------|
-| Tests | 430 across 22 suites |
-| Line coverage | 94.81% |
-| Branch coverage | 82.64% |
-| Function coverage | 94.07% |
+| Tests | 440 across 22 suites |
+| Line coverage | 95.00% |
+| Branch coverage | 83.44% |
+| Function coverage | 94.94% |
 | Domain port interfaces | 17 |
 | Adapter implementations | 20 (16 in-memory + 4 PostgreSQL/Nextflow) |
 | Case lifecycle states | 15 |
@@ -110,4 +110,4 @@ OpenRNA sits in the intersection: **workflow governance** (like Benchling) for *
 
 ---
 
-*April 4, 2026. All numbers verified against primary sources. NCT IDs resolve on ClinicalTrials.gov. Market data from Grand View Research (2024 report). Test counts from local `npm test` execution.*
+*April 5, 2026. All numbers verified against primary sources. NCT IDs resolve on ClinicalTrials.gov. Market data from Grand View Research (2024 report). Test and coverage counts come from local `npm test` and `npm run test:coverage` execution.*

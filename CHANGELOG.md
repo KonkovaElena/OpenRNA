@@ -19,12 +19,14 @@ It is intentionally scoped to the standalone OpenRNA repository and excludes pri
 - Public docs router in [docs/PUBLIC_ARCHITECTURE_INDEX.md](docs/PUBLIC_ARCHITECTURE_INDEX.md).
 - Dedicated HTTP route reference in [docs/API_REFERENCE.md](docs/API_REFERENCE.md).
 - Dedicated runtime and failure-mode guide in [docs/OPERATIONS_AND_FAILURE_MODES.md](docs/OPERATIONS_AND_FAILURE_MODES.md).
+- Formal evidence register in [docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](docs/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
 - Explicit historical-evidence routing in the public README and the retained audit memos.
 
 ### Changed
 
 - [README.md](README.md) now routes readers to active docs instead of carrying the full endpoint inventory inline.
 - Historical topology and reconciliation memos are now explicitly framed as evidence, not active routing documents.
+- Public metrics and toolchain claims are refreshed against the April 5, 2026 verification lane and official source pass.
 
 ### Security And Supply Chain
 
