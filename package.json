@@ -21,6 +21,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/src/index.js",
     "sbom:cyclonedx": "npm sbom --sbom-format cyclonedx --package-lock-only --omit=dev",
+    "sbom:cyclonedx:file": "node scripts/write-cyclonedx-sbom.mjs openrna-runtime-sbom.cdx.json",
     "test": "node --import tsx --test tests/**/*.test.ts",
     "test:coverage": "node --experimental-test-coverage --import tsx --test tests/**/*.test.ts",
     "ci": "npm run build && npm test && npm audit --omit=dev --audit-level=high"
