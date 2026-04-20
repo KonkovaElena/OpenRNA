@@ -1,4 +1,4 @@
-import express, { type NextFunction, type Request, type Response } from "express";
+﻿import express, { type NextFunction, type Request, type Response } from "express";
 import { randomUUID } from "node:crypto";
 import { ApiError } from "./errors";
 import {
@@ -7,6 +7,7 @@ import {
   MemoryCaseStore,
   parseCompleteWorkflowRunInput,
   parseConstructDesignInput,
+  parseRecordNeoantigenRankingInput,
   parseFailWorkflowRunInput,
   parseGenerateHandoffPacketInput,
   parseRecordAdministrationInput,
@@ -25,11 +26,15 @@ import type { IQcGateEvaluator } from "./ports/IQcGateEvaluator";
 import type { IWorkflowRunner } from "./ports/IWorkflowRunner";
 import type { IStateMachineGuard } from "./ports/IStateMachineGuard";
 import type { IConsentTracker } from "./ports/IConsentTracker";
+import type { IHlaConsensusProvider } from "./ports/IHlaConsensusProvider";
+import type { INeoantigenRankingEngine } from "./ports/INeoantigenRankingEngine";
 import type { IRbacProvider } from "./ports/IRbacProvider";
 import type { IAuditSignatureProvider } from "./ports/IAuditSignatureProvider";
 import type { IFhirExporter } from "./ports/IFhirExporter";
 import { InMemoryConstructDesigner } from "./adapters/InMemoryConstructDesigner";
+import { InMemoryHlaConsensusProvider } from "./adapters/InMemoryHlaConsensusProvider";
 import { InMemoryModalityRegistry } from "./adapters/InMemoryModalityRegistry";
+import { InMemoryNeoantigenRankingEngine } from "./adapters/InMemoryNeoantigenRankingEngine";
 import { InMemoryReferenceBundleRegistry } from "./adapters/InMemoryReferenceBundleRegistry";
 import { InMemoryQcGateEvaluator } from "./adapters/InMemoryQcGateEvaluator";
 import { InMemoryWorkflowRunner } from "./adapters/InMemoryWorkflowRunner";
@@ -45,6 +50,7 @@ import { requestLogger, type RequestLogWriter } from "./middleware/request-logge
 import { securityHeaders } from "./middleware/security-headers";
 import { rateLimiter } from "./middleware/rate-limiter";
 import { rbacAuth } from "./middleware/rbac-auth";
+import { requireActiveConsent } from "./middleware/consent-gate";
 
 export interface AppDependencies {
   store?: CaseStore;
@@ -52,6 +58,8 @@ export interface AppDependencies {
   modalityRegistry?: IModalityRegistry;
   referenceBundleRegistry?: IReferenceBundleRegistry;
   qcGateEvaluator?: IQcGateEvaluator;
+  hlaConsensusProvider?: IHlaConsensusProvider;
+  neoantigenRankingEngine?: INeoantigenRankingEngine;
   workflowRunner?: IWorkflowRunner;
   stateMachineGuard?: IStateMachineGuard;
   consentTracker?: IConsentTracker;
@@ -62,9 +70,35 @@ export interface AppDependencies {
   apiKeyPrincipalId?: string;
   jwtAuthOptions?: JwtAuthOptions;
   rbacAllowAll?: boolean;
+  /** When false, consent gate middleware is disabled (default: true). */
+  consentGateEnabled?: boolean;
   requestLogWriter?: RequestLogWriter;
   enableRateLimiting?: boolean;
   rateLimitOptions?: import("./middleware/rate-limiter").RateLimiterOptions;
+}
+
+function getRequiredRouteParam(req: Request, name: string): string {
+  const value = req.params[name];
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value === undefined) {
+    throw new ApiError(
+      400,
+      "invalid_input",
+      `${name} is required in the request URL.`,
+      `Provide a valid ${name} in the route path before retrying.`,
+    );
+  }
+
+  throw new ApiError(
+    400,
+    "invalid_input",
+    `${name} must be a single route path segment.`,
+    `Provide a valid ${name} in the route path before retrying.`,
+  );
 }
 
 export function createApp(dependencies: AppDependencies = {}) {
@@ -75,8 +109,12 @@ export function createApp(dependencies: AppDependencies = {}) {
   const store = dependencies.store ?? new MemoryCaseStore();
   const referenceBundleRegistry = dependencies.referenceBundleRegistry ?? new InMemoryReferenceBundleRegistry();
   const qcGateEvaluator = dependencies.qcGateEvaluator ?? new InMemoryQcGateEvaluator();
+  const hlaConsensusProvider = dependencies.hlaConsensusProvider ?? new InMemoryHlaConsensusProvider();
+  const neoantigenRankingEngine = dependencies.neoantigenRankingEngine ?? new InMemoryNeoantigenRankingEngine();
   const stateMachineGuard = dependencies.stateMachineGuard ?? new InMemoryStateMachineGuard();
   const consentTracker = dependencies.consentTracker ?? new InMemoryConsentTracker();
+  const consentGateEnabled = dependencies.consentGateEnabled !== false; // default: true
+  const consentGateMw = consentGateEnabled ? requireActiveConsent(consentTracker) : (_req: Request, _res: Response, next: NextFunction) => next();
   const rbacProvider = dependencies.rbacProvider ?? new InMemoryRbacProvider({ allowAll: dependencies.rbacAllowAll });
   const auditSignatureProvider = dependencies.auditSignatureProvider ?? new InMemoryAuditSignatureProvider();
   const fhirExporter = dependencies.fhirExporter ?? new InMemoryFhirExporter();
@@ -125,6 +163,8 @@ export function createApp(dependencies: AppDependencies = {}) {
         "GET /api/cases/:caseId/hla-consensus",
         "POST /api/cases/:caseId/runs/:runId/qc",
         "GET /api/cases/:caseId/runs/:runId/qc",
+        "POST /api/cases/:caseId/neoantigen-ranking",
+        "GET /api/cases/:caseId/neoantigen-ranking",
         "POST /api/cases/:caseId/construct-design",
         "GET /api/cases/:caseId/construct-design",
         "GET /api/modalities",
@@ -191,7 +231,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  // ─── Wave 14: Modality Governance ───────────────────────────────
+  // в”Ђв”Ђв”Ђ Wave 14: Modality Governance в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
   app.get("/api/modalities", async (_req, res, next) => {
     try {
@@ -233,7 +273,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.get("/api/cases", async (req, res, next) => {
+  app.get("/api/cases", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
       const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
       const offset = Math.max(Number(req.query.offset) || 0, 0);
@@ -251,34 +291,38 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.get("/api/cases/:caseId", async (req, res, next) => {
+  app.get("/api/cases/:caseId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      res.json({ case: await store.getCase(req.params.caseId) });
+      const caseId = getRequiredRouteParam(req, "caseId");
+      res.json({ case: await store.getCase(caseId) });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/cases/:caseId/samples", async (req, res, next) => {
+  app.post("/api/cases/:caseId/samples", rbacAuth(rbacProvider, "REGISTER_SAMPLE"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");
-      res.json({ case: await store.registerSample(req.params.caseId, req.body, correlationId) });
+      res.json({ case: await store.registerSample(caseId, req.body, correlationId) });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/cases/:caseId/artifacts", async (req, res, next) => {
+  app.post("/api/cases/:caseId/artifacts", rbacAuth(rbacProvider, "REGISTER_SAMPLE"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");
-      res.json({ case: await store.registerArtifact(req.params.caseId, req.body, correlationId) });
+      res.json({ case: await store.registerArtifact(caseId, req.body, correlationId) });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/cases/:caseId/workflows", async (req, res, next) => {
+  app.post("/api/cases/:caseId/workflows", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const workflowRequestBody =
         typeof req.body === "object" && req.body !== null
           ? { ...(req.body as Record<string, unknown>) }
@@ -310,19 +354,21 @@ export function createApp(dependencies: AppDependencies = {}) {
       }
 
       const correlationId = String(res.locals.correlationId ?? "");
-      const updated = await store.requestWorkflow(req.params.caseId, workflowRequestBody, correlationId);
+      const updated = await store.requestWorkflow(caseId, workflowRequestBody, correlationId);
       res.json({ case: updated });
     } catch (error) {
       next(error);
     }
   });
 
-  // ─── Phase 2: Workflow Run Lifecycle ──────────────────────────────
+  // в”Ђв”Ђв”Ђ Phase 2: Workflow Run Lifecycle в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.post("/api/cases/:caseId/runs/:runId/start", async (req, res, next) => {
+  app.post("/api/cases/:caseId/runs/:runId/start", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const runId = getRequiredRouteParam(req, "runId");
       const correlationId = String(res.locals.correlationId ?? "");
-      const currentCase = await store.getCase(req.params.caseId);
+      const currentCase = await store.getCase(caseId);
       const latestRequest = currentCase.workflowRequests[currentCase.workflowRequests.length - 1];
 
       if (!latestRequest?.referenceBundleId) {
@@ -345,8 +391,8 @@ export function createApp(dependencies: AppDependencies = {}) {
       }
 
       const startedRun = await workflowRunner.startRun({
-        runId: req.params.runId,
-        caseId: req.params.caseId,
+        runId,
+        caseId,
         requestId: latestRequest.requestId,
         workflowName: latestRequest.workflowName,
         referenceBundleId: latestRequest.referenceBundleId,
@@ -355,11 +401,11 @@ export function createApp(dependencies: AppDependencies = {}) {
       });
 
       const updated = await store.startWorkflowRun(
-        req.params.caseId,
+        caseId,
         {
           ...startedRun,
-          runId: req.params.runId,
-          caseId: req.params.caseId,
+          runId,
+          caseId,
           requestId: latestRequest.requestId,
           workflowName: latestRequest.workflowName,
           referenceBundleId: latestRequest.referenceBundleId,
@@ -368,7 +414,7 @@ export function createApp(dependencies: AppDependencies = {}) {
         },
         correlationId,
       );
-      const persistedRun = updated.workflowRuns.find((run) => run.runId === req.params.runId);
+      const persistedRun = updated.workflowRuns.find((run) => run.runId === runId);
       if (persistedRun) {
         referenceBundleRegistry.pinBundle(persistedRun.referenceBundleId, persistedRun.runId);
       }
@@ -378,15 +424,17 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.post("/api/cases/:caseId/runs/:runId/complete", async (req, res, next) => {
+  app.post("/api/cases/:caseId/runs/:runId/complete", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const runId = getRequiredRouteParam(req, "runId");
       const correlationId = String(res.locals.correlationId ?? "");
       const input = parseCompleteWorkflowRunInput(req.body);
-      const completedRun = await workflowRunner.completeRun(req.params.runId, input.derivedArtifacts ?? []);
+      const completedRun = await workflowRunner.completeRun(runId, input.derivedArtifacts ?? []);
       const terminalAt = completedRun.completedAt ?? new Date().toISOString();
       const derivedArtifacts: RunArtifact[] = (input.derivedArtifacts ?? []).map((a) => ({
         artifactId: `art_${randomUUID()}`,
-        runId: req.params.runId,
+        runId,
         artifactClass: "DERIVED" as const,
         semanticType: a.semanticType,
         artifactHash: a.artifactHash,
@@ -394,11 +442,11 @@ export function createApp(dependencies: AppDependencies = {}) {
         registeredAt: terminalAt,
       }));
       const updated = await store.completeWorkflowRun(
-        req.params.caseId,
+        caseId,
         {
           ...completedRun,
-          runId: req.params.runId,
-          caseId: req.params.caseId,
+          runId,
+          caseId,
           completedAt: terminalAt,
         },
         derivedArtifacts,
@@ -410,17 +458,19 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.post("/api/cases/:caseId/runs/:runId/fail", async (req, res, next) => {
+  app.post("/api/cases/:caseId/runs/:runId/fail", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const runId = getRequiredRouteParam(req, "runId");
       const correlationId = String(res.locals.correlationId ?? "");
       const input = parseFailWorkflowRunInput(req.body);
-      const failedRun = await workflowRunner.failRun(req.params.runId, input.reason, input.failureCategory);
+      const failedRun = await workflowRunner.failRun(runId, input.reason, input.failureCategory);
       const updated = await store.failWorkflowRun(
-        req.params.caseId,
+        caseId,
         {
           ...failedRun,
-          runId: req.params.runId,
-          caseId: req.params.caseId,
+          runId,
+          caseId,
           failureReason: failedRun.failureReason ?? input.reason,
           completedAt: failedRun.completedAt ?? new Date().toISOString(),
         },
@@ -432,16 +482,18 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.post("/api/cases/:caseId/runs/:runId/cancel", async (req, res, next) => {
+  app.post("/api/cases/:caseId/runs/:runId/cancel", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const runId = getRequiredRouteParam(req, "runId");
       const correlationId = String(res.locals.correlationId ?? "");
-      const cancelledRun = await workflowRunner.cancelRun(req.params.runId);
+      const cancelledRun = await workflowRunner.cancelRun(runId);
       const updated = await store.cancelWorkflowRun(
-        req.params.caseId,
+        caseId,
         {
           ...cancelledRun,
-          runId: req.params.runId,
-          caseId: req.params.caseId,
+          runId,
+          caseId,
           completedAt: cancelledRun.completedAt ?? new Date().toISOString(),
         },
         correlationId,
@@ -452,49 +504,61 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.get("/api/cases/:caseId/runs", async (req, res, next) => {
+  app.get("/api/cases/:caseId/runs", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const runs = await store.listWorkflowRuns(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const runs = await store.listWorkflowRuns(caseId);
       res.json({ runs, meta: { totalRuns: runs.length } });
     } catch (error) {
       next(error);
     }
   });
 
-  app.get("/api/cases/:caseId/runs/:runId", async (req, res, next) => {
+  app.get("/api/cases/:caseId/runs/:runId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const run = await store.getWorkflowRun(req.params.caseId, req.params.runId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const runId = getRequiredRouteParam(req, "runId");
+      const run = await store.getWorkflowRun(caseId, runId);
       res.json({ run });
     } catch (error) {
       next(error);
     }
   });
 
-  // ─── Phase 2: HLA Consensus ──────────────────────────────────────
+  // в”Ђв”Ђв”Ђ Phase 2: HLA Consensus в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.post("/api/cases/:caseId/hla-consensus", async (req, res, next) => {
+  app.post("/api/cases/:caseId/hla-consensus", rbacAuth(rbacProvider, "REGISTER_SAMPLE"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");
       const input = parseRecordHlaConsensusInput(req.body);
+      const derivedConsensus = await hlaConsensusProvider.produceConsensus(
+        caseId,
+        input.perToolEvidence,
+        input.referenceVersion,
+      );
       const consensus: HlaConsensusRecord = {
-        caseId: req.params.caseId,
+        caseId,
         alleles: input.alleles,
         perToolEvidence: input.perToolEvidence,
         confidenceScore: input.confidenceScore,
         tieBreakNotes: input.tieBreakNotes,
         referenceVersion: input.referenceVersion,
-        producedAt: new Date().toISOString(),
+        producedAt: derivedConsensus.producedAt,
+        disagreements: derivedConsensus.disagreements,
+        confidenceDecomposition: derivedConsensus.confidenceDecomposition,
       };
-      const updated = await store.recordHlaConsensus(req.params.caseId, consensus, correlationId);
+      const updated = await store.recordHlaConsensus(caseId, consensus, correlationId);
       res.json({ case: updated });
     } catch (error) {
       next(error);
     }
   });
 
-  app.get("/api/cases/:caseId/hla-consensus", async (req, res, next) => {
+  app.get("/api/cases/:caseId/hla-consensus", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const consensus = await store.getHlaConsensus(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const consensus = await store.getHlaConsensus(caseId);
       if (!consensus) {
         throw new ApiError(404, "not_found", "No HLA consensus found for this case.", "Record HLA consensus first.");
       }
@@ -504,23 +568,27 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  // ─── Phase 2: QC Gate ────────────────────────────────────────────
+  // в”Ђв”Ђв”Ђ Phase 2: QC Gate в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.post("/api/cases/:caseId/runs/:runId/qc", async (req, res, next) => {
+  app.post("/api/cases/:caseId/runs/:runId/qc", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const runId = getRequiredRouteParam(req, "runId");
       const correlationId = String(res.locals.correlationId ?? "");
       const input = parseEvaluateQcGateInput(req.body);
-      const gate = await qcGateEvaluator.evaluate(req.params.runId, input);
-      const updated = await store.recordQcGate(req.params.caseId, req.params.runId, gate, correlationId);
+      const gate = await qcGateEvaluator.evaluate(runId, input);
+      const updated = await store.recordQcGate(caseId, runId, gate, correlationId);
       res.json({ case: updated });
     } catch (error) {
       next(error);
     }
   });
 
-  app.get("/api/cases/:caseId/runs/:runId/qc", async (req, res, next) => {
+  app.get("/api/cases/:caseId/runs/:runId/qc", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const gate = await store.getQcGate(req.params.caseId, req.params.runId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const runId = getRequiredRouteParam(req, "runId");
+      const gate = await store.getQcGate(caseId, runId);
       if (!gate) {
         throw new ApiError(404, "not_found", "No QC gate found for this run.", "Evaluate QC gate first.");
       }
@@ -530,27 +598,57 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  // ─── Wave 9: Construct Design ────────────────────────────────────
+  // в”Ђв”Ђв”Ђ Wave 8: Neoantigen Ranking в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.post("/api/cases/:caseId/construct-design", async (req, res, next) => {
+  app.post("/api/cases/:caseId/neoantigen-ranking", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const correlationId = String(res.locals.correlationId ?? "");
+      const input = parseRecordNeoantigenRankingInput(req.body);
+      const ranking = await neoantigenRankingEngine.rank(caseId, input.candidates);
+      const updated = await store.recordNeoantigenRanking(caseId, ranking, correlationId);
+      res.status(201).json({ case: updated, ranking });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/cases/:caseId/neoantigen-ranking", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+    try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const ranking = await store.getNeoantigenRanking(caseId);
+      if (!ranking) {
+        throw new ApiError(404, "not_found", "No neoantigen ranking found for this case.", "Generate neoantigen ranking first.");
+      }
+      res.json({ ranking });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // в”Ђв”Ђв”Ђ Wave 9: Construct Design в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
+
+  app.post("/api/cases/:caseId/construct-design", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
+    try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");
       const input = parseConstructDesignInput(req.body);
       const constructDesign = await constructDesigner.designConstruct({
-        caseId: req.params.caseId,
+        caseId,
         rankedCandidates: input.rankedCandidates,
         deliveryModality: input.deliveryModality,
       });
-      const updated = await store.recordConstructDesign(req.params.caseId, constructDesign, correlationId);
+      const updated = await store.recordConstructDesign(caseId, constructDesign, correlationId);
       res.status(201).json({ case: updated, constructDesign });
     } catch (error) {
       next(error);
     }
   });
 
-  app.get("/api/cases/:caseId/construct-design", async (req, res, next) => {
+  app.get("/api/cases/:caseId/construct-design", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const constructDesign = await store.getConstructDesign(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const constructDesign = await store.getConstructDesign(caseId);
       if (!constructDesign) {
         throw new ApiError(404, "not_found", "No construct design found for this case.", "Generate a construct design first.");
       }
@@ -560,77 +658,83 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  // ─── Wave 13: Outcome HTTP Surfaces ─────────────────────────────
+  // в”Ђв”Ђв”Ђ Wave 13: Outcome HTTP Surfaces в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.post("/api/cases/:caseId/outcomes/administration", async (req, res, next) => {
+  app.post("/api/cases/:caseId/outcomes/administration", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");
       const input = parseRecordAdministrationInput(req.body);
       const administration = {
         ...input,
-        caseId: req.params.caseId,
+        caseId,
       };
-      const updated = await store.recordAdministration(req.params.caseId, administration, correlationId);
+      const updated = await store.recordAdministration(caseId, administration, correlationId);
       res.status(201).json({ case: updated, administration });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/cases/:caseId/outcomes/immune-monitoring", async (req, res, next) => {
+  app.post("/api/cases/:caseId/outcomes/immune-monitoring", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");
       const input = parseRecordImmuneMonitoringInput(req.body);
       const immuneMonitoring = {
         ...input,
-        caseId: req.params.caseId,
+        caseId,
       };
-      const updated = await store.recordImmuneMonitoring(req.params.caseId, immuneMonitoring, correlationId);
+      const updated = await store.recordImmuneMonitoring(caseId, immuneMonitoring, correlationId);
       res.status(201).json({ case: updated, immuneMonitoring });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/cases/:caseId/outcomes/clinical-follow-up", async (req, res, next) => {
+  app.post("/api/cases/:caseId/outcomes/clinical-follow-up", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");
       const input = parseRecordClinicalFollowUpInput(req.body);
       const clinicalFollowUp = {
         ...input,
-        caseId: req.params.caseId,
+        caseId,
       };
-      const updated = await store.recordClinicalFollowUp(req.params.caseId, clinicalFollowUp, correlationId);
+      const updated = await store.recordClinicalFollowUp(caseId, clinicalFollowUp, correlationId);
       res.status(201).json({ case: updated, clinicalFollowUp });
     } catch (error) {
       next(error);
     }
   });
 
-  app.get("/api/cases/:caseId/outcomes", async (req, res, next) => {
+  app.get("/api/cases/:caseId/outcomes", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const timeline = await store.getOutcomeTimeline(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const timeline = await store.getOutcomeTimeline(caseId);
       res.json({ timeline, meta: { totalEntries: timeline.length } });
     } catch (error) {
       next(error);
     }
   });
 
-  app.get("/api/cases/:caseId/traceability", async (req, res, next) => {
+  app.get("/api/cases/:caseId/traceability", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const traceability = await store.getFullTraceability(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const traceability = await store.getFullTraceability(caseId);
       res.json({ traceability });
     } catch (error) {
       next(error);
     }
   });
 
-  // ─── Phase 2: Multidisciplinary Review Packets ───────────────────
+  // в”Ђв”Ђв”Ђ Phase 2: Multidisciplinary Review Packets в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.post("/api/cases/:caseId/board-packets", async (req, res, next) => {
+  app.post("/api/cases/:caseId/board-packets", rbacAuth(rbacProvider, "REQUEST_WORKFLOW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");
-      const result = await store.generateBoardPacket(req.params.caseId, correlationId);
+      const result = await store.generateBoardPacket(caseId, correlationId);
       res.status(result.created ? 201 : 200).json({
         case: result.case,
         packet: result.packet,
@@ -641,29 +745,33 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.get("/api/cases/:caseId/board-packets", async (req, res, next) => {
+  app.get("/api/cases/:caseId/board-packets", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const packets = await store.listBoardPackets(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const packets = await store.listBoardPackets(caseId);
       res.json({ packets, meta: { totalPackets: packets.length } });
     } catch (error) {
       next(error);
     }
   });
 
-  app.get("/api/cases/:caseId/board-packets/:packetId", async (req, res, next) => {
+  app.get("/api/cases/:caseId/board-packets/:packetId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const packet = await store.getBoardPacket(req.params.caseId, req.params.packetId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const packetId = getRequiredRouteParam(req, "packetId");
+      const packet = await store.getBoardPacket(caseId, packetId);
       res.json({ packet });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/cases/:caseId/review-outcomes", async (req, res, next) => {
+  app.post("/api/cases/:caseId/review-outcomes", rbacAuth(rbacProvider, "APPROVE_REVIEW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");
       const input = parseRecordReviewOutcomeInput(req.body);
-      const result = await store.recordReviewOutcome(req.params.caseId, input, correlationId);
+      const result = await store.recordReviewOutcome(caseId, input, correlationId);
       res.status(result.created ? 201 : 200).json({
         case: result.case,
         reviewOutcome: result.reviewOutcome,
@@ -674,29 +782,33 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.get("/api/cases/:caseId/review-outcomes", async (req, res, next) => {
+  app.get("/api/cases/:caseId/review-outcomes", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const reviewOutcomes = await store.listReviewOutcomes(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const reviewOutcomes = await store.listReviewOutcomes(caseId);
       res.json({ reviewOutcomes, meta: { totalReviewOutcomes: reviewOutcomes.length } });
     } catch (error) {
       next(error);
     }
   });
 
-  app.get("/api/cases/:caseId/review-outcomes/:reviewId", async (req, res, next) => {
+  app.get("/api/cases/:caseId/review-outcomes/:reviewId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const reviewOutcome = await store.getReviewOutcome(req.params.caseId, req.params.reviewId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const reviewId = getRequiredRouteParam(req, "reviewId");
+      const reviewOutcome = await store.getReviewOutcome(caseId, reviewId);
       res.json({ reviewOutcome });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/cases/:caseId/handoff-packets", async (req, res, next) => {
+  app.post("/api/cases/:caseId/handoff-packets", rbacAuth(rbacProvider, "APPROVE_REVIEW"), consentGateMw, async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");
       const input = parseGenerateHandoffPacketInput(req.body);
-      const result = await store.generateHandoffPacket(req.params.caseId, input, correlationId);
+      const result = await store.generateHandoffPacket(caseId, input, correlationId);
       res.status(result.created ? 201 : 200).json({
         case: result.case,
         handoff: result.handoff,
@@ -707,27 +819,30 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.get("/api/cases/:caseId/handoff-packets", async (req, res, next) => {
+  app.get("/api/cases/:caseId/handoff-packets", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const handoffs = await store.listHandoffPackets(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const handoffs = await store.listHandoffPackets(caseId);
       res.json({ handoffs, meta: { totalHandoffs: handoffs.length } });
     } catch (error) {
       next(error);
     }
   });
 
-  app.get("/api/cases/:caseId/handoff-packets/:handoffId", async (req, res, next) => {
+  app.get("/api/cases/:caseId/handoff-packets/:handoffId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const handoff = await store.getHandoffPacket(req.params.caseId, req.params.handoffId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const handoffId = getRequiredRouteParam(req, "handoffId");
+      const handoff = await store.getHandoffPacket(caseId, handoffId);
       res.json({ handoff });
     } catch (error) {
       next(error);
     }
   });
 
-  // ─── Phase 2: Reference Bundle Registry ──────────────────────────
+  // в”Ђв”Ђв”Ђ Phase 2: Reference Bundle Registry в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.get("/api/reference-bundles", async (_req, res, next) => {
+  app.get("/api/reference-bundles", rbacAuth(rbacProvider, "VIEW_CASE"), async (_req, res, next) => {
     try {
       const bundles = await referenceBundleRegistry.listBundles();
       res.json({ bundles, meta: { totalBundles: bundles.length } });
@@ -736,9 +851,10 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.get("/api/reference-bundles/:bundleId", async (req, res, next) => {
+  app.get("/api/reference-bundles/:bundleId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const bundle = await referenceBundleRegistry.getBundle(req.params.bundleId);
+      const bundleId = getRequiredRouteParam(req, "bundleId");
+      const bundle = await referenceBundleRegistry.getBundle(bundleId);
       if (!bundle) {
         throw new ApiError(404, "not_found", "Reference bundle not found.", "Use a valid bundleId from GET /api/reference-bundles.");
       }
@@ -748,7 +864,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.post("/api/reference-bundles", async (req, res, next) => {
+  app.post("/api/reference-bundles", rbacAuth(rbacProvider, "ADMIN_OPERATIONS"), async (req, res, next) => {
     try {
       const input = parseRegisterBundleInput(req.body);
       const bundle = await referenceBundleRegistry.registerBundle(input);
@@ -758,7 +874,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.get("/api/operations/summary", async (_req, res, next) => {
+  app.get("/api/operations/summary", rbacAuth(rbacProvider, "VIEW_CASE"), async (_req, res, next) => {
     try {
       res.json({ summary: await store.getOperationsSummary() });
     } catch (error) {
@@ -766,39 +882,43 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  // ─── State Machine Guard API ──────────────────────────────────────
+  // в”Ђв”Ђв”Ђ State Machine Guard API в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.get("/api/cases/:caseId/allowed-transitions", async (req, res, next) => {
+  app.get("/api/cases/:caseId/allowed-transitions", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const record = await store.getCase(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const record = await store.getCase(caseId);
       const allowed = stateMachineGuard.getAllowedTransitions(record.status);
-      res.json({ caseId: req.params.caseId, currentStatus: record.status, allowedTransitions: allowed });
+      res.json({ caseId, currentStatus: record.status, allowedTransitions: allowed });
     } catch (error) {
       next(error);
     }
   });
 
-  app.post("/api/cases/:caseId/validate-transition", async (req, res, next) => {
+  app.post("/api/cases/:caseId/validate-transition", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const record = await store.getCase(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const record = await store.getCase(caseId);
       const targetStatus = req.body?.targetStatus;
       if (!targetStatus) {
         throw new ApiError(400, "missing_field", "targetStatus is required.", "Provide a valid CaseStatus in the request body.");
       }
-      const result = await stateMachineGuard.validateTransition(req.params.caseId, record.status, targetStatus);
-      res.json({ caseId: req.params.caseId, fromStatus: record.status, toStatus: targetStatus, ...result });
+      const result = await stateMachineGuard.validateTransition(caseId, record.status, targetStatus);
+      res.json({ caseId, fromStatus: record.status, toStatus: targetStatus, ...result });
     } catch (error) {
       next(error);
     }
   });
 
-  // ─── Consent Tracking API ─────────────────────────────────────────
+  // в”Ђв”Ђв”Ђ Consent Tracking API в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.post("/api/cases/:caseId/consent", async (req, res, next) => {
+  app.post("/api/cases/:caseId/consent", rbacAuth(rbacProvider, "REGISTER_SAMPLE"), async (req, res, next) => {
     try {
+      const caseId = getRequiredRouteParam(req, "caseId");
       const event = req.body;
-      if (!event?.type || !event?.scope || !event?.version) {
-        throw new ApiError(400, "invalid_input", "Consent event requires type, scope, and version.", "Provide a valid consent event.");
+      const CONSENT_TYPES = ["granted", "withdrawn", "renewed"] as const;
+      if (!event?.type || !CONSENT_TYPES.includes(event.type) || !event?.scope || !event?.version) {
+        throw new ApiError(400, "invalid_input", "Consent event requires type (granted|withdrawn|renewed), scope, and version.", "Provide a valid consent event.");
       }
       const consentEvent = {
         type: event.type,
@@ -808,28 +928,30 @@ export function createApp(dependencies: AppDependencies = {}) {
         witnessId: event.witnessId,
         notes: event.notes,
       };
-      await consentTracker.recordConsent(req.params.caseId, consentEvent);
+      await consentTracker.recordConsent(caseId, consentEvent);
       res.status(201).json({ recorded: true, event: consentEvent });
     } catch (error) {
       next(error);
     }
   });
 
-  app.get("/api/cases/:caseId/consent", async (req, res, next) => {
+  app.get("/api/cases/:caseId/consent", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const history = await consentTracker.getConsentHistory(req.params.caseId);
-      const active = await consentTracker.isConsentActive(req.params.caseId);
-      res.json({ caseId: req.params.caseId, consentActive: active, history });
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const history = await consentTracker.getConsentHistory(caseId);
+      const active = await consentTracker.isConsentActive(caseId);
+      res.json({ caseId, consentActive: active, history });
     } catch (error) {
       next(error);
     }
   });
 
-  // ─── FHIR Export API ──────────────────────────────────────────────
+  // в”Ђв”Ђв”Ђ FHIR Export API в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.get("/api/cases/:caseId/fhir/bundle", async (req, res, next) => {
+  app.get("/api/cases/:caseId/fhir/bundle", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const record = await store.getCase(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const record = await store.getCase(caseId);
       const bundle = await fhirExporter.exportCase(record);
       res.json(bundle);
     } catch (error) {
@@ -837,22 +959,23 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.get("/api/cases/:caseId/fhir/hla-consensus", async (req, res, next) => {
+  app.get("/api/cases/:caseId/fhir/hla-consensus", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
-      const record = await store.getCase(req.params.caseId);
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const record = await store.getCase(caseId);
       if (!record.hlaConsensus) {
         throw new ApiError(404, "not_found", "No HLA consensus recorded for this case.", "Record HLA consensus first via POST /api/cases/:caseId/hla-consensus.");
       }
-      const observations = await fhirExporter.exportHlaConsensus(req.params.caseId, record.hlaConsensus);
+      const observations = await fhirExporter.exportHlaConsensus(caseId, record.hlaConsensus);
       res.json({ observations });
     } catch (error) {
       next(error);
     }
   });
 
-  // ─── Audit Signature API ──────────────────────────────────────────
+  // в”Ђв”Ђв”Ђ Audit Signature API в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-  app.post("/api/audit/sign", async (req, res, next) => {
+  app.post("/api/audit/sign", rbacAuth(rbacProvider, "ADMIN_OPERATIONS"), async (req, res, next) => {
     try {
       const { entry, principal } = req.body;
       if (!entry || !principal) {
@@ -865,7 +988,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.post("/api/audit/verify", async (req, res, next) => {
+  app.post("/api/audit/verify", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
     try {
       const { entry } = req.body;
       if (!entry) {

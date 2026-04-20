@@ -3,8 +3,15 @@ import assert from "node:assert/strict";
 import { InMemoryRbacProvider } from "../src/adapters/InMemoryRbacProvider";
 
 test("RBAC Provider", async (t) => {
-  await t.test("allowAll mode permits any action (default backward compat)", async () => {
+  await t.test("default mode denies unassigned principals (deny-by-default)", async () => {
     const provider = new InMemoryRbacProvider();
+    const result = await provider.checkPermission("unknown-principal", "CREATE_CASE");
+    assert.strictEqual(result.allowed, false);
+    assert.ok(result.reason);
+  });
+
+  await t.test("allowAll mode permits any action (explicit opt-in)", async () => {
+    const provider = new InMemoryRbacProvider({ allowAll: true });
     const result = await provider.checkPermission("unknown-principal", "CREATE_CASE");
     assert.strictEqual(result.allowed, true);
   });

@@ -1,4 +1,4 @@
-import test from "node:test";
+﻿import test from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
 import { createApp } from "../src/app";
@@ -14,7 +14,7 @@ import type {
 } from "../src/types";
 import { parseRegisterBundleInput } from "../src/store";
 
-// ─── Helpers ────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 function buildCaseInput(overrides: Record<string, unknown> = {}) {
   return {
@@ -169,10 +169,10 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>, caseId?:
   return id;
 }
 
-// ─── 6.A: Rich reference bundle model ───────────────────────────────
+// в”Ђв”Ђв”Ђ 6.A: Rich reference bundle model в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("6.A registerBundle registers a new bundle via POST /api/reference-bundles", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const bundle = {
     bundleId: "GRCh38-custom",
     genomeAssembly: "GRCh38",
@@ -194,7 +194,7 @@ test("6.A registerBundle registers a new bundle via POST /api/reference-bundles"
 });
 
 test("6.A registerBundle with retrievalProvenance stores provenance", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const bundle = {
     bundleId: "GRCh38-provenance",
     genomeAssembly: "GRCh38",
@@ -215,7 +215,7 @@ test("6.A registerBundle with retrievalProvenance stores provenance", async () =
 });
 
 test("6.A registerBundle rejects duplicate bundleId", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   // GRCh38-2026a is a default bundle
   const duplicate = {
     bundleId: "GRCh38-2026a",
@@ -231,13 +231,13 @@ test("6.A registerBundle rejects duplicate bundleId", async () => {
 });
 
 test("6.A registerBundle validates required fields", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const res = await request(app).post("/api/reference-bundles").send({ bundleId: "incomplete" });
   assert.ok(res.status >= 400 && res.status < 500);
 });
 
 test("6.A registered bundle appears in GET /api/reference-bundles", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   await request(app).post("/api/reference-bundles").send({
     bundleId: "GRCh38-new",
     genomeAssembly: "GRCh38",
@@ -271,7 +271,7 @@ test("6.A parseRegisterBundleInput rejects extra fields (strict mode)", () => {
 });
 
 test("6.A ReferenceBundleManifest new optional fields default to undefined", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const getRes = await request(app).get("/api/reference-bundles/GRCh38-2026a");
   assert.equal(getRes.status, 200);
   // Default bundles don't have the new fields
@@ -281,7 +281,7 @@ test("6.A ReferenceBundleManifest new optional fields default to undefined", asy
   assert.equal(getRes.body.bundle.retrievalProvenance, undefined);
 });
 
-// ─── 6.B: Multi-tool HLA evidence ───────────────────────────────────
+// в”Ђв”Ђв”Ђ 6.B: Multi-tool HLA evidence в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("6.B consensus with single tool produces no disagreements", async () => {
   const provider = new InMemoryHlaConsensusProvider();
@@ -374,7 +374,7 @@ test("6.B confidenceDecomposition reflects per-tool confidence", async () => {
 });
 
 test("6.B consensus via HTTP roundtrip preserves disagreements", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   // Record multi-tool consensus with disagreement via HTTP
@@ -394,12 +394,20 @@ test("6.B consensus via HTTP roundtrip preserves disagreements", async () => {
   const getRes = await request(app).get(`/api/cases/${caseId}/hla-consensus`);
   assert.equal(getRes.status, 200);
   assert.ok(getRes.body.consensus.perToolEvidence.length >= 2);
+  assert.ok(getRes.body.consensus.disagreements);
+  assert.equal(getRes.body.consensus.disagreements.length, 1);
+  assert.equal(getRes.body.consensus.disagreements[0].locus, "HLA-B");
+  assert.equal(getRes.body.consensus.disagreements[0].resolution, "unresolved");
+  assert.deepEqual(getRes.body.consensus.confidenceDecomposition, {
+    OptiType: 0.95,
+    "HLA-HD": 0.88,
+  });
 });
 
-// ─── 6.C: Board packet bundle & HLA audit ───────────────────────────
+// в”Ђв”Ђв”Ђ 6.C: Board packet bundle & HLA audit в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("6.C board packet includes hlaToolBreakdown when evidence exists", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
@@ -413,19 +421,19 @@ test("6.C board packet includes hlaToolBreakdown when evidence exists", async ()
 });
 
 test("6.C board packet hlaDisagreements is undefined when tools agree", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
   assert.equal(packetRes.status, 201);
 
   const snapshot = packetRes.body.packet.snapshot;
-  // createReviewReadyCase uses single tool → no disagreements
+  // createReviewReadyCase uses single tool в†’ no disagreements
   assert.equal(snapshot.hlaDisagreements, undefined);
 });
 
 test("6.C board packet bundleRetrievalProvenance is undefined when bundles lack provenance", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
@@ -455,6 +463,7 @@ test("6.C board packet includes bundleRetrievalProvenance when bundle has proven
   const app = createApp({
     workflowRunner: new FakeWorkflowRunner(),
     referenceBundleRegistry: registry,
+    rbacAllowAll: true, consentGateEnabled: false,
   });
 
   // Create case and use the provenance-enabled bundle
@@ -510,7 +519,7 @@ test("6.C board packet includes bundleRetrievalProvenance when bundle has proven
 });
 
 test("6.C existing board packet tests still pass (backward compat check)", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
@@ -526,7 +535,7 @@ test("6.C existing board packet tests still pass (backward compat check)", async
   assert.ok(snapshot.latestQcGate);
 });
 
-// ─── Adapter unit tests ─────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Adapter unit tests в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("InMemoryReferenceBundleRegistry registerBundle stores and retrieves", async () => {
   const registry = new InMemoryReferenceBundleRegistry([]);

@@ -10,7 +10,9 @@ import {
   qcGateOutcomes,
   reviewDispositions,
   sampleTypes,
+  selfFoldingRiskLevels,
   sourceArtifactSemanticTypes,
+  toleranceRiskLevels,
   wellKnownQcMetrics,
   workflowFailureCategories,
   type AssayType,
@@ -26,6 +28,7 @@ import {
   type ImmuneMonitoringRecord,
   type FailWorkflowRunInput,
   type HlaToolEvidence,
+  type NeoantigenCandidate,
   type RankingRationale,
   type ReferenceBundleManifest,
   type RecordHlaConsensusInput,
@@ -287,6 +290,10 @@ type DesignConstructInput = {
   deliveryModality?: DeliveryModality;
 };
 
+type RecordNeoantigenRankingInput = {
+  candidates: NeoantigenCandidate[];
+};
+
 export type ActivateModalityInput = {
   activationReason: string;
 };
@@ -325,6 +332,64 @@ const designConstructInputSchema = z.object({
     error: "deliveryModality must be one of: " + deliveryModalities.join(", ") + ".",
   }).optional(),
 }).strict() satisfies z.ZodType<DesignConstructInput>;
+
+const neoantigenCandidateSchema = z.object({
+  candidateId: requiredText("candidates[].candidateId"),
+  peptideSequence: requiredText("candidates[].peptideSequence"),
+  hlaAllele: requiredText("candidates[].hlaAllele"),
+  bindingAffinity: z.object({
+    ic50nM: numberField("candidates[].bindingAffinity.ic50nM")
+      .finite()
+      .min(0, "candidates[].bindingAffinity.ic50nM must be >= 0."),
+    percentileRank: numberField("candidates[].bindingAffinity.percentileRank")
+      .finite()
+      .min(0, "candidates[].bindingAffinity.percentileRank must be >= 0."),
+  }).strict(),
+  expressionSupport: z.object({
+    tpm: numberField("candidates[].expressionSupport.tpm")
+      .finite()
+      .min(0, "candidates[].expressionSupport.tpm must be >= 0."),
+    variantAlleleFraction: numberField("candidates[].expressionSupport.variantAlleleFraction")
+      .finite()
+      .min(0, "candidates[].expressionSupport.variantAlleleFraction must be between 0 and 1.")
+      .max(1, "candidates[].expressionSupport.variantAlleleFraction must be between 0 and 1."),
+  }).strict(),
+  clonality: z.object({
+    vaf: numberField("candidates[].clonality.vaf")
+      .finite()
+      .min(0, "candidates[].clonality.vaf must be between 0 and 1.")
+      .max(1, "candidates[].clonality.vaf must be between 0 and 1."),
+    isClonal: booleanField("candidates[].clonality.isClonal"),
+  }).strict(),
+  manufacturability: z.object({
+    gcContent: numberField("candidates[].manufacturability.gcContent")
+      .finite()
+      .min(0, "candidates[].manufacturability.gcContent must be between 0 and 1.")
+      .max(1, "candidates[].manufacturability.gcContent must be between 0 and 1."),
+    selfFoldingRisk: z.enum(selfFoldingRiskLevels, {
+      error: "candidates[].manufacturability.selfFoldingRisk must be one of: " + selfFoldingRiskLevels.join(", ") + ".",
+    }),
+  }).strict(),
+  selfSimilarity: z.object({
+    closestSelfPeptide: requiredText("candidates[].selfSimilarity.closestSelfPeptide"),
+    editDistance: z.number({ error: "candidates[].selfSimilarity.editDistance must be a non-negative integer." })
+      .int()
+      .min(0, "candidates[].selfSimilarity.editDistance must be a non-negative integer."),
+    toleranceRisk: z.enum(toleranceRiskLevels, {
+      error: "candidates[].selfSimilarity.toleranceRisk must be one of: " + toleranceRiskLevels.join(", ") + ".",
+    }),
+  }).strict(),
+  uncertaintyScore: numberField("candidates[].uncertaintyScore")
+    .finite()
+    .min(0, "candidates[].uncertaintyScore must be between 0 and 1.")
+    .max(1, "candidates[].uncertaintyScore must be between 0 and 1."),
+}).strict() satisfies z.ZodType<NeoantigenCandidate>;
+
+const recordNeoantigenRankingInputSchema = z.object({
+  candidates: z.array(neoantigenCandidateSchema, {
+    error: "candidates must be a non-empty array of neoantigen candidates.",
+  }).min(1, "candidates must be a non-empty array of neoantigen candidates."),
+}).strict() satisfies z.ZodType<RecordNeoantigenRankingInput>;
 
 const activateModalityInputSchema = z.object({
   activationReason: z.string({ error: "activationReason is required." }).trim().min(3, "activationReason must be at least 3 characters."),
@@ -467,6 +532,14 @@ export function parseConstructDesignInput(value: unknown): DesignConstructInput 
     value,
     designConstructInputSchema,
     "Submit a JSON object with rankedCandidates and an optional deliveryModality.",
+  );
+}
+
+export function parseRecordNeoantigenRankingInput(value: unknown): RecordNeoantigenRankingInput {
+  return parseObjectWithSchema(
+    value,
+    recordNeoantigenRankingInputSchema,
+    "Submit a JSON object with a non-empty candidates array for neoantigen ranking.",
   );
 }
 

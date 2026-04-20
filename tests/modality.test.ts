@@ -337,7 +337,7 @@ describe("Wave 14 — Modality governance HTTP", () => {
 
   it("activated modalities are honored by construct design over HTTP", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() });
+    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
     const caseId = await createReviewReadyCase(app);
 
     const activateResponse = await request(app)

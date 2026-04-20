@@ -102,17 +102,17 @@ test("Rate Limiter Middleware", async (t) => {
 });
 
 test("RBAC Auth Middleware", async (t) => {
-  await t.test("allows all requests when no RBAC provider configured", async () => {
+  await t.test("denies requests by default when no RBAC opt-in configured", async () => {
     const store = new MemoryCaseStore();
     const app = createApp({ store });
 
     const res = await request(app)
       .post("/api/cases")
       .send(buildCaseInput());
-    assert.strictEqual(res.status, 201);
+    assert.strictEqual(res.status, 403);
   });
 
-  await t.test("unsigned x-api-key hint does not override anonymous audit context when auth is not configured", async () => {
+  await t.test("unsigned x-api-key hint is denied under deny-by-default when auth is not configured", async () => {
     const store = new MemoryCaseStore();
     const app = createApp({ store });
 
@@ -121,9 +121,7 @@ test("RBAC Auth Middleware", async (t) => {
       .set("x-api-key", "spoofed-user")
       .send(buildCaseInput());
 
-    assert.strictEqual(res.status, 201);
-    assert.strictEqual(res.body.case.auditEvents[0]?.actorId, "system:anonymous");
-    assert.strictEqual(res.body.case.auditEvents[0]?.authMechanism, "anonymous");
+    assert.strictEqual(res.status, 403);
   });
 
   await t.test("strict RBAC rejects unauthorized principals", async () => {

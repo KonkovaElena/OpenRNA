@@ -1,6 +1,7 @@
 import { InMemoryWorkflowDispatchSink } from "./InMemoryWorkflowDispatchSink";
 import { DEFAULT_ANONYMOUS_ACTOR_ID } from "../audit-context";
 import type { IWorkflowDispatchSink } from "../ports/IWorkflowDispatchSink";
+import type { IStateMachineGuard } from "../ports/IStateMachineGuard";
 import type {
   AdministrationRecord,
   ArtifactRecord,
@@ -305,6 +306,7 @@ export class PostgresCaseStore implements CaseStore {
     private readonly pool: PostgresCaseStorePool,
     private readonly clock: Clock = new SystemClock(),
     private readonly workflowDispatchSink: IWorkflowDispatchSink = new InMemoryWorkflowDispatchSink(),
+    private readonly stateMachineGuard?: IStateMachineGuard,
   ) {}
 
   async initialize(): Promise<void> {
@@ -580,7 +582,7 @@ export class PostgresCaseStore implements CaseStore {
   // ── Private helpers ──────────────────────────────────────────────
 
   private createMemoryStore(records: readonly CaseRecord[] = []): MemoryCaseStore {
-    return new MemoryCaseStore(this.clock, this.workflowDispatchSink, records);
+    return new MemoryCaseStore(this.clock, this.workflowDispatchSink, records, this.stateMachineGuard);
   }
 
   private async createMemoryStoreForCase(
