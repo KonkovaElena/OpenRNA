@@ -1,12 +1,17 @@
 ---
 title: "Regulatory Context for Personalized Neoantigen RNA Vaccines"
 status: active
+version: "1.0.1"
+last_updated: "2026-03-31"
+tags: [regulatory, fda, ema, part-11, atmp, oncology]
 evidence_cutoff: "2026-03-31"
 ---
 
 # Regulatory Context
 
 This document maps the regulatory landscape for personalized neoantigen RNA vaccines as it applies to the capabilities implemented in this repository. It distinguishes between what the current software provides and what remains required for clinical deployment.
+
+This is a regulatory-orientation and gap-analysis note, not a formal product-classification opinion.
 
 ## Applicable Regulatory Frameworks
 
@@ -17,7 +22,7 @@ This document maps the regulatory landscape for personalized neoantigen RNA vacc
 | Regulation | Scope | Relevance |
 |-----------|-------|-----------|
 | **21 USC §351** (Biologics License Application) | Marketing authorization for biological products | Required for commercial deployment of any individualized neoantigen vaccine |
-| **21 CFR Part 11** | Electronic records and electronic signatures | Applies to ALL computerized systems used in GxP-regulated activities |
+| **21 CFR Part 11** | Electronic records and electronic signatures | FDA guidance says Part 11 should be interpreted narrowly: it applies when predicate-rule records/signatures are kept or submitted electronically |
 | **21 CFR Parts 210/211** | Current Good Manufacturing Practice (cGMP) | Manufacturing facility and process requirements |
 | **21 CFR Part 312** | Investigational New Drug (IND) | Clinical trial authorization |
 | **FDA Guidance: Data Integrity and Compliance with Drug cGMP** (2018) | ALCOA+ principles for data integrity | Audit trail design, metadata, backup/recovery |
@@ -25,21 +30,21 @@ This document maps the regulatory landscape for personalized neoantigen RNA vacc
 
 **Key FDA considerations for personalized vaccines**:
 - Each patient's vaccine is a unique manufactured lot → per-patient release testing.
-- CBER has issued informal guidance supporting streamlined BLA frameworks for individualized products where platform consistency can be demonstrated.
+- Regulatory expectations for individualized platform products continue to evolve; this repository should not assume a streamlined BLA pathway without a directly cited FDA source.
 - Manufacturing comparability for a "platform" product where the active substance changes per patient is a novel regulatory question.
 
 ### European Union (EMA)
 
 | Regulation | Scope | Relevance |
 |-----------|-------|-----------|
-| **EC 1394/2007** (ATMP Regulation) | Advanced Therapy Medicinal Products | mRNA vaccines encoding neoantigen peptides fall under gene therapy classification |
+| **EC 1394/2007** (ATMP Regulation) | Advanced Therapy Medicinal Products | ATMP classification may require case-specific analysis for personalized RNA products; this document does not assert CAT classification without product-specific evidence |
 | **Directive 2001/83/EC** | EU pharmaceutical legislation | General marketing authorization framework |
 | **GMP Annex 13** | Investigational Medicinal Products | Manufacturing for clinical trials |
 | **EMA/CAT** | Committee for Advanced Therapies | Scientific assessment body for ATMPs |
 | **Hospital Exemption (Art. 28)** | Limited ATMP exemption for hospital use | Potentially relevant for academic medical center deployment |
 
 **Key EMA considerations**:
-- ATMP classification triggers CAT assessment, which adds complexity but also provides structured engagement.
+- If a concrete product falls within ATMP scope, CAT assessment adds complexity but also provides structured engagement.
 - Hospital exemption pathway allows limited non-commercial use in individual EU member states under national rules — potentially relevant for early academic deployment.
 - EU regulatory path tends to be longer but more structured for novel ATMPs.
 
@@ -56,6 +61,8 @@ This document maps the regulatory landscape for personalized neoantigen RNA vacc
 
 ## 21 CFR Part 11 Compliance Mapping
 
+FDA's 2003 scope-and-application guidance explicitly says the Agency intends to interpret Part 11 narrowly: it applies to predicate-rule records kept or submitted electronically, not to every computerized system used somewhere in a GxP environment.
+
 ### Part 11 Requirements vs. Current Implementation
 
 | Part 11 Requirement | Section | Current State | Gap |
@@ -64,7 +71,7 @@ This document maps the regulatory landscape for personalized neoantigen RNA vacc
 | **§11.10(b)** Ability to generate accurate and complete copies | Data export | ✅ JSON API responses, JSONB storage | Full backup/restore procedures needed |
 | **§11.10(c)** Protection of records for retention period | Record retention | ⚠️ PostgreSQL persistence available | Needs formal retention policy and archival strategy |
 | **§11.10(d)** Limiting system access to authorized individuals | Access control | ⚠️ API-key auth (`api-key-auth.ts`) | Not equivalent to individual user authentication. Needs RBAC. |
-| **§11.10(e)** Secure, computer-generated, time-stamped audit trails | Audit trail | ✅ `traceability.ts` emits audit events on every case mutation with timestamps | NTP synchronization for timestamp accuracy needed |
+| **§11.10(e)** Secure, computer-generated, time-stamped audit trails | Audit trail | ⚠️ `store.ts` records audit events during mutations; `traceability.ts` builds read-side lineage views from stored state | NTP synchronization for timestamp accuracy needed |
 | **§11.10(h)** Input checks (device checks) | Input validation | ✅ Zod runtime schemas on all API inputs | Validation rules need formal specification document |
 | **§11.10(k)** Documentation and audit trail for system changes | Change control | ⚠️ Git version control | Needs formal change control procedure documentation |
 | **§11.50** Electronic signature manifestations | E-signatures | ❌ Not implemented | Requires PKCE/FIDO2 or equivalent |
@@ -100,7 +107,7 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 
 ### Strengths (honest assessment)
 
-1. **Machine-readable audit trail** (`traceability.ts`): Every case state transition generates an auditable event with timestamp, actor, and payload. This is the single most important software capability for Part 11 compliance.
+1. **Machine-readable audit trail** (`store.ts` + `traceability.ts`): case mutations append auditable events with timestamp, actor, and payload, while `traceability.ts` assembles end-to-end lineage views from stored state. This is the most relevant current software capability for Part 11-aligned record integrity.
 
 2. **Input validation** (Zod schemas in `validation.ts`): All API inputs are runtime-validated against typed schemas. Rejects malformed data before it enters the system.
 

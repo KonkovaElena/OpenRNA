@@ -1,6 +1,9 @@
 ---
 title: "Medical Evidence and Competitor Baseline — March 2026"
 status: active
+version: "1.0.1"
+last_updated: "2026-03-31"
+tags: [medical-evidence, competitors, oncology, mrna, clinical-trials]
 evidence_cutoff: "2026-03-31"
 ---
 
@@ -32,14 +35,14 @@ Uses the same 4-tier system as `design.md`:
 | **Combination** | Pembrolizumab (KEYTRUDA) |
 | **Key trial** | KEYNOTE-942 / V940-001 (Phase 2b, randomized, n=157) |
 | **Primary endpoint** | Recurrence-free survival (RFS) |
-| **Result** | 49% reduction in recurrence or death (HR 0.561, 95% CI 0.309–1.017) at 3-year follow-up |
+| **Result** | Published adjuvant melanoma readouts show an RFS benefit with pembrolizumab combination; the cited 3-year update reports HR 0.561 |
 | **Publications** | Weber et al., *Lancet* 2024; Khattak et al., *Nature Medicine* 2025 |
-| **Regulatory** | FDA Breakthrough Therapy Designation (2023). Phase 3 INTerpath-001 (NCT06548841) enrolling globally |
-| **Phase 3 design** | ~1,089 patients, high-risk melanoma, pembrolizumab ± V940 |
+| **Registry-backed late-stage program** | ClinicalTrials.gov search for `INTerpath-001` / `V940-001` currently resolves to NCT05933577, listed as an active-not-recruiting high-risk melanoma study |
+| **Program note** | Registry title: "A Clinical Study of Intismeran Autogene (V940) Plus Pembrolizumab in People With High-Risk Melanoma" |
 | **Manufacturing** | ~6-week turnaround per patient vaccine; Moderna mRNA manufacturing platform |
 | **Platform note** | Up to 34 neoantigens per construct; patient-specific mRNA sequence |
 
-**Significance for this project**: V940 validates the complete neoantigen-mRNA pipeline from tumor profiling through manufacturing and clinical administration. The 49% risk reduction with combination therapy is the strongest published clinical signal for personalized neoantigen vaccines. Phase 3 readout expected 2027–2028.
+**Significance for this project**: V940 validates the complete neoantigen-mRNA pipeline from tumor profiling through manufacturing and clinical administration. The cited melanoma readouts remain the strongest public clinical signal for personalized neoantigen mRNA vaccination, and the registry-backed high-risk melanoma program is the anchor reference for ongoing late-stage development.
 
 ### 1.2 BNT-122 / Autogene cevumeran (BioNTech/Genentech) — [T2]
 
@@ -47,13 +50,13 @@ Uses the same 4-tier system as `design.md`:
 |-------|--------|
 | **Modality** | Conventional mRNA (RNA-lipoplex, IV delivery) |
 | **Indication 1** | Adjuvant pancreatic ductal adenocarcinoma (PDAC) |
-| **Key trial 1** | Phase 1 (n=16), subsequently expanded to Phase 2 |
+| **Key trial 1** | Nature 2023 Phase 1 PDAC cohort (n=16); randomized adjuvant PDAC study listed separately on ClinicalTrials.gov as NCT05968326 (IMCODE003) |
 | **Result 1** | Neoantigen-specific T-cell responses in 8/16 (50%) patients; T-cell responders showed significantly delayed recurrence (median not reached vs 13.4 months, p=0.003) |
 | **Publication 1** | Rojas et al., *Nature* 2023 (Phase 1 data) |
 | **Indication 2** | Solid tumors (melanoma, NSCLC, colorectal) |
 | **Key trial 2** | IMCODE trial portfolio; Phase 1 solid tumor basket (preliminary) |
-| **Result 2** | 71% objective response rate in combination with atezolizumab + ipilimumab (preliminary Phase 1, n=??; BioNTech presentation data) |
-| **Regulatory** | FDA Fast Track Designation for PDAC (2024) |
+| **Result 2** | Individualized neoantigen-specific immune responses in 71% of patients (15/21), with responses reported as durable up to 23 months in early-phase solid-tumor reporting |
+| **Registry-backed PDAC program** | NCT05968326 (IMCODE003): autogene cevumeran + atezolizumab + mFOLFIRINOX versus mFOLFIRINOX alone in resected PDAC |
 | **Platform note** | RNA-LPX (liposome complex) IV infusion; up to 20 neoantigen cassettes per construct |
 
 **Significance for this project**: BNT-122 demonstrates the approach in a hard-to-treat solid tumor (PDAC) where immune checkpoint inhibitors alone have failed. The stark survival separation between T-cell responders and non-responders validates biomarker-driven patient stratification as a platform capability. Different delivery vehicle (RNA-LPX vs Moderna's LNP) and route (IV vs IM).
@@ -208,7 +211,7 @@ Tools relevant to the `IConstructDesigner` port's downstream implementation:
 | Company | Lead Personalized Program | Phase | Modality | Differentiator |
 |---------|--------------------------|-------|----------|---------------|
 | **Moderna/Merck** | V940 (mRNA-4157) | Phase 3 (INTerpath-001) | mRNA + LNP | Largest trial; Breakthrough designation; pembrolizumab combo |
-| **BioNTech/Genentech** | BNT-122 (autogene cevumeran) | Phase 2 (PDAC, solid tumors) | mRNA + RNA-LPX IV | IV delivery; pancreatic cancer validation; IMCODE-001 basket |
+| **BioNTech/Genentech** | BNT-122 (autogene cevumeran) | Phase 2 in resected PDAC; early-phase basket in solid tumors | mRNA + RNA-LPX IV | IV delivery; pancreatic cancer validation; IMCODE003 is the registry-backed PDAC study |
 | **CureVac/GSK** | Undisclosed neoantigen | Phase 1 | Modified mRNA | GSK oncology partnership; CV8102 RNA adjuvant |
 | **Stemirna** | SW1115C3 | Phase 1 (China) | mRNA | Chinese regulatory pathway |
 | **NEC/Transgene** | TG4050 | Phase 1/2 | Adenovirus vector | AI-predicted neoantigens (NEC AI); different vector |
