@@ -23,14 +23,27 @@ import type { IModalityRegistry } from "./ports/IModalityRegistry";
 import type { IReferenceBundleRegistry } from "./ports/IReferenceBundleRegistry";
 import type { IQcGateEvaluator } from "./ports/IQcGateEvaluator";
 import type { IWorkflowRunner } from "./ports/IWorkflowRunner";
+import type { IStateMachineGuard } from "./ports/IStateMachineGuard";
+import type { IConsentTracker } from "./ports/IConsentTracker";
+import type { IRbacProvider } from "./ports/IRbacProvider";
+import type { IAuditSignatureProvider } from "./ports/IAuditSignatureProvider";
+import type { IFhirExporter } from "./ports/IFhirExporter";
 import { InMemoryConstructDesigner } from "./adapters/InMemoryConstructDesigner";
 import { InMemoryModalityRegistry } from "./adapters/InMemoryModalityRegistry";
 import { InMemoryReferenceBundleRegistry } from "./adapters/InMemoryReferenceBundleRegistry";
 import { InMemoryQcGateEvaluator } from "./adapters/InMemoryQcGateEvaluator";
 import { InMemoryWorkflowRunner } from "./adapters/InMemoryWorkflowRunner";
+import { InMemoryStateMachineGuard } from "./adapters/InMemoryStateMachineGuard";
+import { InMemoryConsentTracker } from "./adapters/InMemoryConsentTracker";
+import { InMemoryRbacProvider } from "./adapters/InMemoryRbacProvider";
+import { InMemoryAuditSignatureProvider } from "./adapters/InMemoryAuditSignatureProvider";
+import { InMemoryFhirExporter } from "./adapters/InMemoryFhirExporter";
 import type { DeliveryModality, RunArtifact, HlaConsensusRecord } from "./types";
 import { apiKeyAuth } from "./middleware/api-key-auth";
 import { requestLogger, type RequestLogWriter } from "./middleware/request-logger";
+import { securityHeaders } from "./middleware/security-headers";
+import { rateLimiter } from "./middleware/rate-limiter";
+import { rbacAuth } from "./middleware/rbac-auth";
 
 export interface AppDependencies {
   store?: CaseStore;
@@ -39,8 +52,15 @@ export interface AppDependencies {
   referenceBundleRegistry?: IReferenceBundleRegistry;
   qcGateEvaluator?: IQcGateEvaluator;
   workflowRunner?: IWorkflowRunner;
+  stateMachineGuard?: IStateMachineGuard;
+  consentTracker?: IConsentTracker;
+  rbacProvider?: IRbacProvider;
+  auditSignatureProvider?: IAuditSignatureProvider;
+  fhirExporter?: IFhirExporter;
   apiKey?: string;
   requestLogWriter?: RequestLogWriter;
+  enableRateLimiting?: boolean;
+  rateLimitOptions?: import("./middleware/rate-limiter").RateLimiterOptions;
 }
 
 export function createApp(dependencies: AppDependencies = {}) {
@@ -51,9 +71,18 @@ export function createApp(dependencies: AppDependencies = {}) {
   const store = dependencies.store ?? new MemoryCaseStore();
   const referenceBundleRegistry = dependencies.referenceBundleRegistry ?? new InMemoryReferenceBundleRegistry();
   const qcGateEvaluator = dependencies.qcGateEvaluator ?? new InMemoryQcGateEvaluator();
+  const stateMachineGuard = dependencies.stateMachineGuard ?? new InMemoryStateMachineGuard();
+  const consentTracker = dependencies.consentTracker ?? new InMemoryConsentTracker();
+  const rbacProvider = dependencies.rbacProvider ?? new InMemoryRbacProvider();
+  const auditSignatureProvider = dependencies.auditSignatureProvider ?? new InMemoryAuditSignatureProvider();
+  const fhirExporter = dependencies.fhirExporter ?? new InMemoryFhirExporter();
 
   app.disable("x-powered-by");
+  app.use(securityHeaders());
   app.use(express.json({ limit: "1mb" }));
+  if (dependencies.enableRateLimiting) {
+    app.use(rateLimiter(dependencies.rateLimitOptions));
+  }
   app.use((req, res, next) => {
     const correlationId = req.header("x-correlation-id") ?? `corr_${randomUUID()}`;
     res.locals.correlationId = correlationId;
@@ -112,6 +141,14 @@ export function createApp(dependencies: AppDependencies = {}) {
         "GET /api/reference-bundles/:bundleId",
         "POST /api/reference-bundles",
         "GET /api/operations/summary",
+        "GET /api/cases/:caseId/allowed-transitions",
+        "POST /api/cases/:caseId/validate-transition",
+        "POST /api/cases/:caseId/consent",
+        "GET /api/cases/:caseId/consent",
+        "GET /api/cases/:caseId/fhir/bundle",
+        "GET /api/cases/:caseId/fhir/hla-consensus",
+        "POST /api/audit/sign",
+        "POST /api/audit/verify",
         "GET /healthz",
         "GET /readyz",
         "GET /metrics",
@@ -180,7 +217,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     }
   });
 
-  app.post("/api/cases", async (req, res, next) => {
+  app.post("/api/cases", rbacAuth(rbacProvider, "CREATE_CASE"), async (req, res, next) => {
     try {
       const correlationId = String(res.locals.correlationId ?? "");
       res.status(201).json({ case: await store.createCase(req.body, correlationId) });
@@ -717,6 +754,118 @@ export function createApp(dependencies: AppDependencies = {}) {
   app.get("/api/operations/summary", async (_req, res, next) => {
     try {
       res.json({ summary: await store.getOperationsSummary() });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ─── State Machine Guard API ──────────────────────────────────────
+
+  app.get("/api/cases/:caseId/allowed-transitions", async (req, res, next) => {
+    try {
+      const record = await store.getCase(req.params.caseId);
+      const allowed = stateMachineGuard.getAllowedTransitions(record.status);
+      res.json({ caseId: req.params.caseId, currentStatus: record.status, allowedTransitions: allowed });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/cases/:caseId/validate-transition", async (req, res, next) => {
+    try {
+      const record = await store.getCase(req.params.caseId);
+      const targetStatus = req.body?.targetStatus;
+      if (!targetStatus) {
+        throw new ApiError(400, "missing_field", "targetStatus is required.", "Provide a valid CaseStatus in the request body.");
+      }
+      const result = await stateMachineGuard.validateTransition(req.params.caseId, record.status, targetStatus);
+      res.json({ caseId: req.params.caseId, fromStatus: record.status, toStatus: targetStatus, ...result });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ─── Consent Tracking API ─────────────────────────────────────────
+
+  app.post("/api/cases/:caseId/consent", async (req, res, next) => {
+    try {
+      const event = req.body;
+      if (!event?.type || !event?.scope || !event?.version) {
+        throw new ApiError(400, "invalid_input", "Consent event requires type, scope, and version.", "Provide a valid consent event.");
+      }
+      const consentEvent = {
+        type: event.type,
+        timestamp: event.timestamp ?? new Date().toISOString(),
+        scope: event.scope,
+        version: event.version,
+        witnessId: event.witnessId,
+        notes: event.notes,
+      };
+      await consentTracker.recordConsent(req.params.caseId, consentEvent);
+      res.status(201).json({ recorded: true, event: consentEvent });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/cases/:caseId/consent", async (req, res, next) => {
+    try {
+      const history = await consentTracker.getConsentHistory(req.params.caseId);
+      const active = await consentTracker.isConsentActive(req.params.caseId);
+      res.json({ caseId: req.params.caseId, consentActive: active, history });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ─── FHIR Export API ──────────────────────────────────────────────
+
+  app.get("/api/cases/:caseId/fhir/bundle", async (req, res, next) => {
+    try {
+      const record = await store.getCase(req.params.caseId);
+      const bundle = await fhirExporter.exportCase(record);
+      res.json(bundle);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/cases/:caseId/fhir/hla-consensus", async (req, res, next) => {
+    try {
+      const record = await store.getCase(req.params.caseId);
+      if (!record.hlaConsensus) {
+        throw new ApiError(404, "not_found", "No HLA consensus recorded for this case.", "Record HLA consensus first via POST /api/cases/:caseId/hla-consensus.");
+      }
+      const observations = await fhirExporter.exportHlaConsensus(req.params.caseId, record.hlaConsensus);
+      res.json({ observations });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // ─── Audit Signature API ──────────────────────────────────────────
+
+  app.post("/api/audit/sign", async (req, res, next) => {
+    try {
+      const { entry, principal } = req.body;
+      if (!entry || !principal) {
+        throw new ApiError(400, "invalid_input", "Both entry and principal are required.", "Provide an audit entry and signing principal.");
+      }
+      const signed = await auditSignatureProvider.signAuditEntry(entry, principal);
+      res.status(201).json({ signedEntry: signed });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/audit/verify", async (req, res, next) => {
+    try {
+      const { entry } = req.body;
+      if (!entry) {
+        throw new ApiError(400, "invalid_input", "Signed entry is required.", "Provide a signed audit entry to verify.");
+      }
+      const valid = await auditSignatureProvider.verifySignature(entry);
+      res.json({ valid });
     } catch (error) {
       next(error);
     }
