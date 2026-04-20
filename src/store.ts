@@ -216,6 +216,8 @@ export interface CaseStore {
   syncConsentStatus(caseId: string, consentStatus: ConsentStatus, correlationId: AuditContextInput): Promise<CaseRecord>;
   // Restart from REVISION_REQUESTED
   restartFromRevision(caseId: string, correlationId: AuditContextInput): Promise<CaseRecord>;
+  // Resolve HLA review gate
+  resolveHlaReview(caseId: string, resolution: { rationale: string }, correlationId: AuditContextInput): Promise<CaseRecord>;
 }
 
 export class MemoryCaseStore implements CaseStore {
@@ -1170,6 +1172,30 @@ export class MemoryCaseStore implements CaseStore {
     record.updatedAt = this.clock.nowIso();
     await this.appendCaseEvent(
       this.createCaseEvent(caseId, "revision.restarted" as unknown as CaseDomainEventType, {}, correlationId),
+    );
+    return this.rebuildCaseProjection(caseId);
+  }
+
+  async resolveHlaReview(caseId: string, resolution: { rationale: string }, correlationId: AuditContextInput): Promise<CaseRecord> {
+    const record = this.getMutableRecord(caseId);
+    if (record.status !== "HLA_REVIEW_REQUIRED") {
+      throw new ApiError(
+        409,
+        "invalid_transition",
+        `resolveHlaReview requires HLA_REVIEW_REQUIRED status, current: ${record.status}.`,
+        "Only cases in HLA_REVIEW_REQUIRED status can have their HLA review resolved.",
+      );
+    }
+    await this.applyTransition(record, "AWAITING_REVIEW", correlationId);
+    record.timeline.push(
+      timelineEvent(this.clock, "hla_review_resolved", `HLA review resolved: ${resolution.rationale}`),
+    );
+    record.auditEvents.push(
+      auditEvent(this.clock, "hla.review.resolved", `Operator resolved HLA review: ${resolution.rationale}`, correlationId),
+    );
+    record.updatedAt = this.clock.nowIso();
+    await this.appendCaseEvent(
+      this.createCaseEvent(caseId, "hla.review.resolved", { rationale: resolution.rationale }, correlationId),
     );
     return this.rebuildCaseProjection(caseId);
   }

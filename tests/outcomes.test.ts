@@ -68,6 +68,7 @@ function buildConstruct(caseId: string): ConstructDesignPackage {
     caseId,
     version: 1,
     deliveryModality: "conventional-mrna",
+    linkerStrategy: "ggs-flexible",
     sequence: "AUGGCCGCCGAAUAA",
     designRationale: "Top ranked candidates converted into a tandem minigene construct.",
     candidateIds: ["neo-alpha", "neo-beta"],

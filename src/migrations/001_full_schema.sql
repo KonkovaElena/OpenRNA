@@ -147,12 +147,19 @@ CREATE TABLE IF NOT EXISTS hla_consensus (
   alleles            JSONB   NOT NULL,
   per_tool_evidence  JSONB   NOT NULL,
   confidence_score   REAL    NOT NULL,
+  operator_review_threshold INTEGER NOT NULL DEFAULT 0,
+  unresolved_disagreement_count INTEGER NOT NULL DEFAULT 0,
+  manual_review_required BOOLEAN NOT NULL DEFAULT FALSE,
   tie_break_notes    TEXT,
   reference_version  TEXT    NOT NULL,
   produced_at        TIMESTAMPTZ NOT NULL,
   disagreements      JSONB,
   confidence_decomposition JSONB
 );
+
+ALTER TABLE hla_consensus ADD COLUMN IF NOT EXISTS operator_review_threshold INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE hla_consensus ADD COLUMN IF NOT EXISTS unresolved_disagreement_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE hla_consensus ADD COLUMN IF NOT EXISTS manual_review_required BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- ─── QC Gates ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS qc_gates (

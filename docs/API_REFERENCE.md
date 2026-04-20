@@ -123,6 +123,7 @@ Notes:
 | `POST` | `/api/cases/:caseId/consent` |
 | `GET` | `/api/cases/:caseId/consent` |
 | `POST` | `/api/cases/:caseId/restart-from-revision` |
+| `POST` | `/api/cases/:caseId/resolve-hla-review` |
 | `GET` | `/api/cases/:caseId/fhir/bundle` |
 | `GET` | `/api/cases/:caseId/fhir/hla-consensus` |
 | `POST` | `/api/audit/sign` |

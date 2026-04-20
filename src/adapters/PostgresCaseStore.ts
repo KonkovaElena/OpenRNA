@@ -198,6 +198,9 @@ function mapHlaConsensusRow(r: Record<string, unknown>): HlaConsensusRecord {
     alleles: parseJsonb<string[]>(r.alleles),
     perToolEvidence: parseJsonb<HlaConsensusRecord["perToolEvidence"]>(r.per_tool_evidence),
     confidenceScore: Number(r.confidence_score),
+    operatorReviewThreshold: Number(r.operator_review_threshold),
+    unresolvedDisagreementCount: Number(r.unresolved_disagreement_count),
+    manualReviewRequired: Boolean(r.manual_review_required),
     tieBreakNotes: r.tie_break_notes != null ? String(r.tie_break_notes) : undefined,
     referenceVersion: String(r.reference_version),
     producedAt: toIso(r.produced_at),
@@ -762,9 +765,35 @@ export class PostgresCaseStore implements CaseStore {
     if (record.hlaConsensus) {
       const h = record.hlaConsensus;
       await queryable.query(
-        `INSERT INTO hla_consensus (case_id, alleles, per_tool_evidence, confidence_score, tie_break_notes, reference_version, produced_at, disagreements, confidence_decomposition)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [id, JSON.stringify(h.alleles), JSON.stringify(h.perToolEvidence), h.confidenceScore, h.tieBreakNotes ?? null, h.referenceVersion, h.producedAt, h.disagreements ? JSON.stringify(h.disagreements) : null, h.confidenceDecomposition ? JSON.stringify(h.confidenceDecomposition) : null],
+        `INSERT INTO hla_consensus (
+           case_id,
+           alleles,
+           per_tool_evidence,
+           confidence_score,
+           operator_review_threshold,
+           unresolved_disagreement_count,
+           manual_review_required,
+           tie_break_notes,
+           reference_version,
+           produced_at,
+           disagreements,
+           confidence_decomposition
+         )
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [
+          id,
+          JSON.stringify(h.alleles),
+          JSON.stringify(h.perToolEvidence),
+          h.confidenceScore,
+          h.operatorReviewThreshold,
+          h.unresolvedDisagreementCount,
+          h.manualReviewRequired,
+          h.tieBreakNotes ?? null,
+          h.referenceVersion,
+          h.producedAt,
+          h.disagreements ? JSON.stringify(h.disagreements) : null,
+          h.confidenceDecomposition ? JSON.stringify(h.confidenceDecomposition) : null,
+        ],
       );
     }
 
@@ -882,5 +911,13 @@ export class PostgresCaseStore implements CaseStore {
     correlationId: Parameters<MemoryCaseStore["restartFromRevision"]>[1],
   ): Promise<CaseRecord> {
     return this.mutateCase(caseId, (store) => store.restartFromRevision(caseId, correlationId));
+  }
+
+  async resolveHlaReview(
+    caseId: string,
+    resolution: Parameters<MemoryCaseStore["resolveHlaReview"]>[1],
+    correlationId: Parameters<MemoryCaseStore["resolveHlaReview"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) => store.resolveHlaReview(caseId, resolution, correlationId));
   }
 }

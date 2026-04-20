@@ -37,6 +37,7 @@ test("app delegates governance endpoints through a dedicated governance registra
   assert.match(governanceSource, /\/api\/cases\/:caseId\/allowed-transitions/);
   assert.match(governanceSource, /\/api\/cases\/:caseId\/validate-transition/);
   assert.match(governanceSource, /\/api\/cases\/:caseId\/consent/);
+  assert.match(governanceSource, /\/api\/cases\/:caseId\/resolve-hla-review/);
 });
 
 test("app delegates design endpoints through a dedicated design registrar", () => {

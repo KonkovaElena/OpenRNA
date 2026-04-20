@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { IModalityRegistry } from "../ports/IModalityRegistry.js";
-import type { ConstructDesignPackage, RankingRationale } from "../types";
+import type { ConstructDesignPackage, DeliveryModality, EpitopeLinkerStrategy, RankingRationale } from "../types";
 import type { IConstructDesigner, ConstructDesignRequest } from "../ports/IConstructDesigner";
 import { InMemoryModalityRegistry } from "./InMemoryModalityRegistry.js";
 
@@ -14,11 +14,12 @@ export class InMemoryConstructDesigner implements IConstructDesigner {
 
   async designConstruct(request: ConstructDesignRequest): Promise<ConstructDesignPackage> {
     const modality = request.deliveryModality ?? "conventional-mrna";
+    const linkerStrategy = request.linkerStrategy ?? this.defaultLinkerStrategyFor(modality);
     await this.modalityRegistry.assertModalityAvailable(modality);
     const candidateIds = request.rankedCandidates.map((c) => c.candidateId);
 
     // Build concatenated epitope sequence (simplified: join candidate IDs as placeholder epitopes)
-    const sequence = this.buildSequence(request.rankedCandidates);
+    const sequence = this.buildSequence(request.rankedCandidates, linkerStrategy);
     const gcContent = this.computeGcContent(sequence);
     const caiScore = this.estimateCai(sequence);
 
@@ -29,8 +30,9 @@ export class InMemoryConstructDesigner implements IConstructDesigner {
       caseId: request.caseId,
       version: 1,
       deliveryModality: modality,
+      linkerStrategy,
       sequence,
-      designRationale: this.buildRationale(request.rankedCandidates, modality),
+      designRationale: this.buildRationale(request.rankedCandidates, modality, linkerStrategy),
       candidateIds,
       codonOptimization: {
         algorithm: "LinearDesign",
@@ -42,7 +44,11 @@ export class InMemoryConstructDesigner implements IConstructDesigner {
     };
   }
 
-  private buildSequence(candidates: RankingRationale[]): string {
+  private defaultLinkerStrategyFor(_modality: DeliveryModality): EpitopeLinkerStrategy {
+    return "ggs-flexible";
+  }
+
+  private buildSequence(candidates: RankingRationale[], linkerStrategy: EpitopeLinkerStrategy): string {
     // Simplified: generate a representative mRNA sequence per candidate
     // Real implementation would use actual epitope sequences + linkers
     const epitopes = candidates.map((c) => {
@@ -50,10 +56,21 @@ export class InMemoryConstructDesigner implements IConstructDesigner {
       const seed = [...c.candidateId].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
       return this.generateCodonOptimizedEpitope(seed);
     });
-    const linker = "GGCGGCAGC"; // GGS flexible linker (common in tandem minigene constructs)
+    const linker = this.resolveLinkerSequence(linkerStrategy);
     const fivePrimeUtr = "AUGAAGAAAGCGAUCGCGAUC";
     const threePrimeUtr = "UGAAAUAAACUAGCUAG";
     return fivePrimeUtr + epitopes.join(linker) + threePrimeUtr;
+  }
+
+  private resolveLinkerSequence(strategy: EpitopeLinkerStrategy): string {
+    switch (strategy) {
+      case "ggs-flexible":
+        return "GGCGGCAGC";
+      case "aay-cleavage":
+        return "GCCGCUUAU";
+      case "direct-fusion":
+        return "";
+    }
   }
 
   private generateCodonOptimizedEpitope(seed: number): string {
@@ -118,12 +135,17 @@ export class InMemoryConstructDesigner implements IConstructDesigner {
     return checks;
   }
 
-  private buildRationale(candidates: RankingRationale[], modality: string): string {
+  private buildRationale(
+    candidates: RankingRationale[],
+    modality: string,
+    linkerStrategy: EpitopeLinkerStrategy,
+  ): string {
     if (candidates.length === 0) {
-      return "No candidates provided; empty construct generated.";
+      return `No candidates provided; empty construct generated with ${linkerStrategy} linker strategy.`;
     }
     const topIds = candidates.slice(0, 3).map((c) => c.candidateId).join(", ");
     return `Construct designed with ${candidates.length} epitope(s) from candidates [${topIds}] ` +
-      `using ${modality} delivery modality. Epitopes ordered by composite rank score.`;
+      `using ${modality} delivery modality and ${linkerStrategy} linker strategy. ` +
+      "Epitopes ordered by composite rank score.";
   }
 }

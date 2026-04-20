@@ -255,12 +255,16 @@ export function registerWorkflowRoutes(
         caseId,
         input.perToolEvidence,
         input.referenceVersion,
+        input.operatorReviewThreshold,
       );
       const consensus: HlaConsensusRecord = {
         caseId,
         alleles: input.alleles,
         perToolEvidence: input.perToolEvidence,
         confidenceScore: input.confidenceScore,
+        operatorReviewThreshold: derivedConsensus.operatorReviewThreshold,
+        unresolvedDisagreementCount: derivedConsensus.unresolvedDisagreementCount,
+        manualReviewRequired: derivedConsensus.manualReviewRequired,
         tieBreakNotes: input.tieBreakNotes,
         referenceVersion: input.referenceVersion,
         producedAt: derivedConsensus.producedAt,

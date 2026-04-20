@@ -6,6 +6,7 @@ import {
   clinicalResponseCategories,
   consentStatuses,
   deliveryModalities,
+  epitopeLinkerStrategies,
   derivedArtifactSemanticTypes,
   qcGateOutcomes,
   reviewDispositions,
@@ -24,6 +25,7 @@ import {
   type CreateCaseInput,
   type DeliveryModality,
   type DerivedArtifactSemanticType,
+  type EpitopeLinkerStrategy,
   type EvaluateQcGateInput,
   type ImmuneMonitoringRecord,
   type FailWorkflowRunInput,
@@ -265,6 +267,10 @@ const recordHlaConsensusInputSchema = z.object({
     .min(0, "confidenceScore must be between 0 and 1.")
     .max(1, "confidenceScore must be between 0 and 1.")
     .multipleOf(0.001, "confidenceScore must have at most 3 decimal places."),
+  operatorReviewThreshold: z.number({ error: "operatorReviewThreshold must be a non-negative integer." })
+    .int("operatorReviewThreshold must be a non-negative integer.")
+    .min(0, "operatorReviewThreshold must be a non-negative integer.")
+    .optional(),
   tieBreakNotes: optionalText("tieBreakNotes"),
   referenceVersion: requiredText("referenceVersion"),
 }).strict() satisfies z.ZodType<RecordHlaConsensusInput>;
@@ -288,6 +294,7 @@ const evaluateQcGateInputSchema = z.object({
 type DesignConstructInput = {
   rankedCandidates: RankingRationale[];
   deliveryModality?: DeliveryModality;
+  linkerStrategy?: EpitopeLinkerStrategy;
 };
 
 type RecordNeoantigenRankingInput = {
@@ -330,6 +337,9 @@ const designConstructInputSchema = z.object({
   }),
   deliveryModality: z.enum(deliveryModalities, {
     error: "deliveryModality must be one of: " + deliveryModalities.join(", ") + ".",
+  }).optional(),
+  linkerStrategy: z.enum(epitopeLinkerStrategies, {
+    error: "linkerStrategy must be one of: " + epitopeLinkerStrategies.join(", ") + ".",
   }).optional(),
 }).strict() satisfies z.ZodType<DesignConstructInput>;
 
@@ -542,7 +552,7 @@ export function parseConstructDesignInput(value: unknown): DesignConstructInput 
   return parseObjectWithSchema(
     value,
     designConstructInputSchema,
-    "Submit a JSON object with rankedCandidates and an optional deliveryModality.",
+    "Submit a JSON object with rankedCandidates and optional deliveryModality/linkerStrategy.",
   );
 }
 

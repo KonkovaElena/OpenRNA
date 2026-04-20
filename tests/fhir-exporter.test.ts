@@ -45,6 +45,9 @@ function buildHlaConsensus(): HlaConsensusRecord {
       },
     ],
     confidenceScore: 0.95,
+    operatorReviewThreshold: 0,
+    unresolvedDisagreementCount: 0,
+    manualReviewRequired: false,
     referenceVersion: "IPD-IMGT/HLA 3.56.0",
     producedAt: "2026-04-01T06:00:00Z",
   };

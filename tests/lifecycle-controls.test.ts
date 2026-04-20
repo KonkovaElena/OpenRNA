@@ -120,6 +120,9 @@ async function seedRevisionRequestedCase(): Promise<{ app: ReturnType<typeof cre
       },
     ],
     confidenceScore: 0.99,
+    operatorReviewThreshold: 0,
+    unresolvedDisagreementCount: 0,
+    manualReviewRequired: false,
     referenceVersion: "IPD-IMGT/HLA 3.55.0",
     producedAt: completedAt,
   };

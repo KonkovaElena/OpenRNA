@@ -247,6 +247,7 @@ test("POST /api/cases/:caseId/construct-design generates and GET retrieves a con
   assert.equal(createResponse.status, 201);
   assert.equal(createResponse.body.constructDesign.caseId, caseId);
   assert.equal(createResponse.body.constructDesign.deliveryModality, "conventional-mrna");
+  assert.equal(createResponse.body.constructDesign.linkerStrategy, "ggs-flexible");
   assert.deepEqual(createResponse.body.constructDesign.candidateIds, ["neo-alpha", "neo-beta"]);
 
   const getResponse = await request(app).get(`/api/cases/${caseId}/construct-design`);
@@ -319,6 +320,7 @@ test("board packet snapshot includes construct design when present", async () =>
     .send({
       rankedCandidates: buildRankedCandidates(),
       deliveryModality: "saRNA",
+      linkerStrategy: "aay-cleavage",
     });
   assert.equal(constructResponse.status, 201);
 
@@ -330,6 +332,7 @@ test("board packet snapshot includes construct design when present", async () =>
   assert.equal(getPacketResponse.status, 200);
   assert.ok(getPacketResponse.body.packet.snapshot.constructDesign, "board packet should include construct design");
   assert.equal(getPacketResponse.body.packet.snapshot.constructDesign.deliveryModality, "saRNA");
+  assert.equal(getPacketResponse.body.packet.snapshot.constructDesign.linkerStrategy, "aay-cleavage");
   assert.ok(
     getPacketResponse.body.packet.snapshot.constructDesign.designRationale.includes("neo-alpha"),
     "design rationale should preserve candidate provenance",

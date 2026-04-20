@@ -8,6 +8,11 @@ export interface HlaTypingInput {
 }
 
 export interface IHlaConsensusProvider {
-  produceConsensus(caseId: string, inputs: HlaTypingInput[], referenceVersion: string): Promise<HlaConsensusRecord>;
+  produceConsensus(
+    caseId: string,
+    inputs: HlaTypingInput[],
+    referenceVersion: string,
+    operatorReviewThreshold?: number,
+  ): Promise<HlaConsensusRecord>;
   getConsensus(caseId: string): Promise<HlaConsensusRecord | null>;
 }

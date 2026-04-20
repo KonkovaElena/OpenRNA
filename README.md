@@ -8,11 +8,11 @@ A control plane for personalized neoantigen RNA vaccine workflows.
 
 ## At a glance
 
-- Re-verified on 2026-04-17: 461 tests (22 suites), 94.92% line coverage, 83.30% branch coverage, 94.33% function coverage, `npm audit --omit=dev --audit-level=high` clean.
-- Architecture baseline: 17 port interfaces, 20 adapters (16 in-memory + 4 integration), 15 case lifecycle states.
+- Re-verified on 2026-04-20: 498 tests (22 suites), 94.93% line coverage, 83.46% branch coverage, 94.59% function coverage, `npm audit --omit=dev --audit-level=high` clean.
+- Architecture baseline: 17 port interfaces, 20 adapters (16 in-memory + 4 integration), 17 case lifecycle states.
 - The repository is ready for engineering diligence, but it does not claim clinical deployment readiness and does not claim full 21 CFR Part 11 completion.
 
-Formal baseline snapshot: [`docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md`](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
+Formal baseline snapshot: [`docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md`](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md).
 
 ## Why this project exists
 
@@ -26,12 +26,12 @@ Clinical anchors used by this project include NCT05933577 (V940/INTerpath-001) a
 
 ## What OpenRNA does
 
-- Manages patient cases through a governed lifecycle (15 states).
+- Manages patient cases through a governed lifecycle (17 states).
 - Records sample and derived artifact provenance.
 - Orchestrates workflow submission with idempotency (`x-idempotency-key`).
-- Supports multi-tool HLA consensus with configurable disagreement thresholds.
+- Supports multi-tool HLA consensus with configurable disagreement thresholds and an operator-review gate when unresolved disagreements exceed the configured threshold.
 - Evaluates QC gates and records QC decisions.
-- Persists neoantigen ranking outputs and construct design payloads.
+- Persists neoantigen ranking outputs and construct design payloads, including configurable epitope linker strategies (`ggs-flexible`, `aay-cleavage`, `direct-fusion`).
 - Generates expert-review packets, review outcomes, and manufacturing handoff packets.
 - Maintains an outcome timeline (administration, immune monitoring, clinical follow-up).
 - Provides end-to-end traceability through domain audit events.

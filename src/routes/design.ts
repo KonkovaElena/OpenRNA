@@ -64,6 +64,7 @@ export function registerDesignRoutes(
         caseId,
         rankedCandidates: input.rankedCandidates,
         deliveryModality: input.deliveryModality,
+        linkerStrategy: input.linkerStrategy,
       });
       const updated = await store.recordConstructDesign(caseId, constructDesign, correlationId);
       res.status(201).json({ case: updated, constructDesign });

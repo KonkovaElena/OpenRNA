@@ -53,14 +53,14 @@ Tier-маркеры указаны в квадратных скобках: **[T1
 
 ### Implemented capabilities
 
-- **Case registry**: create, list, retrieve oncology cases with 15-state lifecycle (`INTAKING` → `HANDOFF_PENDING`).
+- **Case registry**: create, list, retrieve oncology cases with 17-state lifecycle (`INTAKING` → `HANDOFF_PENDING`).
 - **Sample and artifact provenance**: sample registration (tumor DNA/RNA, normal DNA, follow-up), source and derived artifact catalog with semantic types.
 - **Workflow orchestration**: workflow request gate with idempotent submission (`x-idempotency-key`), run lifecycle tracking (`start`, `complete`, `fail`, `cancel`), Nextflow integration port for external pipeline execution, polling supervisor for run monitoring.
 - **Reference bundle registry**: versioned pipeline reference bundles pinned to workflow runs.
-- **HLA consensus**: multi-tool HLA evidence capture with per-tool fields, configurable disagreement thresholds, confidence decomposition.
+- **HLA consensus**: multi-tool HLA evidence capture with per-tool fields, configurable disagreement thresholds, confidence decomposition, and an operator-review gate (`HLA_REVIEW_REQUIRED`) when unresolved disagreements exceed the configured threshold.
 - **QC gate evaluation**: automated quality control pass/fail on completed runs.
 - **Neoantigen ranking**: ranking persistence port with configurable engine.
-- **Construct design**: multi-modality construct generation (mRNA, saRNA, circRNA) with modality governance, activation/deactivation, epitope linker strategies.
+- **Construct design**: multi-modality construct generation (mRNA, saRNA, circRNA) with modality governance, activation/deactivation, configurable epitope linker strategies (`ggs-flexible`, `aay-cleavage`, `direct-fusion`).
 - **Expert review surface**: tumor-board packet generation from current case evidence, explicit review outcome capture tied to board packets with `approve`/`revision_requested`/`rejected` decisions.
 - **Manufacturing handoff**: bounded handoff packet generation from approved reviews, traceability from construct to manufacturing specification.
 - **Outcome timeline**: administration records, immune monitoring events, clinical follow-up capture.

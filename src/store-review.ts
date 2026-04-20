@@ -28,7 +28,14 @@ import type {
   WorkflowRunRecord,
 } from "./types";
 
-type ReviewTransitionStatus = "AWAITING_REVIEW" | "APPROVED_FOR_HANDOFF" | "REVIEW_REJECTED" | "REVISION_REQUESTED" | "HANDOFF_PENDING";
+type ReviewTransitionStatus =
+  | "AWAITING_REVIEW"
+  | "HLA_REVIEW_REQUIRED"
+  | "AWAITING_FINAL_RELEASE"
+  | "APPROVED_FOR_HANDOFF"
+  | "REVIEW_REJECTED"
+  | "REVISION_REQUESTED"
+  | "HANDOFF_PENDING";
 type ReviewEventType = "board.packet.generated" | "review.outcome.recorded" | "handoff.packet.generated";
 
 export interface ReviewStoreMutationContext {
@@ -101,6 +108,7 @@ function buildBoardPacketSnapshot(
     })(),
     neoantigenRanking: record.neoantigenRanking ? structuredClone(record.neoantigenRanking) : undefined,
     constructDesign: record.constructDesign ? structuredClone(record.constructDesign) : undefined,
+    hlaManualReviewRequired: hlaConsensus.manualReviewRequired || undefined,
   };
 }
 
@@ -158,7 +166,10 @@ export async function generateBoardPacketForCase(
   };
 
   record.boardPackets.push(packet);
-  await context.applyTransition(record, "AWAITING_REVIEW", correlationId);
+  const nextReviewStatus: ReviewTransitionStatus = record.hlaConsensus?.manualReviewRequired
+    ? "HLA_REVIEW_REQUIRED"
+    : "AWAITING_REVIEW";
+  await context.applyTransition(record, nextReviewStatus, correlationId);
   record.timeline.push(timelineEvent(context.clock, "board_packet_generated", `Board packet ${packet.packetId} generated for ${boardRoute}.`));
   record.auditEvents.push(
     auditEvent(context.clock, "board.packet.generated", `Board packet ${packet.packetId} generated for ${boardRoute}.`, correlationId),

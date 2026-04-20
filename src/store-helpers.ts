@@ -85,6 +85,8 @@ export function emptyStatusCounts(): Record<CaseStatus, number> {
     QC_PASSED: 0,
     QC_FAILED: 0,
     AWAITING_REVIEW: 0,
+    HLA_REVIEW_REQUIRED: 0,
+    AWAITING_FINAL_RELEASE: 0,
     APPROVED_FOR_HANDOFF: 0,
     REVISION_REQUESTED: 0,
     REVIEW_REJECTED: 0,

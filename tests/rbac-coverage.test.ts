@@ -52,6 +52,7 @@ describe("RBAC deny-by-default coverage", () => {
     { path: "/api/audit/verify", body: {}, status: 403, label: "POST /api/audit/verify" },
     { path: "/api/cases/c1/validate-transition", body: { targetStatus: "REVIEWED" }, status: 403, label: "POST validate-transition" },
     { path: "/api/cases/c1/restart-from-revision", body: {}, status: 403, label: "POST restart-from-revision" },
+    { path: "/api/cases/c1/resolve-hla-review", body: { rationale: "test" }, status: 403, label: "POST resolve-hla-review" },
   ];
 
   const getRoutes = [

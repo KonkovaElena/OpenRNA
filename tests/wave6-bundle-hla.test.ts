@@ -292,6 +292,9 @@ test("6.B consensus with single tool produces no disagreements", async () => {
   );
 
   assert.equal(result.disagreements, undefined);
+  assert.equal(result.operatorReviewThreshold, 0);
+  assert.equal(result.unresolvedDisagreementCount, 0);
+  assert.equal(result.manualReviewRequired, false);
   assert.deepEqual(result.confidenceDecomposition, { OptiType: 0.95 });
 });
 
@@ -329,6 +332,8 @@ test("6.B consensus with two disagreeing tools detects disagreement", async () =
   assert.equal(result.disagreements[0].toolB, "HLA-HD");
   assert.equal(result.disagreements[0].toolBAllele, "HLA-B*08:01");
   assert.equal(result.disagreements[0].resolution, "unresolved");
+  assert.equal(result.unresolvedDisagreementCount, 1);
+  assert.equal(result.manualReviewRequired, true);
 });
 
 test("6.B three-tool majority resolves disagreements", async () => {
@@ -350,6 +355,23 @@ test("6.B three-tool majority resolves disagreements", async () => {
   // With 3 tools, majority should be resolvable
   const resolved = disagreements.filter((d) => d.resolution === "majority");
   assert.ok(resolved.length >= 1, "At least one disagreement resolved by majority");
+});
+
+test("6.B operator review threshold can suppress manual review until the configured limit is exceeded", async () => {
+  const provider = new InMemoryHlaConsensusProvider();
+  const result = await provider.produceConsensus(
+    "case-threshold",
+    [
+      { toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 },
+      { toolName: "HLA-HD", alleles: ["HLA-A*03:01", "HLA-B*08:01"], confidence: 0.88 },
+    ],
+    "IMGT/HLA 3.55.0",
+    2,
+  );
+
+  assert.equal(result.operatorReviewThreshold, 2);
+  assert.equal(result.unresolvedDisagreementCount, 2);
+  assert.equal(result.manualReviewRequired, false);
 });
 
 test("6.B confidenceDecomposition reflects per-tool confidence", async () => {
@@ -387,6 +409,7 @@ test("6.B consensus via HTTP roundtrip preserves disagreements", async () => {
         { toolName: "HLA-HD", alleles: ["HLA-A*02:01", "HLA-B*08:01"], confidence: 0.88 },
       ],
       confidenceScore: 0.915,
+      operatorReviewThreshold: 0,
       referenceVersion: "IMGT/HLA 3.55.0",
     });
   assert.equal(hlRes.status, 200);
@@ -398,6 +421,9 @@ test("6.B consensus via HTTP roundtrip preserves disagreements", async () => {
   assert.equal(getRes.body.consensus.disagreements.length, 1);
   assert.equal(getRes.body.consensus.disagreements[0].locus, "HLA-B");
   assert.equal(getRes.body.consensus.disagreements[0].resolution, "unresolved");
+  assert.equal(getRes.body.consensus.operatorReviewThreshold, 0);
+  assert.equal(getRes.body.consensus.unresolvedDisagreementCount, 1);
+  assert.equal(getRes.body.consensus.manualReviewRequired, true);
   assert.deepEqual(getRes.body.consensus.confidenceDecomposition, {
     OptiType: 0.95,
     "HLA-HD": 0.88,
@@ -587,4 +613,123 @@ test("InMemoryHlaConsensusProvider detects no disagreements with empty input", a
   assert.equal(result.disagreements, undefined);
   assert.equal(result.confidenceDecomposition, undefined);
   assert.equal(result.alleles.length, 0);
+});
+
+// ─── 6.D: HLA review gate ─────────────────────────────────────────
+
+async function createCaseWithHighDisagreement(app: ReturnType<typeof createApp>): Promise<string> {
+  const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+  assert.equal(createRes.status, 201);
+  const id = String(createRes.body.case.caseId);
+
+  const samples = [
+    buildSample("TUMOR_DNA", "WES"),
+    buildSample("NORMAL_DNA", "WES"),
+    buildSample("TUMOR_RNA", "RNA_SEQ"),
+  ];
+  for (const sample of samples) {
+    await request(app).post(`/api/cases/${id}/samples`).send(sample);
+  }
+  for (const sample of samples) {
+    await request(app).post(`/api/cases/${id}/artifacts`).send(buildSourceArtifact(sample));
+  }
+
+  await request(app).post(`/api/cases/${id}/workflows`).send({
+    workflowName: "neoantigen-v1",
+    referenceBundleId: "GRCh38-2026a",
+    executionProfile: "standard",
+  });
+
+  const caseAfterReq = await request(app).get(`/api/cases/${id}`);
+  const runId = `run-hla-gate-${Date.now()}`;
+
+  await request(app).post(`/api/cases/${id}/runs/${runId}/start`).send({ runId });
+  await request(app).post(`/api/cases/${id}/runs/${runId}/complete`).send({
+    derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:d1", producingStep: "vc" }],
+  });
+
+  // Two tools that disagree → manualReviewRequired with threshold 0
+  await request(app).post(`/api/cases/${id}/hla-consensus`).send({
+    alleles: ["HLA-A*02:01"],
+    perToolEvidence: [
+      { toolName: "OptiType", alleles: ["HLA-A*02:01"], confidence: 0.95 },
+      { toolName: "HLA-HD", alleles: ["HLA-A*03:01"], confidence: 0.90 },
+    ],
+    confidenceScore: 0.85,
+    referenceVersion: "IMGT/HLA 3.55.0",
+    operatorReviewThreshold: 0,
+  });
+
+  await request(app).post(`/api/cases/${id}/runs/${runId}/qc`).send({
+    results: [{ metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "OK" }],
+  });
+
+  return id;
+}
+
+test("6.D board packet with manualReviewRequired transitions to HLA_REVIEW_REQUIRED", async () => {
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
+  const caseId = await createCaseWithHighDisagreement(app);
+
+  const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
+  assert.equal(packetRes.status, 201);
+
+  const caseRes = await request(app).get(`/api/cases/${caseId}`);
+  assert.equal(caseRes.body.case.status, "HLA_REVIEW_REQUIRED");
+
+  // Snapshot has hlaManualReviewRequired flag
+  assert.equal(packetRes.body.packet.snapshot.hlaManualReviewRequired, true);
+});
+
+test("6.D resolveHlaReview transitions HLA_REVIEW_REQUIRED → AWAITING_REVIEW", async () => {
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
+  const caseId = await createCaseWithHighDisagreement(app);
+
+  await request(app).post(`/api/cases/${caseId}/board-packets`);
+
+  const resolveRes = await request(app)
+    .post(`/api/cases/${caseId}/resolve-hla-review`)
+    .send({ rationale: "Operator confirmed A*02:01 via manual Sanger sequencing." });
+  assert.equal(resolveRes.status, 200);
+  assert.equal(resolveRes.body.case.status, "AWAITING_REVIEW");
+});
+
+test("6.D resolveHlaReview rejects when not in HLA_REVIEW_REQUIRED status", async () => {
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
+  const caseId = await createReviewReadyCase(app);
+
+  // Case is in QC_PASSED, generate board packet → goes to AWAITING_REVIEW (no disagreements)
+  await request(app).post(`/api/cases/${caseId}/board-packets`);
+
+  const resolveRes = await request(app)
+    .post(`/api/cases/${caseId}/resolve-hla-review`)
+    .send({ rationale: "Should not work." });
+  assert.equal(resolveRes.status, 409);
+  assert.equal(resolveRes.body.code, "invalid_transition");
+});
+
+test("6.D resolveHlaReview requires rationale", async () => {
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
+  const caseId = await createCaseWithHighDisagreement(app);
+  await request(app).post(`/api/cases/${caseId}/board-packets`);
+
+  const resolveRes = await request(app)
+    .post(`/api/cases/${caseId}/resolve-hla-review`)
+    .send({});
+  assert.equal(resolveRes.status, 400);
+  assert.equal(resolveRes.body.code, "missing_field");
+});
+
+test("6.D board packet without manualReviewRequired still goes to AWAITING_REVIEW", async () => {
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
+  const caseId = await createReviewReadyCase(app);
+
+  const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
+  assert.equal(packetRes.status, 201);
+
+  const caseRes = await request(app).get(`/api/cases/${caseId}`);
+  assert.equal(caseRes.body.case.status, "AWAITING_REVIEW");
+
+  // Snapshot does not have hlaManualReviewRequired
+  assert.equal(packetRes.body.packet.snapshot.hlaManualReviewRequired, undefined);
 });

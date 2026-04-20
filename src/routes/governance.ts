@@ -145,4 +145,21 @@ export function registerGovernanceRoutes(
       next(error);
     }
   });
+
+  app.post("/api/cases/:caseId/resolve-hla-review", rbacAuth(rbacProvider, "APPROVE_REVIEW"), consentGateMw, async (req, res, next) => {
+    try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const correlationId = String(res.locals.correlationId ?? "");
+      const rationale = typeof req.body?.rationale === "string" && req.body.rationale.trim().length > 0
+        ? req.body.rationale.trim()
+        : undefined;
+      if (!rationale) {
+        throw new ApiError(400, "missing_field", "rationale is required.", "Provide a non-empty rationale for resolving the HLA review.");
+      }
+      const updated = await store.resolveHlaReview(caseId, { rationale }, correlationId);
+      res.json({ case: updated });
+    } catch (error) {
+      next(error);
+    }
+  });
 }

@@ -2,7 +2,7 @@ import type { CaseStatus } from "../types";
 import type { IStateMachineGuard, TransitionGuardResult } from "../ports/IStateMachineGuard";
 
 /**
- * Explicit allowed-transition map for the 15-state case lifecycle.
+ * Explicit allowed-transition map for the 17-state case lifecycle.
  *
  * Design rationale:
  * - INTAKING → AWAITING_CONSENT or READY_FOR_WORKFLOW (depends on consent + sample readiness)
@@ -13,7 +13,8 @@ import type { IStateMachineGuard, TransitionGuardResult } from "../ports/IStateM
  * - WORKFLOW_COMPLETED → QC_PASSED | QC_FAILED (QC gate evaluation)
  * - WORKFLOW_FAILED → READY_FOR_WORKFLOW (retry) or WORKFLOW_REQUESTED (re-submit)
  * - WORKFLOW_CANCELLED → READY_FOR_WORKFLOW (re-submit)
- * - QC_PASSED → AWAITING_REVIEW (board review)
+ * - QC_PASSED → AWAITING_REVIEW (board review) or HLA_REVIEW_REQUIRED (HLA disagreement threshold exceeded)
+ * - HLA_REVIEW_REQUIRED → AWAITING_REVIEW (operator resolves HLA review)
  * - QC_FAILED → READY_FOR_WORKFLOW (retry from scratch)
  * - AWAITING_REVIEW → APPROVED_FOR_HANDOFF | REVISION_REQUESTED | REVIEW_REJECTED
  * - REVISION_REQUESTED → READY_FOR_WORKFLOW (restart pipeline)
@@ -30,9 +31,11 @@ const ALLOWED_TRANSITIONS: Readonly<Record<CaseStatus, readonly CaseStatus[]>> =
   WORKFLOW_COMPLETED:    ["QC_PASSED", "QC_FAILED"],
   WORKFLOW_CANCELLED:    ["READY_FOR_WORKFLOW"],
   WORKFLOW_FAILED:       ["READY_FOR_WORKFLOW", "WORKFLOW_REQUESTED"],
-  QC_PASSED:             ["AWAITING_REVIEW"],
+  QC_PASSED:             ["AWAITING_REVIEW", "HLA_REVIEW_REQUIRED"],
   QC_FAILED:             ["READY_FOR_WORKFLOW"],
-  AWAITING_REVIEW:       ["APPROVED_FOR_HANDOFF", "REVISION_REQUESTED", "REVIEW_REJECTED"],
+  HLA_REVIEW_REQUIRED:   ["AWAITING_REVIEW"],
+  AWAITING_REVIEW:       ["AWAITING_FINAL_RELEASE", "REVISION_REQUESTED", "REVIEW_REJECTED"],
+  AWAITING_FINAL_RELEASE:["APPROVED_FOR_HANDOFF", "REVISION_REQUESTED", "REVIEW_REJECTED"],
   APPROVED_FOR_HANDOFF:  ["HANDOFF_PENDING"],
   REVISION_REQUESTED:    ["READY_FOR_WORKFLOW"],
   REVIEW_REJECTED:       [],  // terminal state

@@ -21,6 +21,7 @@ describe("Wave 9.A — Construct design types and port", () => {
       caseId: "case-001",
       version: 1,
       deliveryModality: "conventional-mrna",
+      linkerStrategy: "ggs-flexible",
       sequence: "AUGCCCGAU",
       designRationale: "Selected top 2 candidates by composite score",
       candidateIds: ["neo-1", "neo-2"],
@@ -52,6 +53,7 @@ describe("Wave 9.A — Construct design types and port", () => {
         caseId: _req.caseId,
         version: 1,
         deliveryModality: _req.deliveryModality ?? "conventional-mrna",
+        linkerStrategy: _req.linkerStrategy ?? "ggs-flexible",
         sequence: "AUG",
         designRationale: "stub",
         candidateIds: [],
@@ -104,6 +106,12 @@ describe("Wave 9.B — InMemoryConstructDesigner", () => {
     assert.equal(pkg.deliveryModality, "conventional-mrna");
   });
 
+  it("defaults linker strategy to ggs-flexible", async () => {
+    const pkg = await designer.designConstruct({ caseId: "case-9b", rankedCandidates: candidates });
+    assert.equal(pkg.linkerStrategy, "ggs-flexible");
+    assert.ok(pkg.sequence.includes("GGCGGCAGC"), "default GGS linker should be present in the sequence");
+  });
+
   it("rejects non-default modalities until the gate is activated", async () => {
     await assert.rejects(
       () => designer.designConstruct({ caseId: "case-9b", rankedCandidates: candidates, deliveryModality: "saRNA" }),
@@ -117,6 +125,27 @@ describe("Wave 9.B — InMemoryConstructDesigner", () => {
     const gatedDesigner = new InMemoryConstructDesigner(modalityRegistry);
     const pkg = await gatedDesigner.designConstruct({ caseId: "case-9b", rankedCandidates: candidates, deliveryModality: "saRNA" });
     assert.equal(pkg.deliveryModality, "saRNA");
+  });
+
+  it("allows explicit linker strategy override", async () => {
+    const pkg = await designer.designConstruct({
+      caseId: "case-9b",
+      rankedCandidates: candidates,
+      linkerStrategy: "aay-cleavage",
+    });
+    assert.equal(pkg.linkerStrategy, "aay-cleavage");
+    assert.ok(pkg.sequence.includes("GCCGCUUAU"), "AAY linker should be inserted between epitopes");
+  });
+
+  it("supports direct fusion when no linker sequence is desired", async () => {
+    const defaultPkg = await designer.designConstruct({ caseId: "case-9b", rankedCandidates: candidates });
+    const fusedPkg = await designer.designConstruct({
+      caseId: "case-9b",
+      rankedCandidates: candidates,
+      linkerStrategy: "direct-fusion",
+    });
+    assert.equal(fusedPkg.linkerStrategy, "direct-fusion");
+    assert.equal(defaultPkg.sequence.length - fusedPkg.sequence.length, "GGCGGCAGC".length);
   });
 
   it("generates a non-empty mRNA sequence", async () => {
@@ -144,6 +173,7 @@ describe("Wave 9.B — InMemoryConstructDesigner", () => {
     const pkg = await designer.designConstruct({ caseId: "case-9b", rankedCandidates: candidates });
     assert.ok(pkg.designRationale.includes("neo-alpha"), "rationale should mention top candidate");
     assert.ok(pkg.designRationale.includes("conventional-mrna"), "rationale should mention modality");
+    assert.ok(pkg.designRationale.includes("ggs-flexible"), "rationale should mention linker strategy");
   });
 
   it("assigns version 1 and a valid constructId", async () => {

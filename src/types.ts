@@ -10,6 +10,8 @@ export const caseStatuses = [
   "QC_PASSED",
   "QC_FAILED",
   "AWAITING_REVIEW",
+  "HLA_REVIEW_REQUIRED",
+  "AWAITING_FINAL_RELEASE",
   "APPROVED_FOR_HANDOFF",
   "REVISION_REQUESTED",
   "REVIEW_REJECTED",
@@ -102,6 +104,7 @@ export const caseAuditEventTypes = [
   "handoff.packet.generated",
   "consent.updated",
   "revision.restarted",
+  "hla.review.resolved",
 ] as const;
 
 export type CaseAuditEventType = (typeof caseAuditEventTypes)[number];
@@ -407,6 +410,9 @@ export interface HlaConsensusRecord {
   alleles: string[];
   perToolEvidence: HlaToolEvidence[];
   confidenceScore: number;
+  operatorReviewThreshold: number;
+  unresolvedDisagreementCount: number;
+  manualReviewRequired: boolean;
   tieBreakNotes?: string;
   referenceVersion: string;
   producedAt: string;
@@ -557,6 +563,9 @@ export interface RankingResult {
 export const deliveryModalities = ["conventional-mrna", "saRNA", "circRNA"] as const;
 export type DeliveryModality = (typeof deliveryModalities)[number];
 
+export const epitopeLinkerStrategies = ["ggs-flexible", "aay-cleavage", "direct-fusion"] as const;
+export type EpitopeLinkerStrategy = (typeof epitopeLinkerStrategies)[number];
+
 export interface CodonOptimizationMeta {
   algorithm: string;
   gcContentPercent: number;
@@ -575,6 +584,7 @@ export interface ConstructDesignPackage {
   caseId: string;
   version: number;
   deliveryModality: DeliveryModality;
+  linkerStrategy: EpitopeLinkerStrategy;
   sequence: string;
   designRationale: string;
   candidateIds: string[];
@@ -698,6 +708,7 @@ export const caseDomainEventTypes = [
   "clinical-follow-up.recorded",
   "consent.updated",
   "revision.restarted",
+  "hla.review.resolved",
 ] as const;
 
 export type CaseDomainEventType = (typeof caseDomainEventTypes)[number];
@@ -927,6 +938,7 @@ export interface RecordHlaConsensusInput {
   alleles: string[];
   perToolEvidence: HlaToolEvidence[];
   confidenceScore: number;
+  operatorReviewThreshold?: number;
   tieBreakNotes?: string;
   referenceVersion: string;
 }
@@ -964,6 +976,7 @@ export interface BoardPacketSnapshot {
   evidenceLineage?: EvidenceLineageGraph;
   neoantigenRanking?: RankingResult;
   constructDesign?: ConstructDesignPackage;
+  hlaManualReviewRequired?: boolean;
 }
 
 export interface BoardPacketRecord {

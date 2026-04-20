@@ -11,6 +11,7 @@ export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
     caseId: string,
     inputs: HlaTypingInput[],
     referenceVersion: string,
+    operatorReviewThreshold = 0,
   ): Promise<HlaConsensusRecord> {
     // Build consensus: collect all unique alleles across tools, compute average confidence
     const alleleSet = new Set<string>();
@@ -36,6 +37,8 @@ export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
 
     // Detect disagreements: compare alleles across tool pairs per locus
     const disagreements = this.detectDisagreements(inputs);
+    const unresolvedDisagreementCount = disagreements.filter((candidate) => candidate.resolution === "unresolved").length;
+    const manualReviewRequired = unresolvedDisagreementCount > operatorReviewThreshold;
 
     // Per-tool confidence decomposition
     const confidenceDecomposition: Record<string, number> = {};
@@ -53,6 +56,9 @@ export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
         rawOutput: i.rawOutput,
       })),
       confidenceScore: Math.round(avgConfidence * 1000) / 1000,
+      operatorReviewThreshold,
+      unresolvedDisagreementCount,
+      manualReviewRequired,
       referenceVersion,
       producedAt: new Date().toISOString(),
       disagreements: disagreements.length > 0 ? disagreements : undefined,

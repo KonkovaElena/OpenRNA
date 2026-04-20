@@ -174,6 +174,9 @@ test("PostgresCaseStore (normalized): full lifecycle round-trip", async () => {
       alleles: ["A*01:01", "B*07:02"],
       perToolEvidence: [{ toolName: "optitype", alleles: ["A*01:01", "B*07:02"], confidence: 0.99 }],
       confidenceScore: 0.99,
+      operatorReviewThreshold: 0,
+      unresolvedDisagreementCount: 0,
+      manualReviewRequired: false,
       referenceVersion: "IPD-IMGT/HLA 3.54",
       producedAt: fixedTime,
     };
