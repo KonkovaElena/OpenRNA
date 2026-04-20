@@ -16,19 +16,22 @@ const FEATURE_WEIGHTS = {
 
 function scoreBinding(c: NeoantigenCandidate): number {
   // Lower IC50 = stronger binding. Sigmoid-style normalization: 1 / (1 + ic50/500)
-  return 1 / (1 + c.bindingAffinity.ic50nM / 500);
+  const ic50 = Math.max(0, c.bindingAffinity.ic50nM);
+  return 1 / (1 + ic50 / 500);
 }
 
 function scoreExpression(c: NeoantigenCandidate): number {
   // Higher TPM + higher VAF = better. Normalize TPM [0,100]→[0,1], VAF already [0,1]
-  const tpmNorm = Math.min(c.expressionSupport.tpm / 100, 1);
-  return (tpmNorm + c.expressionSupport.variantAlleleFraction) / 2;
+  const tpmNorm = Math.max(0, Math.min(c.expressionSupport.tpm / 100, 1));
+  const vafNorm = Math.max(0, Math.min(c.expressionSupport.variantAlleleFraction, 1));
+  return (tpmNorm + vafNorm) / 2;
 }
 
 function scoreClonality(c: NeoantigenCandidate): number {
   // Clonal + high VAF preferred
   const clonalBonus = c.clonality.isClonal ? 0.5 : 0;
-  return Math.min(c.clonality.vaf + clonalBonus, 1);
+  const vafNorm = Math.max(0, Math.min(c.clonality.vaf, 1));
+  return Math.min(vafNorm + clonalBonus, 1);
 }
 
 function scoreManufacturability(c: NeoantigenCandidate): number {
@@ -60,6 +63,9 @@ function buildExplanation(featureScores: Record<string, number>, c: NeoantigenCa
   return parts.length > 0 ? parts.join("; ") : "average across features";
 }
 
+/**
+ * @sota-stub Stub implementation of INeoantigenRankingEngine simulating external bioinformatics execution.
+ */
 export class InMemoryNeoantigenRankingEngine implements INeoantigenRankingEngine {
   async rank(caseId: string, candidates: NeoantigenCandidate[]): Promise<RankingResult> {
     if (candidates.length === 0) {

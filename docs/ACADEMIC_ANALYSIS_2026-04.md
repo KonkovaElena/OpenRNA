@@ -538,3 +538,8 @@ The clinical evidence for personalized neoantigen mRNA vaccines is at an inflect
 ---
 
 *Document refreshed April 2, 2026. Evidence cutoff: April 2, 2026. Next review: upon V940 Phase 3 interim readout, a major regulatory event, or a material architecture change in OpenRNA.*
+
+ # #   5 .   A r c h i t e c t u r a l   G a p :   N e o a n t i g e n   R a n k i n g   E n d p o i n t 
+ W h i l e   ` M e m o r y C a s e S t o r e `   h a s   ` r e c o r d N e o a n t i g e n R a n k i n g ( ) ` ,   n o   H T T P   i n g r e s s   r o u t e   c u r r e n t l y   e x i s t s   f o r   ` P O S T   / a p i / c a s e s / : c a s e I d / n e o a n t i g e n - r a n k i n g `   i n   ` a p p . t s ` .   T h i s   m e a n s   t h a t   i n t e g r a t i n g   w i t h   a c t u a l   e x t e r n a l   M L   p r e d i c t i o n   b a c k e n d s   ( e . g .   N e x t f l o w   p a s s i n g   r e s u l t s   t o   o p e n R N A )   i s   c u r r e n t l y   u n - t e s t a b l e   v i a   t h e   R E S T   f a c a d e .   T h e   i n - m e m o r y   r a n k i n g   e n g i n e   ( ` I n M e m o r y N e o a n t i g e n R a n k i n g E n g i n e ` )   i s   o n l y   i n v o k e d   d i r e c t l y   i n   t e s t i n g .   S O T A   2 0 2 6   p r a c t i c e   r e q u i r e s   a n   e x p l i c i t   C R U D   e n d p o i n t   f o r   t h i s   d o m a i n   e v e n t . 
+  
+ 
