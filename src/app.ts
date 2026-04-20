@@ -38,8 +38,9 @@ import { InMemoryConsentTracker } from "./adapters/InMemoryConsentTracker";
 import { InMemoryRbacProvider } from "./adapters/InMemoryRbacProvider";
 import { InMemoryAuditSignatureProvider } from "./adapters/InMemoryAuditSignatureProvider";
 import { InMemoryFhirExporter } from "./adapters/InMemoryFhirExporter";
+import type { JwtAuthOptions } from "./auth";
 import type { DeliveryModality, RunArtifact, HlaConsensusRecord } from "./types";
-import { apiKeyAuth } from "./middleware/api-key-auth";
+import { authenticationContext } from "./middleware/auth-context";
 import { requestLogger, type RequestLogWriter } from "./middleware/request-logger";
 import { securityHeaders } from "./middleware/security-headers";
 import { rateLimiter } from "./middleware/rate-limiter";
@@ -58,6 +59,9 @@ export interface AppDependencies {
   auditSignatureProvider?: IAuditSignatureProvider;
   fhirExporter?: IFhirExporter;
   apiKey?: string;
+  apiKeyPrincipalId?: string;
+  jwtAuthOptions?: JwtAuthOptions;
+  rbacAllowAll?: boolean;
   requestLogWriter?: RequestLogWriter;
   enableRateLimiting?: boolean;
   rateLimitOptions?: import("./middleware/rate-limiter").RateLimiterOptions;
@@ -73,7 +77,7 @@ export function createApp(dependencies: AppDependencies = {}) {
   const qcGateEvaluator = dependencies.qcGateEvaluator ?? new InMemoryQcGateEvaluator();
   const stateMachineGuard = dependencies.stateMachineGuard ?? new InMemoryStateMachineGuard();
   const consentTracker = dependencies.consentTracker ?? new InMemoryConsentTracker();
-  const rbacProvider = dependencies.rbacProvider ?? new InMemoryRbacProvider();
+  const rbacProvider = dependencies.rbacProvider ?? new InMemoryRbacProvider({ allowAll: dependencies.rbacAllowAll });
   const auditSignatureProvider = dependencies.auditSignatureProvider ?? new InMemoryAuditSignatureProvider();
   const fhirExporter = dependencies.fhirExporter ?? new InMemoryFhirExporter();
 
@@ -91,10 +95,13 @@ export function createApp(dependencies: AppDependencies = {}) {
   });
 
   app.use(requestLogger(dependencies.requestLogWriter));
-
-  if (dependencies.apiKey) {
-    app.use(apiKeyAuth(dependencies.apiKey));
-  }
+  app.use(
+    authenticationContext({
+      apiKey: dependencies.apiKey,
+      apiKeyPrincipalId: dependencies.apiKeyPrincipalId,
+      jwt: dependencies.jwtAuthOptions,
+    }),
+  );
 
   app.get("/", (_req, res) => {
     res.json({

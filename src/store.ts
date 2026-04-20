@@ -1,5 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
+import { createAnonymousAuditContext, getCurrentAuditContext } from "./audit-context";
+import { InMemoryEventStore } from "./adapters/InMemoryEventStore";
 import { ApiError } from "./errors";
+import { replayCaseEvents } from "./queries/CaseProjection";
 import { buildFullTraceability } from "./traceability";
 import {
   parseConstructDesignInput,
@@ -14,10 +17,12 @@ import {
   parseRequestWorkflowInput,
 } from "./validation";
 import type { IWorkflowDispatchSink } from "./ports/IWorkflowDispatchSink";
+import type { IEventStore } from "./ports/IEventStore";
 import { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatchSink";
 import type { IStateMachineGuard } from "./ports/IStateMachineGuard";
 import type {
   AdministrationRecord,
+  AuditContext,
   AssayType,
   ArtifactRecord,
   BoardPacketGenerationResult,
@@ -26,6 +31,9 @@ import type {
   CaseRecord,
   CaseAuditEventRecord,
   CaseAuditEventType,
+  CaseDomainEventInput,
+  CaseDomainEventRecord,
+  CaseDomainEventType,
   CaseStatus,
   ConstructDesignPackage,
   ConsentStatus,
@@ -136,49 +144,51 @@ export class SystemClock implements Clock {
 export type { IWorkflowDispatchSink as WorkflowDispatchSink } from "./ports/IWorkflowDispatchSink";
 export { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatchSink";
 
+export type AuditContextInput = string | AuditContext;
+
 export interface CaseStore {
-  createCase(rawInput: unknown, correlationId: string): Promise<CaseRecord>;
+  createCase(rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord>;
   listCases(options?: { limit?: number; offset?: number }): Promise<{ cases: CaseRecord[]; totalCount: number }>;
   getCase(caseId: string): Promise<CaseRecord>;
-  registerSample(caseId: string, rawInput: unknown, correlationId: string): Promise<CaseRecord>;
-  registerArtifact(caseId: string, rawInput: unknown, correlationId: string): Promise<CaseRecord>;
-  requestWorkflow(caseId: string, rawInput: unknown, correlationId: string): Promise<CaseRecord>;
+  registerSample(caseId: string, rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord>;
+  registerArtifact(caseId: string, rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord>;
+  requestWorkflow(caseId: string, rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord>;
   getOperationsSummary(): Promise<OperationsSummary>;
   // Phase 2: workflow lifecycle
-  startWorkflowRun(caseId: string, startedRun: WorkflowRunRecord, correlationId: string): Promise<CaseRecord>;
-  completeWorkflowRun(caseId: string, completedRun: WorkflowRunRecord, derivedArtifacts: RunArtifact[], correlationId: string): Promise<CaseRecord>;
-  cancelWorkflowRun(caseId: string, cancelledRun: WorkflowRunRecord, correlationId: string): Promise<CaseRecord>;
-  failWorkflowRun(caseId: string, failedRun: WorkflowRunRecord, correlationId: string): Promise<CaseRecord>;
+  startWorkflowRun(caseId: string, startedRun: WorkflowRunRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
+  completeWorkflowRun(caseId: string, completedRun: WorkflowRunRecord, derivedArtifacts: RunArtifact[], correlationId: AuditContextInput): Promise<CaseRecord>;
+  cancelWorkflowRun(caseId: string, cancelledRun: WorkflowRunRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
+  failWorkflowRun(caseId: string, failedRun: WorkflowRunRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
   // Phase 2: HLA consensus
-  recordHlaConsensus(caseId: string, record: HlaConsensusRecord, correlationId: string): Promise<CaseRecord>;
+  recordHlaConsensus(caseId: string, record: HlaConsensusRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
   getHlaConsensus(caseId: string): Promise<HlaConsensusRecord | null>;
   // Phase 2: QC gate
-  recordQcGate(caseId: string, runId: string, gate: QcGateRecord, correlationId: string): Promise<CaseRecord>;
+  recordQcGate(caseId: string, runId: string, gate: QcGateRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
   getQcGate(caseId: string, runId: string): Promise<QcGateRecord | null>;
   // Phase 2: workflow runs
   getWorkflowRun(caseId: string, runId: string): Promise<WorkflowRunRecord>;
   listWorkflowRuns(caseId: string): Promise<WorkflowRunRecord[]>;
   // Phase 2: expert review packets
-  generateBoardPacket(caseId: string, correlationId: string): Promise<BoardPacketGenerationResult>;
+  generateBoardPacket(caseId: string, correlationId: AuditContextInput): Promise<BoardPacketGenerationResult>;
   listBoardPackets(caseId: string): Promise<BoardPacketRecord[]>;
   getBoardPacket(caseId: string, packetId: string): Promise<BoardPacketRecord>;
   // Wave 15: review outcome + handoff
-  recordReviewOutcome(caseId: string, input: RecordReviewOutcomeInput, correlationId: string): Promise<ReviewOutcomeResult>;
+  recordReviewOutcome(caseId: string, input: RecordReviewOutcomeInput, correlationId: AuditContextInput): Promise<ReviewOutcomeResult>;
   listReviewOutcomes(caseId: string): Promise<ReviewOutcomeRecord[]>;
   getReviewOutcome(caseId: string, reviewId: string): Promise<ReviewOutcomeRecord>;
-  generateHandoffPacket(caseId: string, input: GenerateHandoffPacketInput, correlationId: string): Promise<HandoffPacketGenerationResult>;
+  generateHandoffPacket(caseId: string, input: GenerateHandoffPacketInput, correlationId: AuditContextInput): Promise<HandoffPacketGenerationResult>;
   listHandoffPackets(caseId: string): Promise<HandoffPacketRecord[]>;
   getHandoffPacket(caseId: string, handoffId: string): Promise<HandoffPacketRecord>;
   // Wave 8: neoantigen ranking
-  recordNeoantigenRanking(caseId: string, ranking: RankingResult, correlationId: string): Promise<CaseRecord>;
+  recordNeoantigenRanking(caseId: string, ranking: RankingResult, correlationId: AuditContextInput): Promise<CaseRecord>;
   getNeoantigenRanking(caseId: string): Promise<RankingResult | null>;
   // Wave 9: construct design
-  recordConstructDesign(caseId: string, constructDesign: ConstructDesignPackage, correlationId: string): Promise<CaseRecord>;
+  recordConstructDesign(caseId: string, constructDesign: ConstructDesignPackage, correlationId: AuditContextInput): Promise<CaseRecord>;
   getConstructDesign(caseId: string): Promise<ConstructDesignPackage | null>;
   // Wave 12: outcomes aggregate integration
-  recordAdministration(caseId: string, administration: AdministrationRecord, correlationId: string): Promise<CaseRecord>;
-  recordImmuneMonitoring(caseId: string, immuneMonitoring: ImmuneMonitoringRecord, correlationId: string): Promise<CaseRecord>;
-  recordClinicalFollowUp(caseId: string, clinicalFollowUp: ClinicalFollowUpRecord, correlationId: string): Promise<CaseRecord>;
+  recordAdministration(caseId: string, administration: AdministrationRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
+  recordImmuneMonitoring(caseId: string, immuneMonitoring: ImmuneMonitoringRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
+  recordClinicalFollowUp(caseId: string, clinicalFollowUp: ClinicalFollowUpRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
   getOutcomeTimeline(caseId: string): Promise<OutcomeTimelineEntry[]>;
   getFullTraceability(caseId: string): Promise<FullTraceabilityRecord>;
 }
@@ -187,18 +197,38 @@ function timelineEvent(clock: Clock, type: string, detail: string, at: string = 
   return { at, type, detail };
 }
 
+function normalizeAuditContext(context: AuditContextInput): AuditContext {
+  if (typeof context !== "string") {
+    return context;
+  }
+
+  const currentContext = getCurrentAuditContext();
+  if (currentContext) {
+    return {
+      correlationId: context,
+      actorId: currentContext.actorId,
+      authMechanism: currentContext.authMechanism,
+    };
+  }
+
+  return createAnonymousAuditContext(context);
+}
+
 function auditEvent(
   clock: Clock,
   type: CaseAuditEventType,
   detail: string,
-  correlationId: string,
+  correlationId: AuditContextInput,
   occurredAt: string = clock.nowIso(),
 ): CaseAuditEventRecord {
+  const context = normalizeAuditContext(correlationId);
   return {
     eventId: `event_${randomUUID()}`,
     type,
     detail,
-    correlationId,
+    correlationId: context.correlationId,
+    actorId: context.actorId,
+    authMechanism: context.authMechanism,
     occurredAt,
   };
 }
@@ -425,10 +455,63 @@ export class MemoryCaseStore implements CaseStore {
     private readonly workflowDispatchSink: IWorkflowDispatchSink = new InMemoryWorkflowDispatchSink(),
     initialRecords: readonly CaseRecord[] = [],
     private readonly stateMachineGuard?: IStateMachineGuard,
+    private readonly eventStore: IEventStore<CaseDomainEventInput, CaseDomainEventRecord> = new InMemoryEventStore<CaseDomainEventInput>(),
   ) {
     for (const record of initialRecords) {
       this.cases.set(record.caseId, structuredClone(record));
     }
+  }
+
+  private createCaseEvent(
+    caseId: string,
+    type: CaseDomainEventType,
+    payload: unknown,
+    correlationId: AuditContextInput,
+    occurredAt: string = this.clock.nowIso(),
+    updatedAt: string = occurredAt,
+  ): CaseDomainEventInput {
+    const auditContext = normalizeAuditContext(correlationId);
+
+    return {
+      eventId: `evt_${randomUUID()}`,
+      aggregateId: caseId,
+      aggregateType: "case",
+      type,
+      occurredAt,
+      updatedAt,
+      correlationId: auditContext.correlationId,
+      actorId: auditContext.actorId,
+      authMechanism: auditContext.authMechanism,
+      payload: structuredClone(payload),
+    } as unknown as CaseDomainEventInput;
+  }
+
+  private async appendCaseEvent(event: CaseDomainEventInput): Promise<CaseDomainEventRecord> {
+    const expectedVersion = await this.eventStore.getLatestVersion(event.aggregateId);
+    const [storedEvent] = await this.eventStore.append(event.aggregateId, expectedVersion, [event]);
+
+    return structuredClone(storedEvent as CaseDomainEventRecord);
+  }
+
+  private async rebuildCaseProjection(caseId: string): Promise<CaseRecord> {
+    const events = await this.eventStore.listByAggregateId(caseId);
+    try {
+      const replayed = replayCaseEvents(events as readonly CaseDomainEventRecord[]);
+      this.cases.set(caseId, replayed);
+      return structuredClone(replayed);
+    } catch (error) {
+      const existing = this.cases.get(caseId);
+      if (existing) {
+        return structuredClone(existing);
+      }
+
+      throw error;
+    }
+  }
+
+  async listCaseEvents(caseId: string): Promise<CaseDomainEventRecord[]> {
+    this.getMutableRecord(caseId);
+    return structuredClone(await this.eventStore.listByAggregateId(caseId)) as CaseDomainEventRecord[];
   }
 
   /**
@@ -436,7 +519,7 @@ export class MemoryCaseStore implements CaseStore {
    * When a guard is configured, rejects disallowed transitions with a 409 error.
    * Falls through transparently when no guard is provided (backward compatible).
    */
-  private async applyTransition(record: CaseRecord, nextStatus: CaseStatus, correlationId?: string): Promise<void> {
+  private async applyTransition(record: CaseRecord, nextStatus: CaseStatus, correlationId?: AuditContextInput): Promise<void> {
     if (this.stateMachineGuard && record.status !== nextStatus) {
       const result = await this.stateMachineGuard.validateTransition(record.caseId, record.status, nextStatus);
       if (!result.allowed) {
@@ -451,7 +534,7 @@ export class MemoryCaseStore implements CaseStore {
     record.status = nextStatus;
   }
 
-  async createCase(rawInput: unknown, correlationId: string): Promise<CaseRecord> {
+  async createCase(rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord> {
     const input = parseCreateCaseInput(rawInput);
     const createdAt = this.clock.nowIso();
     const caseId = `case_${randomUUID()}`;
@@ -484,8 +567,22 @@ export class MemoryCaseStore implements CaseStore {
 
     record.auditEvents.push(auditEvent(this.clock, "case.created", "Human oncology case was created.", correlationId));
 
-    this.cases.set(caseId, record);
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "case.created",
+        {
+          createdAt,
+          status,
+          caseProfile: structuredClone(input.caseProfile),
+        },
+        correlationId,
+        createdAt,
+        createdAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
   async listCases(options?: { limit?: number; offset?: number }): Promise<{ cases: CaseRecord[]; totalCount: number }> {
@@ -510,7 +607,7 @@ export class MemoryCaseStore implements CaseStore {
     return record;
   }
 
-  async registerSample(caseId: string, rawInput: unknown, correlationId: string): Promise<CaseRecord> {
+  async registerSample(caseId: string, rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     const input = parseRegisterSampleInput(rawInput);
 
@@ -523,21 +620,23 @@ export class MemoryCaseStore implements CaseStore {
     }
 
     const registeredAt = this.clock.nowIso();
-    record.samples.push({
+    const sampleRecord: SampleRecord = {
       sampleId: input.sampleId,
       sampleType: input.sampleType,
       assayType: input.assayType,
       accessionId: input.accessionId,
       sourceSite: input.sourceSite,
       registeredAt,
-    });
+    };
+    record.samples.push(sampleRecord);
     record.timeline.push(timelineEvent(this.clock, "sample_registered", `${input.sampleType} provenance was registered.`));
     record.auditEvents.push(
       auditEvent(this.clock, "sample.registered", `${input.sampleType} provenance was registered.`, correlationId),
     );
 
     const nextStatus = deriveCaseStatus(record.caseProfile.consentStatus, record.samples, record.artifacts, false);
-    if (nextStatus === "READY_FOR_WORKFLOW" && record.status !== "READY_FOR_WORKFLOW") {
+    const workflowGateOpened = nextStatus === "READY_FOR_WORKFLOW" && record.status !== "READY_FOR_WORKFLOW";
+    if (workflowGateOpened) {
       record.timeline.push(
         timelineEvent(this.clock, "workflow_gate_opened", "Required sample trio, source artifacts, and consent gate are complete."),
       );
@@ -545,10 +644,25 @@ export class MemoryCaseStore implements CaseStore {
 
     await this.applyTransition(record, nextStatus, correlationId);
     record.updatedAt = registeredAt;
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "sample.registered",
+        {
+          sample: structuredClone(sampleRecord),
+          nextStatus,
+          workflowGateOpened,
+        },
+        correlationId,
+        registeredAt,
+        registeredAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
-  async registerArtifact(caseId: string, rawInput: unknown, correlationId: string): Promise<CaseRecord> {
+  async registerArtifact(caseId: string, rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     const input = parseRegisterArtifactInput(rawInput);
 
@@ -594,7 +708,8 @@ export class MemoryCaseStore implements CaseStore {
       auditEvent(this.clock, "artifact.registered", `${input.semanticType} source artifact was cataloged.`, correlationId),
     );
     const nextStatus = deriveCaseStatus(record.caseProfile.consentStatus, record.samples, record.artifacts, false);
-    if (nextStatus === "READY_FOR_WORKFLOW" && record.status !== "READY_FOR_WORKFLOW") {
+    const workflowGateOpened = nextStatus === "READY_FOR_WORKFLOW" && record.status !== "READY_FOR_WORKFLOW";
+    if (workflowGateOpened) {
       record.timeline.push(
         timelineEvent(this.clock, "workflow_gate_opened", "Required sample trio, source artifacts, and consent gate are complete."),
       );
@@ -602,12 +717,28 @@ export class MemoryCaseStore implements CaseStore {
 
     await this.applyTransition(record, nextStatus, correlationId);
     record.updatedAt = registeredAt;
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "artifact.registered",
+        {
+          artifact: structuredClone(artifact),
+          nextStatus,
+          workflowGateOpened,
+        },
+        correlationId,
+        registeredAt,
+        registeredAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
-  async requestWorkflow(caseId: string, rawInput: unknown, correlationId: string): Promise<CaseRecord> {
+  async requestWorkflow(caseId: string, rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     const input = parseRequestWorkflowInput(rawInput);
+    const auditContext = normalizeAuditContext(correlationId);
 
     if (input.idempotencyKey) {
       const existingRequest = record.workflowRequests.find(
@@ -650,7 +781,7 @@ export class MemoryCaseStore implements CaseStore {
       requestedBy: input.requestedBy,
       requestedAt,
       idempotencyKey: input.idempotencyKey,
-      correlationId,
+      correlationId: auditContext.correlationId,
     };
 
     // Dispatch to sink BEFORE mutating aggregate — if sink throws,
@@ -665,11 +796,12 @@ export class MemoryCaseStore implements CaseStore {
       requestedBy: workflowRequest.requestedBy,
       requestedAt: workflowRequest.requestedAt,
       idempotencyKey: workflowRequest.idempotencyKey,
-      correlationId,
+      correlationId: auditContext.correlationId,
       status: "PENDING",
     });
+    const nextStatus = deriveCaseStatus(record.caseProfile.consentStatus, record.samples, record.artifacts, true);
     record.workflowRequests.push(workflowRequest);
-    await this.applyTransition(record, deriveCaseStatus(record.caseProfile.consentStatus, record.samples, record.artifacts, true), correlationId);
+    await this.applyTransition(record, nextStatus, correlationId);
     record.timeline.push(
       timelineEvent(this.clock, "workflow_requested", `${input.workflowName} requested with reference bundle ${input.referenceBundleId}.`),
     );
@@ -677,7 +809,21 @@ export class MemoryCaseStore implements CaseStore {
       auditEvent(this.clock, "workflow.requested", `${input.workflowName} workflow was requested.`, correlationId),
     );
     record.updatedAt = requestedAt;
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "workflow.requested",
+        {
+          request: structuredClone(workflowRequest),
+          nextStatus,
+        },
+        correlationId,
+        requestedAt,
+        requestedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
   async getOperationsSummary(): Promise<OperationsSummary> {
@@ -711,7 +857,7 @@ export class MemoryCaseStore implements CaseStore {
     Object.assign(target, cloneWorkflowRun(next));
   }
 
-  async startWorkflowRun(caseId: string, startedRun: WorkflowRunRecord, correlationId: string): Promise<CaseRecord> {
+  async startWorkflowRun(caseId: string, startedRun: WorkflowRunRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     const request = record.workflowRequests[record.workflowRequests.length - 1];
     if (!request) {
@@ -769,10 +915,24 @@ export class MemoryCaseStore implements CaseStore {
     record.timeline.push(timelineEvent(this.clock, "workflow_started", `Workflow run ${run.runId} started.`, startedAt));
     record.auditEvents.push(auditEvent(this.clock, "workflow.started", `Workflow run ${run.runId} started.`, correlationId, startedAt));
     record.updatedAt = startedAt;
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "workflow.started",
+        {
+          run: cloneWorkflowRun(run),
+          nextStatus: record.status,
+        },
+        correlationId,
+        startedAt,
+        startedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
-  async completeWorkflowRun(caseId: string, completedRun: WorkflowRunRecord, derivedArtifacts: RunArtifact[], correlationId: string): Promise<CaseRecord> {
+  async completeWorkflowRun(caseId: string, completedRun: WorkflowRunRecord, derivedArtifacts: RunArtifact[], correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     const run = this.getMutableWorkflowRun(record, completedRun.runId);
     if (completedRun.status !== "COMPLETED") {
@@ -815,10 +975,25 @@ export class MemoryCaseStore implements CaseStore {
     record.timeline.push(timelineEvent(this.clock, "workflow_completed", `Run ${completedRun.runId} completed with ${derivedArtifacts.length} derived artifacts.`, completedAt));
     record.auditEvents.push(auditEvent(this.clock, "workflow.completed", `Run ${completedRun.runId} completed.`, correlationId, completedAt));
     record.updatedAt = completedAt;
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "workflow.completed",
+        {
+          run: cloneWorkflowRun(run),
+          derivedArtifacts: structuredClone(derivedArtifacts),
+          nextStatus: record.status,
+        },
+        correlationId,
+        completedAt,
+        completedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
-  async cancelWorkflowRun(caseId: string, cancelledRun: WorkflowRunRecord, correlationId: string): Promise<CaseRecord> {
+  async cancelWorkflowRun(caseId: string, cancelledRun: WorkflowRunRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     const run = this.getMutableWorkflowRun(record, cancelledRun.runId);
     if (cancelledRun.status !== "CANCELLED") {
@@ -843,10 +1018,24 @@ export class MemoryCaseStore implements CaseStore {
     record.timeline.push(timelineEvent(this.clock, "workflow_cancelled", `Run ${cancelledRun.runId} was cancelled.`, completedAt));
     record.auditEvents.push(auditEvent(this.clock, "workflow.cancelled", `Workflow run ${cancelledRun.runId} was cancelled.`, correlationId, completedAt));
     record.updatedAt = completedAt;
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "workflow.cancelled",
+        {
+          run: cloneWorkflowRun(run),
+          nextStatus: record.status,
+        },
+        correlationId,
+        completedAt,
+        completedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
-  async failWorkflowRun(caseId: string, failedRun: WorkflowRunRecord, correlationId: string): Promise<CaseRecord> {
+  async failWorkflowRun(caseId: string, failedRun: WorkflowRunRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     const run = this.getMutableWorkflowRun(record, failedRun.runId);
     if (failedRun.status !== "FAILED") {
@@ -888,18 +1077,44 @@ export class MemoryCaseStore implements CaseStore {
     record.timeline.push(timelineEvent(this.clock, "workflow_failed", `Run ${failedRun.runId} failed: ${failedRun.failureReason ?? "unknown failure"}`, completedAt));
     record.auditEvents.push(auditEvent(this.clock, "workflow.failed", `Run ${failedRun.runId} failed: ${failedRun.failureReason ?? "unknown failure"}`, correlationId, completedAt));
     record.updatedAt = completedAt;
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "workflow.failed",
+        {
+          run: cloneWorkflowRun(run),
+          nextStatus: record.status,
+        },
+        correlationId,
+        completedAt,
+        completedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
   // ─── Phase 2: HLA Consensus ───────────────────────────────────────
 
-  async recordHlaConsensus(caseId: string, consensus: HlaConsensusRecord, correlationId: string): Promise<CaseRecord> {
+  async recordHlaConsensus(caseId: string, consensus: HlaConsensusRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
+    const recordedAt = this.clock.nowIso();
     record.hlaConsensus = consensus;
-    record.timeline.push(timelineEvent(this.clock, "hla_consensus_produced", `HLA consensus with ${consensus.alleles.length} alleles, confidence ${consensus.confidenceScore}.`));
-    record.auditEvents.push(auditEvent(this.clock, "hla.consensus.produced", `HLA consensus produced for case ${caseId}.`, correlationId));
-    record.updatedAt = this.clock.nowIso();
-    return structuredClone(record);
+    record.timeline.push(timelineEvent(this.clock, "hla_consensus_produced", `HLA consensus with ${consensus.alleles.length} alleles, confidence ${consensus.confidenceScore}.`, recordedAt));
+    record.auditEvents.push(auditEvent(this.clock, "hla.consensus.produced", `HLA consensus produced for case ${caseId}.`, correlationId, recordedAt));
+    record.updatedAt = recordedAt;
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "hla.consensus.produced",
+        { consensus: structuredClone(consensus) },
+        correlationId,
+        recordedAt,
+        recordedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
   async getHlaConsensus(caseId: string): Promise<HlaConsensusRecord | null> {
@@ -909,7 +1124,7 @@ export class MemoryCaseStore implements CaseStore {
 
   // ─── Phase 2: QC Gate ─────────────────────────────────────────────
 
-  async recordQcGate(caseId: string, runId: string, gate: QcGateRecord, correlationId: string): Promise<CaseRecord> {
+  async recordQcGate(caseId: string, runId: string, gate: QcGateRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     const run = record.workflowRuns.find((r) => r.runId === runId);
     if (!run) {
@@ -919,17 +1134,30 @@ export class MemoryCaseStore implements CaseStore {
       throw new ApiError(409, "invalid_transition", "QC can only be evaluated on completed runs.", "Complete the workflow run first.");
     }
 
+    const recordedAt = this.clock.nowIso();
     record.qcGates.push(gate);
-    if (gate.outcome === "PASSED" || gate.outcome === "WARN") {
-      await this.applyTransition(record, "QC_PASSED", correlationId);
-    } else {
-      await this.applyTransition(record, "QC_FAILED", correlationId);
-    }
+    const nextStatus = gate.outcome === "PASSED" || gate.outcome === "WARN" ? "QC_PASSED" : "QC_FAILED";
+    await this.applyTransition(record, nextStatus, correlationId);
 
-    record.timeline.push(timelineEvent(this.clock, "qc_evaluated", `QC gate for run ${runId}: ${gate.outcome}.`));
-    record.auditEvents.push(auditEvent(this.clock, "qc.evaluated", `QC gate for run ${runId}: ${gate.outcome}. ${gate.results.length} metrics evaluated.`, correlationId));
-    record.updatedAt = this.clock.nowIso();
-    return structuredClone(record);
+    record.timeline.push(timelineEvent(this.clock, "qc_evaluated", `QC gate for run ${runId}: ${gate.outcome}.`, recordedAt));
+    record.auditEvents.push(auditEvent(this.clock, "qc.evaluated", `QC gate for run ${runId}: ${gate.outcome}. ${gate.results.length} metrics evaluated.`, correlationId, recordedAt));
+    record.updatedAt = recordedAt;
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "qc.evaluated",
+        {
+          runId,
+          gate: structuredClone(gate),
+          nextStatus,
+        },
+        correlationId,
+        recordedAt,
+        recordedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
   async getQcGate(caseId: string, runId: string): Promise<QcGateRecord | null> {
@@ -953,7 +1181,7 @@ export class MemoryCaseStore implements CaseStore {
     return record.workflowRuns;
   }
 
-  async generateBoardPacket(caseId: string, correlationId: string): Promise<BoardPacketGenerationResult> {
+  async generateBoardPacket(caseId: string, correlationId: AuditContextInput): Promise<BoardPacketGenerationResult> {
     const record = this.getMutableRecord(caseId);
     const boardRoute = record.caseProfile.boardRoute;
 
@@ -1053,8 +1281,24 @@ export class MemoryCaseStore implements CaseStore {
     );
     record.updatedAt = createdAt;
 
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "board.packet.generated",
+        {
+          packet: structuredClone(packet),
+          nextStatus: record.status,
+        },
+        correlationId,
+        createdAt,
+        createdAt,
+      ),
+    );
+
+    const rebuiltCase = await this.rebuildCaseProjection(caseId);
+
     return {
-      case: structuredClone(record),
+      case: rebuiltCase,
       packet: structuredClone(packet),
       created: true,
     };
@@ -1077,7 +1321,7 @@ export class MemoryCaseStore implements CaseStore {
 
   // ─── Wave 15: Review Outcome + Manufacturing Handoff ────────────
 
-  async recordReviewOutcome(caseId: string, input: RecordReviewOutcomeInput, correlationId: string): Promise<ReviewOutcomeResult> {
+  async recordReviewOutcome(caseId: string, input: RecordReviewOutcomeInput, correlationId: AuditContextInput): Promise<ReviewOutcomeResult> {
     const record = this.getMutableRecord(caseId);
     const packet = record.boardPackets.find((candidate) => candidate.packetId === input.packetId);
     if (!packet) {
@@ -1141,8 +1385,24 @@ export class MemoryCaseStore implements CaseStore {
     );
     record.updatedAt = reviewedAt;
 
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "review.outcome.recorded",
+        {
+          reviewOutcome: structuredClone(reviewOutcome),
+          nextStatus: record.status,
+        },
+        correlationId,
+        reviewedAt,
+        reviewedAt,
+      ),
+    );
+
+    const rebuiltCase = await this.rebuildCaseProjection(caseId);
+
     return {
-      case: structuredClone(record),
+      case: rebuiltCase,
       reviewOutcome: structuredClone(reviewOutcome),
       created: true,
     };
@@ -1163,7 +1423,7 @@ export class MemoryCaseStore implements CaseStore {
     return structuredClone(reviewOutcome);
   }
 
-  async generateHandoffPacket(caseId: string, input: GenerateHandoffPacketInput, correlationId: string): Promise<HandoffPacketGenerationResult> {
+  async generateHandoffPacket(caseId: string, input: GenerateHandoffPacketInput, correlationId: AuditContextInput): Promise<HandoffPacketGenerationResult> {
     const record = this.getMutableRecord(caseId);
     const reviewOutcome = record.reviewOutcomes.find((candidate) => candidate.reviewId === input.reviewId);
     if (!reviewOutcome) {
@@ -1264,8 +1524,24 @@ export class MemoryCaseStore implements CaseStore {
     );
     record.updatedAt = createdAt;
 
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "handoff.packet.generated",
+        {
+          handoffPacket: structuredClone(handoff),
+          nextStatus: record.status,
+        },
+        correlationId,
+        createdAt,
+        createdAt,
+      ),
+    );
+
+    const rebuiltCase = await this.rebuildCaseProjection(caseId);
+
     return {
-      case: structuredClone(record),
+      case: rebuiltCase,
       handoff: structuredClone(handoff),
       created: true,
     };
@@ -1288,7 +1564,7 @@ export class MemoryCaseStore implements CaseStore {
 
   // ─── Wave 8: Neoantigen Ranking ────────────────────────────────────
 
-  async recordNeoantigenRanking(caseId: string, ranking: RankingResult, correlationId: string): Promise<CaseRecord> {
+  async recordNeoantigenRanking(caseId: string, ranking: RankingResult, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     record.neoantigenRanking = structuredClone(ranking);
     record.timeline.push(
@@ -1309,7 +1585,18 @@ export class MemoryCaseStore implements CaseStore {
       ),
     );
     record.updatedAt = this.clock.nowIso();
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "neoantigen.ranking.recorded",
+        { ranking: structuredClone(ranking) },
+        correlationId,
+        ranking.rankedAt,
+        record.updatedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
   async getNeoantigenRanking(caseId: string): Promise<RankingResult | null> {
@@ -1317,7 +1604,7 @@ export class MemoryCaseStore implements CaseStore {
     return record.neoantigenRanking ?? null;
   }
 
-  async recordConstructDesign(caseId: string, constructDesign: ConstructDesignPackage, correlationId: string): Promise<CaseRecord> {
+  async recordConstructDesign(caseId: string, constructDesign: ConstructDesignPackage, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     record.constructDesign = structuredClone(constructDesign);
     record.timeline.push(
@@ -1338,7 +1625,18 @@ export class MemoryCaseStore implements CaseStore {
       ),
     );
     record.updatedAt = this.clock.nowIso();
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "construct.design.recorded",
+        { constructDesign: structuredClone(constructDesign) },
+        correlationId,
+        constructDesign.designedAt,
+        record.updatedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
   async getConstructDesign(caseId: string): Promise<ConstructDesignPackage | null> {
@@ -1375,7 +1673,7 @@ export class MemoryCaseStore implements CaseStore {
     sortOutcomeTimeline(record.outcomeTimeline);
   }
 
-  async recordAdministration(caseId: string, administration: AdministrationRecord, correlationId: string): Promise<CaseRecord> {
+  async recordAdministration(caseId: string, administration: AdministrationRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     if (administration.caseId !== caseId) {
       throw new ApiError(409, "invalid_transition", "Administration record caseId does not match the target case.", "Use an administration record for the target case.");
@@ -1412,10 +1710,21 @@ export class MemoryCaseStore implements CaseStore {
       ),
     );
     record.updatedAt = this.clock.nowIso();
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "administration.recorded",
+        { entry: structuredClone(entry) },
+        correlationId,
+        administration.administeredAt,
+        record.updatedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
-  async recordImmuneMonitoring(caseId: string, immuneMonitoring: ImmuneMonitoringRecord, correlationId: string): Promise<CaseRecord> {
+  async recordImmuneMonitoring(caseId: string, immuneMonitoring: ImmuneMonitoringRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     if (immuneMonitoring.caseId !== caseId) {
       throw new ApiError(409, "invalid_transition", "Immune monitoring record caseId does not match the target case.", "Use an immune monitoring record for the target case.");
@@ -1452,10 +1761,21 @@ export class MemoryCaseStore implements CaseStore {
       ),
     );
     record.updatedAt = this.clock.nowIso();
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "immune-monitoring.recorded",
+        { entry: structuredClone(entry) },
+        correlationId,
+        immuneMonitoring.collectedAt,
+        record.updatedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
-  async recordClinicalFollowUp(caseId: string, clinicalFollowUp: ClinicalFollowUpRecord, correlationId: string): Promise<CaseRecord> {
+  async recordClinicalFollowUp(caseId: string, clinicalFollowUp: ClinicalFollowUpRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     if (clinicalFollowUp.caseId !== caseId) {
       throw new ApiError(409, "invalid_transition", "Clinical follow-up record caseId does not match the target case.", "Use a clinical follow-up record for the target case.");
@@ -1492,7 +1812,18 @@ export class MemoryCaseStore implements CaseStore {
       ),
     );
     record.updatedAt = this.clock.nowIso();
-    return structuredClone(record);
+    await this.appendCaseEvent(
+      this.createCaseEvent(
+        caseId,
+        "clinical-follow-up.recorded",
+        { entry: structuredClone(entry) },
+        correlationId,
+        clinicalFollowUp.evaluatedAt,
+        record.updatedAt,
+      ),
+    );
+
+    return this.rebuildCaseProjection(caseId);
   }
 
   async getOutcomeTimeline(caseId: string): Promise<OutcomeTimelineEntry[]> {

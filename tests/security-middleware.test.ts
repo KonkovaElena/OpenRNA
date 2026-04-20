@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHmac } from "node:crypto";
 import request from "supertest";
 import { createApp } from "../src/app";
 import { MemoryCaseStore } from "../src/store";
@@ -21,6 +22,15 @@ function buildCaseInput() {
       boardRoute: "solid-tumor-board",
     },
   };
+}
+
+function signHs256Jwt(payload: Record<string, unknown>, secret: string): string {
+  const encodedHeader = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = createHmac("sha256", secret)
+    .update(`${encodedHeader}.${encodedPayload}`)
+    .digest("base64url");
+  return `${encodedHeader}.${encodedPayload}.${signature}`;
 }
 
 test("Security Headers Middleware", async (t) => {
@@ -102,6 +112,20 @@ test("RBAC Auth Middleware", async (t) => {
     assert.strictEqual(res.status, 201);
   });
 
+  await t.test("unsigned x-api-key hint does not override anonymous audit context when auth is not configured", async () => {
+    const store = new MemoryCaseStore();
+    const app = createApp({ store });
+
+    const res = await request(app)
+      .post("/api/cases")
+      .set("x-api-key", "spoofed-user")
+      .send(buildCaseInput());
+
+    assert.strictEqual(res.status, 201);
+    assert.strictEqual(res.body.case.auditEvents[0]?.actorId, "system:anonymous");
+    assert.strictEqual(res.body.case.auditEvents[0]?.authMechanism, "anonymous");
+  });
+
   await t.test("strict RBAC rejects unauthorized principals", async () => {
     const rbacProvider = new InMemoryRbacProvider({ allowAll: false });
     const store = new MemoryCaseStore();
@@ -115,7 +139,7 @@ test("RBAC Auth Middleware", async (t) => {
     assert.ok(res.body.error);
   });
 
-  await t.test("strict RBAC allows authorized principals", async () => {
+  await t.test("strict RBAC does not trust unsigned x-api-key hints when auth is not configured", async () => {
     const rbacProvider = new InMemoryRbacProvider({ allowAll: false });
     await rbacProvider.assignRole("authorized-user", "OPERATOR");
     const store = new MemoryCaseStore();
@@ -125,7 +149,8 @@ test("RBAC Auth Middleware", async (t) => {
       .post("/api/cases")
       .set("x-api-key", "authorized-user")
       .send(buildCaseInput());
-    assert.strictEqual(res.status, 201);
+
+    assert.strictEqual(res.status, 403);
   });
 
   await t.test("RBAC error details indicate action in response", async () => {
@@ -139,5 +164,75 @@ test("RBAC Auth Middleware", async (t) => {
       .send(buildCaseInput());
     assert.strictEqual(res.status, 403);
     assert.ok(res.body.detail, "response should include detail about the denied action");
+  });
+
+  await t.test("strict RBAC allows configured api-key principal id instead of raw secret", async () => {
+    const rbacProvider = new InMemoryRbacProvider({ allowAll: false });
+    await rbacProvider.assignRole("operator-service", "OPERATOR");
+    const store = new MemoryCaseStore();
+    const app = createApp({
+      store,
+      apiKey: "secret-key-42",
+      apiKeyPrincipalId: "operator-service",
+      rbacProvider,
+    });
+
+    const res = await request(app)
+      .post("/api/cases")
+      .set("x-api-key", "secret-key-42")
+      .send(buildCaseInput());
+    assert.strictEqual(res.status, 201);
+  });
+
+  await t.test("strict RBAC allows JWT bearer principal when token is valid", async () => {
+    const jwtSecret = "0123456789abcdef0123456789abcdef";
+    const token = signHs256Jwt(
+      {
+        iss: "https://issuer.example",
+        aud: "openrna-api",
+        sub: "user-123",
+        roles: ["OPERATOR"],
+        exp: Math.floor(Date.now() / 1000) + 300,
+        iat: Math.floor(Date.now() / 1000),
+      },
+      jwtSecret,
+    );
+    const rbacProvider = new InMemoryRbacProvider({ allowAll: false });
+    await rbacProvider.assignRole("user-123", "OPERATOR");
+    const store = new MemoryCaseStore();
+    const app = createApp({
+      store,
+      rbacProvider,
+      jwtAuthOptions: {
+        sharedSecret: jwtSecret,
+        expectedIssuer: "https://issuer.example",
+        expectedAudience: "openrna-api",
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/cases")
+      .set("authorization", `Bearer ${token}`)
+      .send(buildCaseInput());
+    assert.strictEqual(res.status, 201);
+  });
+
+  await t.test("JWT auth rejects protected requests when bearer token is invalid", async () => {
+    const store = new MemoryCaseStore();
+    const app = createApp({
+      store,
+      jwtAuthOptions: {
+        sharedSecret: "0123456789abcdef0123456789abcdef",
+        expectedIssuer: "https://issuer.example",
+        expectedAudience: "openrna-api",
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/cases")
+      .set("authorization", "Bearer invalid.token.value")
+      .send(buildCaseInput());
+    assert.strictEqual(res.status, 403);
+    assert.match(String(res.body.error), /token/i);
   });
 });

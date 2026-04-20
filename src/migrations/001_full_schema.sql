@@ -107,8 +107,13 @@ CREATE TABLE IF NOT EXISTS audit_events (
   event_type     TEXT        NOT NULL,
   detail         TEXT        NOT NULL,
   correlation_id TEXT        NOT NULL,
+  actor_id       TEXT        NOT NULL,
+  auth_mechanism TEXT        NOT NULL,
   occurred_at    TIMESTAMPTZ NOT NULL
 );
+
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS actor_id TEXT NOT NULL DEFAULT 'system:anonymous';
+ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS auth_mechanism TEXT NOT NULL DEFAULT 'anonymous';
 
 CREATE INDEX IF NOT EXISTS audit_events_case_idx ON audit_events (case_id, occurred_at);
 

@@ -16,8 +16,7 @@ export function rbacAuth(rbacProvider: IRbacProvider | undefined, action: RbacAc
       return;
     }
 
-    const rawKey = req.header("x-api-key");
-    const principal = (Array.isArray(rawKey) ? rawKey[0] : rawKey) ?? "anonymous";
+    const principal = String(res.locals.principalId ?? "system:anonymous");
     const rawCaseId = req.params.caseId;
     const resource = Array.isArray(rawCaseId) ? rawCaseId[0] : rawCaseId;
 
