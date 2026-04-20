@@ -1,10 +1,10 @@
 ---
 title: "Academic Analysis: OpenRNA as a Personalized Neoantigen mRNA Vaccine Control Plane"
 status: active
-version: "1.1.0"
+version: "1.3.0"
 last_updated: "2026-04-02"
 tags: [academic-analysis, oncology, mrna, neoantigen, control-plane, architecture]
-evidence_cutoff: "2026-04-01"
+evidence_cutoff: "2026-04-02"
 ---
 
 # Academic Analysis: OpenRNA Platform
@@ -13,11 +13,23 @@ evidence_cutoff: "2026-04-01"
 
 This document provides a peer-review-grade analysis of the OpenRNA platform — a TypeScript/Node.js control plane for orchestrating personalized neoantigen mRNA vaccine workflows. The analysis covers medical context, technical architecture, gap assessment, competitive positioning, and a phased strategic roadmap. All claims are fact-checked against primary sources (PubMed, ClinicalTrials.gov, official product documentation) as of April 2026.
 
+The April 2, 2026 refresh tightens the recommendation layer around the repository's actual implementation seams. Recommendations are explicitly framed as evolutions of current OpenRNA capabilities rather than as greenfield architecture proposals.
+
 Evidence tier markers follow the 4-tier system defined in `design.md`:
 - **[T1]** Implemented in this repository
 - **[T2]** Validated trajectory (Phase 2+/3 data, peer-reviewed)
 - **[T3]** Strategic bet (early data, not standard of care)
 - **[T4]** Scenario horizon (planning hypotheses)
+
+## Method and Evidentiary Discipline
+
+This refresh uses three evidence lanes in parallel:
+
+1. **Primary clinical and regulatory sources**: ClinicalTrials.gov registry entries, eCFR Title 21 Part 11, and stable FDA guidance pages.
+2. **Repository-grounded inspection**: direct reads of ports, adapters, middleware, migrations, tests, and tracked workflow surfaces in this repository.
+3. **Official technical documentation**: current Stately/XState v5, Nextflow, and OpenTelemetry Node.js documentation for architecture recommendations that depend on version-sensitive upstream behavior.
+
+Promotion rule: a claim is moved into active text only when it is either directly verified against current code, directly supported by a current primary source, or explicitly labeled as a recommendation or scenario horizon. This pass intentionally withholds unstable or weakly sourced claims such as country-level rollout stories, near-certain approval-timing promises, or stale ecosystem popularity counters.
 
 ---
 
@@ -60,7 +72,7 @@ The manufacturing paradigm is **patient-as-batch-of-one**: tumor sequencing → 
 | **Solid tumors** | Phase 1 expanded: 71% neoantigen-specific immune response (15/21 patients); responses durable up to 23 months (Weber et al., *Nature Medicine* 2025) |
 | **Construct capacity** | Up to 20 neoantigen mRNA species per patient |
 
-**Fact-check**: Wikipedia confirms Rojas et al., Nature 2023 (doi:10.1038/s41586-023-06063-y). The 8/16 responder rate and 18-month RFS signal in PDAC are accurately described. BioNTech investor communications confirm Phase 2 initiation.
+**Fact-check**: The Nature 2023 publication (Rojas et al.) supports the 8/16 responder signal in PDAC, and the current IMCODE003 ClinicalTrials.gov entry confirms the active randomized PDAC follow-on program.
 
 #### Clinical Trial Landscape (ClinicalTrials.gov, April 2026) [T2]
 
@@ -73,6 +85,8 @@ A search for "personalized neoantigen mRNA vaccine" on ClinicalTrials.gov return
 
 PubMed shows **238 results** for "neoantigen mRNA vaccine personalized cancer" as of April 2026, with an accelerating publication rate: ~70 papers in 2025-2026 alone.
 
+These search tallies are point-in-time evidence snapshots, not stable market counters. They should be refreshed rather than reused as evergreen numeric claims.
+
 ### 1.3 Key Limitation: Attribution in Combination Therapy
 
 All landmark trials use mRNA vaccines **in combination** with checkpoint inhibitors (pembrolizumab, atezolizumab) and/or chemotherapy. Attributing clinical benefit specifically to the vaccine component requires:
@@ -81,6 +95,12 @@ All landmark trials use mRNA vaccines **in combination** with checkpoint inhibit
 - Careful immune monitoring endpoints separate from composite survival
 
 This is a methodological limitation of the field, not a flaw in individual trial design.
+
+### 1.4 Why the Control-Plane Layer Matters Now [T2]
+
+The two registry-backed anchors in this document — `NCT05933577` for intismeran autogene plus pembrolizumab in high-risk melanoma and `NCT05968326` for autogene cevumeran plus atezolizumab and mFOLFIRINOX in resected PDAC — are not single-center proofs of concept. They are live multicenter programs with long follow-up windows, combination regimens, and substantial operational complexity.
+
+That complexity is exactly where a control plane matters. A computational pipeline can rank candidates, but it does not by itself manage per-case consent state, sample provenance, reference-bundle pinning, review packets, handoff traceability, or outcome linkage. OpenRNA's relevance therefore increases as the field moves from isolated translational studies toward repeatable, auditable patient-specific operations.
 
 ---
 
@@ -138,6 +158,8 @@ OpenRNA **consumes outputs** from, but does not replicate, existing tools:
 
 This analysis avoids hardcoded upstream popularity and release counters in active text because they drift faster than the repository implementation surface.
 
+Official Nextflow documentation still positions workflows as asynchronous dataflow graphs with executor abstraction across local, HPC, cloud, and Kubernetes environments. That reinforces the architectural split used here: OpenRNA should govern patient-specific case state above the compute graph, not try to become a second workflow engine.
+
 ---
 
 ## III. Technical Architecture Analysis [T1]
@@ -171,6 +193,10 @@ This list is verified against `src/types.ts` and captures consent, workflow, QC,
 - Each case mutation appends a machine-readable audit event, and `caseAuditEventTypes` currently enumerates 17 event kinds
 - Idempotent workflow submission (`x-idempotency-key`) reduces duplicate dispatch risk
 - Request-scoped correlation IDs (`x-correlation-id`) strengthen traceability across operator and workflow actions
+
+This repository no longer relies only on ad hoc status mutations. `IStateMachineGuard` and the default `InMemoryStateMachineGuard` already encode an explicit allowed-transition map, and dedicated tests cover valid, invalid, and terminal-state behavior. The next step is therefore not to invent transition governance from scratch, but to decide whether the current explicit map should evolve into a serialized statechart runtime such as XState v5 for stronger visualization, persistence, and tooling.
+
+Official XState v5 documentation now makes actor persistence and restoration first-class through persisted snapshots and explicit event-sourcing patterns. Those capabilities matter if OpenRNA decides to model each case as a durable long-running actor, but they do not by themselves justify replacing the current explicit guard before consent, review, and release semantics are fully stabilized.
 
 **Recommendations**:
 1. Add timeout/escalation logic for long-lived operational states such as `WORKFLOW_REQUESTED`, `AWAITING_REVIEW`, and `HANDOFF_PENDING`
@@ -256,6 +282,32 @@ Tool C (e.g., xHLA)      → HLA-A*02:03, confidence 0.72
 ---
 
 ## IV. Critical Gaps and Prioritized Recommendations
+
+### 4.1 Recommendation Status Matrix
+
+| Recommendation | Current status | Repository anchor | Practical next step |
+|---------------|----------------|-------------------|---------------------|
+| **Formal statechart runtime (XState v5)** | **Partially implemented** | `src/adapters/InMemoryStateMachineGuard.ts`, `tests/state-machine-guard.test.ts` | Replace or wrap the explicit transition map with a serialized statechart only after the event and consent model is stable |
+| **Event Sourcing + CQRS** | **Partially implemented** | `src/store.ts`, `src/traceability.ts`, `src/adapters/PostgresCaseStore.ts` | Introduce a `domain_events` source-of-truth path and keep `CaseRecord` as a projection |
+| **Event-driven orchestration** | **Partially implemented** | `src/supervision/PollingSupervisor.ts`, `src/adapters/NextflowWorkflowRunner.ts`, `src/ports/IWorkflowDispatchSink.ts` | Add broker- or webhook-driven completion events while keeping polling as a reconciliation fallback |
+| **Mandatory OIDC/JWT + stronger RBAC** | **Partially implemented** | `src/middleware/api-key-auth.ts`, `src/middleware/rbac-auth.ts`, `src/adapters/InMemoryRbacProvider.ts` | Replace system-level API-key identity with user-bound principals and mandatory route protection |
+| **Part 11-grade electronic signatures** | **Partially implemented** | `src/ports/IAuditSignatureProvider.ts`, `src/adapters/InMemoryAuditSignatureProvider.ts`, `/api/audit/sign`, `/api/audit/verify` | Upgrade from HMAC helper semantics to signer-bound manifestations and record-linking controls |
+| **OpenAPI 3.1 surface** | **Missing** | `src/app.ts`, `src/validation.ts`, `README.md` endpoint inventory | Generate an OpenAPI contract from routes and Zod schemas |
+| **OpenTelemetry tracing** | **Missing / partial** | `/metrics` in `src/app.ts`, `src/middleware/request-logger.ts` | Add OTEL NodeSDK instrumentation before app bootstrap and correlate spans with `x-correlation-id` and structured request logs |
+| **Modality governance** | **Implemented** | `src/ports/IModalityRegistry.ts`, `src/adapters/InMemoryModalityRegistry.ts` | Extend with manufacturability scoring and modality feature matrices rather than redesigning the seam |
+| **Contract testing** | **Implemented** | `tests/contract-conformance.test.ts`, `tests/output-contract.test.ts` | Expand toward external adapter contract runs against real integration boundaries |
+
+### 4.2 Audit-grounded Interpretation Rules
+
+| Surface | Safe current interpretation | Overclaim to avoid |
+|---------|-----------------------------|--------------------|
+| `IStateMachineGuard` + `InMemoryStateMachineGuard` | OpenRNA already has explicit transition governance for the case lifecycle | "OpenRNA has no formal state model yet" |
+| `PollingSupervisor` + `NextflowWorkflowRunner` | The repository already has a polling-based orchestration baseline | "OpenRNA lacks orchestration and needs one from scratch" |
+| `IAuditSignatureProvider` + `InMemoryAuditSignatureProvider` | The repository has an integrity-oriented signature seam and tamper-detection helper | "OpenRNA already implements Part 11-grade electronic signatures" |
+| `api-key-auth.ts` + `rbac-auth.ts` | The repository has coarse closed-system access control and role seams | "OpenRNA already has individual signer identity and full authority checks" |
+| `traceability.ts` + audit events in `store.ts` | The repository already exposes lineage views over stored state | "OpenRNA is already end-to-end event sourced" |
+
+These distinctions matter because the highest-risk documentation error for this repository is not underclaiming. It is accidentally describing a real seam as either nonexistent or already production-grade.
 
 ### Priority 1 — Regulatory Maturity (High Impact, Required for Clinical Use)
 
@@ -358,7 +410,7 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 | Audit signature provider | P2 | **Done** [T1] |
 | Dual-authorization release workflow | P2 | Not started |
 | PostgreSQL encryption-at-rest configuration | P2 | Not started |
-| CI/CD pipeline with automated testing | P3 | README advertises 296+ `node:test` checks across 29 visible test files; CI not configured |
+| CI/CD pipeline with automated testing | P3 | **Done** [T1] — GitHub Actions now run build, test, coverage, audit, health smoke, CodeQL, dependency review, and provenance automation |
 
 ### Phase B: Ecosystem Integration (3-9 months)
 
@@ -415,6 +467,7 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 | 5 middleware surfaces plus correlation propagation | `src/middleware/*.ts`, `src/app.ts` | ✅ Verified against the Express composition root |
 | 2 SQL migrations | `src/migrations/*.sql` | ✅ Verified by direct inventory |
 | Broad test surface | `README.md`, `tests/*` | ✅ README advertises 296+ `node:test` checks; 28 visible test files were counted directly |
+| GitHub-native verification and provenance automation | `.github/workflows/*.yml`, `.github/release.yml` | ✅ Verified for CI, CodeQL, dependency review, SBOM and attestation generation, and semver-tag release publication |
 
 ### Claims Requiring Ongoing Monitoring
 
@@ -424,6 +477,15 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 | saRNA oncology clinical entry | No Phase 2+ trial registered | Monitor ClinicalTrials.gov quarterly |
 | circRNA clinical manufacturing | No commercial-scale cGMP process published | Monitor industry conferences |
 | FDA approach to platform biologics regulation | Evolving guidance | Monitor FDA CBER communications |
+
+### Claims intentionally withheld from active text
+
+| Claim class | Why it remains withheld |
+|-------------|--------------------------|
+| Country-specific rollout or commercialization stories | Not revalidated from stable primary sources in this pass |
+| Near-certain approval or launch timing promises | Current evidence does not justify deterministic timing language |
+| Direct FDA CSA citation in active text | The official page path was not re-confirmed in this pass, so validation language is anchored instead on rechecked stable FDA and eCFR sources |
+| Evergreen ecosystem counters | Search and publication tallies are point-in-time snapshots, not durable product facts |
 
 ---
 
@@ -437,6 +499,7 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 4. **Multi-modality readiness**: The modality registry (mRNA/saRNA/circRNA) with activation governance positions the platform for future RNA modalities without re-architecture.
 5. **Evidence-grounded documentation**: All design claims are tier-classified and traceable to primary sources.
 6. **Broad verification surface**: the repository exposes 28 visible test files, and the README advertises 296+ `node:test` checks across API, persistence, middleware, orchestration, and interoperability surfaces.
+7. **Public-repository hardening**: GitHub-native CI, CodeQL, dependency review, SBOM and provenance automation, and tag-driven release assets now exist as tracked repository surfaces rather than as out-of-band maintainer steps.
 
 ### Risks
 
@@ -448,7 +511,9 @@ Gritstone Bio filed for bankruptcy in October 2024 after its GRANITE/SLATE progr
 
 ### Assessment
 
-OpenRNA is a **well-designed, evidence-grounded** control plane at an early but solid maturity stage. The port-adapter architecture, broad verification surface, and regulatory-aware audit trail place it ahead of typical academic prototypes. The strategic priority is clear: close the regulatory gaps (electronic signatures, dual authorization, consent integration), then finish surfacing the remaining repository seams through the main composition root and build real adapter connections to the bioinformatics ecosystem.
+OpenRNA is best understood as an **evidence-grounded orchestration kernel** for personalized neoantigen RNA operations, not as a clinically deployable GxP system today. Its strongest architectural feature is the separation between fast-moving compute substrates and slower-moving clinical governance surfaces. That is a more defensible niche than trying to compete directly with ranking pipelines or proprietary end-to-end manufacturing stacks.
+
+The strategic priority is correspondingly narrow and clear: close the regulatory gaps (signer-bound electronic signatures, dual authorization, consent-state enforcement, formal validation), then finish surfacing the remaining repository seams through the main composition root and attach real adapters to the bioinformatics ecosystem.
 
 The clinical evidence for personalized neoantigen mRNA vaccines is at an inflection point: V940's Phase 3 readout will either validate or constrain the entire class. OpenRNA is architecturally positioned to benefit from a positive outcome and adapt to negative signals through its modality-agnostic design.
 
@@ -466,7 +531,10 @@ The clinical evidence for personalized neoantigen mRNA vaccines is at an inflect
 8. Srivastava R. AI-powered mapping of tumor immunity for optimized mRNA vaccine engineering. *Front Oncol*. 2026;16:1766201. PMID:41853314.
 9. ClinicalTrials.gov. Search: "personalized neoantigen mRNA vaccine." Accessed April 1, 2026. 25 results.
 10. PubMed. Search: "neoantigen mRNA vaccine personalized cancer." Accessed April 1, 2026. 238 results.
+11. Electronic Code of Federal Regulations. 21 CFR Part 11 — Electronic Records; Electronic Signatures. Accessed April 2, 2026.
+12. Stately. Stately and XState docs (XState v5). Accessed April 2, 2026.
+13. Nextflow documentation. Overview. Accessed April 2, 2026.
 
 ---
 
-*Document prepared April 1, 2026. Evidence cutoff: April 1, 2026. Next review: upon V940 Phase 3 interim readout or major regulatory event.*
+*Document refreshed April 2, 2026. Evidence cutoff: April 2, 2026. Next review: upon V940 Phase 3 interim readout, a major regulatory event, or a material architecture change in OpenRNA.*
