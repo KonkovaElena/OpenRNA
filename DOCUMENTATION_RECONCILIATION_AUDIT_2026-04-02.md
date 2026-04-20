@@ -96,6 +96,18 @@ Refresh this memo and the linked authority docs if any of the following occur:
 - FDA materially updates Part 11-adjacent software validation or electronic-signature guidance relevant to this repository
 - a stable primary source is obtained for currently withheld country-level or commercialization claims
 
+## Post-Certification Precision Corrections (2026-04-02)
+
+A follow-on evidence review identified three documentation surfaces where claim language exceeded the verifiable codebase state:
+
+| Location | Overclaim | Correction |
+|----------|-----------|------------|
+| `REGULATORY_CONTEXT.md` Strengths §1 | "timestamp, actor, and payload" | `CaseAuditEventRecord` carries `{eventId, type, detail, correlationId, occurredAt}` — no `actorId` field. Replaced with field-accurate description and explicit actor-attribution gap note. |
+| `REGULATORY_CONTEXT.md` ALCOA+ table | "immutable audit events" marked ✅ | `audit_events` table has no DB-level immutability constraint. Downgraded to ⚠️ Partial with "append-only by application convention" qualifier. |
+| `design.md` compliance table | "Immutable event records" | Same reasoning — renamed to "Append-only event records" with explicit note about missing database enforcement. |
+
+These corrections do not change the architectural assessment or the gap analysis. They tighten nomenclature to match the actual `CaseAuditEventRecord` interface and database schema surface.
+
 ## Certification Statement
 
 As of 2026-04-02, the OpenRNA authority analysis layer is reconciled to the current repository state for the recommendation areas touched in this refresh, and the regulatory and clinical anchors named above were rechecked against current official sources.

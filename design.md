@@ -205,7 +205,7 @@ Full API surface documented in [README.md](README.md).
 | End-to-end audit trail | 21 CFR Part 11.10(e) audit trails | `store.ts`: case mutations append machine-readable audit events; `traceability.ts` builds read-side lineage views from stored state |
 | Identity verification (partial) | 21 CFR Part 11.10(d) | `api-key-auth.ts`: API-key authentication. **Gap: not electronic signatures.** |
 | Structured logging | GxP data integrity (ALCOA+) | `request-logger.ts`: injectable structured JSON logging |
-| Immutable event records | 21 CFR Part 11.10(e) | JSONB audit events in PostgreSQL with timestamps |
+| Append-only event records | 21 CFR Part 11.10(e) | JSONB audit events in PostgreSQL with timestamps; append-only by application convention — no database-level immutability constraint is enforced yet |
 | Construct-to-outcome traceability | ICH Q5E comparability | `traceability.ts`: evidence lineage graph from stored ranking, construct, review, handoff, and outcome state |
 | Validated input schemas | 21 CFR Part 11.10(h) | Zod runtime validation on all API inputs |
 | Idempotent submission | GxP data integrity | `x-idempotency-key` prevents duplicate workflow dispatches |
