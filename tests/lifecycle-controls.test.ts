@@ -228,6 +228,19 @@ test("Lifecycle controls", async (t) => {
     assert.strictEqual(workflowResponse.body.case.workflowRequests.length, 2);
   });
 
+  await t.test("POST /restart-from-revision rejects when consent is not active", async () => {
+    const { app, caseId } = await seedRevisionRequestedCase();
+
+    const withdraw = await request(app)
+      .post(`/api/cases/${caseId}/consent`)
+      .send({ type: "withdrawn", scope: "genomic-analysis", version: "1.0" });
+    assert.strictEqual(withdraw.status, 201);
+
+    const restartResponse = await request(app).post(`/api/cases/${caseId}/restart-from-revision`).send({});
+    assert.strictEqual(restartResponse.status, 403);
+    assert.strictEqual(restartResponse.body.code, "consent_required");
+  });
+
   await t.test("GET /readyz returns 503 when readinessCheck fails", async () => {
     const app = createApp({
       readinessCheck: async () => {

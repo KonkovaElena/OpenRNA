@@ -42,7 +42,7 @@ export function registerDesignRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/neoantigen-ranking", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/neoantigen-ranking", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const ranking = await store.getNeoantigenRanking(caseId);
@@ -72,7 +72,7 @@ export function registerDesignRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/construct-design", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/construct-design", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const constructDesign = await store.getConstructDesign(caseId);

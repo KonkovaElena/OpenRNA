@@ -5,7 +5,7 @@ import { ApiError } from "../errors";
 /**
  * Consent enforcement middleware factory.
  *
- * Blocks case-scoped write operations when consent is not active.
+ * Blocks case-scoped operations (writes and regulated disclosures) when consent is not active.
  * Resolves caseId from req.params.caseId — passes through when no caseId is present.
  *
  * Regulatory basis: 21 CFR Part 11 (electronic consent), GDPR Art. 7 (withdrawal of consent).

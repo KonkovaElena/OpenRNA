@@ -47,6 +47,7 @@ const API_SURFACE = [
   "POST /api/cases/:caseId/validate-transition",
   "POST /api/cases/:caseId/consent",
   "GET /api/cases/:caseId/consent",
+  "POST /api/cases/:caseId/restart-from-revision",
   "GET /api/cases/:caseId/fhir/bundle",
   "GET /api/cases/:caseId/fhir/hla-consensus",
   "POST /api/audit/sign",

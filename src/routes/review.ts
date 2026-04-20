@@ -32,7 +32,7 @@ export function registerReviewRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/board-packets", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/board-packets", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const packets = await store.listBoardPackets(caseId);
@@ -42,7 +42,7 @@ export function registerReviewRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/board-packets/:packetId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/board-packets/:packetId", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const packetId = getRequiredRouteParam(req, "packetId");
@@ -69,7 +69,7 @@ export function registerReviewRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/review-outcomes", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/review-outcomes", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const reviewOutcomes = await store.listReviewOutcomes(caseId);
@@ -79,7 +79,7 @@ export function registerReviewRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/review-outcomes/:reviewId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/review-outcomes/:reviewId", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const reviewId = getRequiredRouteParam(req, "reviewId");
@@ -106,7 +106,7 @@ export function registerReviewRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/handoff-packets", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/handoff-packets", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const handoffs = await store.listHandoffPackets(caseId);
@@ -116,7 +116,7 @@ export function registerReviewRoutes(
     }
   });
 
-  app.get("/api/cases/:caseId/handoff-packets/:handoffId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+  app.get("/api/cases/:caseId/handoff-packets/:handoffId", rbacAuth(rbacProvider, "VIEW_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const handoffId = getRequiredRouteParam(req, "handoffId");

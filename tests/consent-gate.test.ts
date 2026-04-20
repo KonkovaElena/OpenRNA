@@ -6,8 +6,8 @@ import { createApp } from "../src/app";
 /**
  * Consent Gate Tests.
  *
- * Verify that case-write POST endpoints are blocked when no consent
- * has been granted, allowed after grant, and re-blocked after withdrawal.
+ * Verify that case-write endpoints and regulated disclosure endpoints are blocked
+ * when no consent has been granted, allowed after grant, and re-blocked after withdrawal.
  */
 
 function buildCaseInput() {
@@ -48,6 +48,156 @@ describe("consent gate middleware", () => {
       .send(buildSample());
     assert.equal(sampleRes.status, 403, "Should reject sample registration without consent");
     assert.equal(sampleRes.body.code, "consent_required");
+  });
+
+  test("GET /api/cases/:caseId/traceability returns 403 when no consent recorded", async () => {
+    const app = createApp({ rbacAllowAll: true });
+
+    const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+    assert.equal(createRes.status, 201);
+    const caseId = createRes.body.case.caseId;
+
+    const res = await request(app).get(`/api/cases/${caseId}/traceability`);
+
+    assert.equal(res.status, 403);
+    assert.equal(res.body.code, "consent_required");
+  });
+
+  test("GET /api/cases/:caseId/runs returns 403 when no consent recorded", async () => {
+    const app = createApp({ rbacAllowAll: true });
+
+    const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+    assert.equal(createRes.status, 201);
+    const caseId = createRes.body.case.caseId;
+
+    const res = await request(app).get(`/api/cases/${caseId}/runs`);
+
+    assert.equal(res.status, 403);
+    assert.equal(res.body.code, "consent_required");
+  });
+
+  test("GET /api/cases/:caseId/runs proceeds after consent grant", async () => {
+    const app = createApp({ rbacAllowAll: true });
+
+    const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+    assert.equal(createRes.status, 201);
+    const caseId = createRes.body.case.caseId;
+
+    const consentRes = await request(app)
+      .post(`/api/cases/${caseId}/consent`)
+      .send({ type: "granted", scope: "full-genomic", version: "2.0" });
+    assert.equal(consentRes.status, 201);
+
+    const res = await request(app).get(`/api/cases/${caseId}/runs`);
+
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.body.runs));
+  });
+
+  test("GET /api/cases/:caseId/board-packets returns 403 when no consent recorded", async () => {
+    const app = createApp({ rbacAllowAll: true });
+
+    const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+    assert.equal(createRes.status, 201);
+    const caseId = createRes.body.case.caseId;
+
+    const res = await request(app).get(`/api/cases/${caseId}/board-packets`);
+
+    assert.equal(res.status, 403);
+    assert.equal(res.body.code, "consent_required");
+  });
+
+  test("GET /api/cases/:caseId/neoantigen-ranking returns 403 when no consent recorded", async () => {
+    const app = createApp({ rbacAllowAll: true });
+
+    const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+    assert.equal(createRes.status, 201);
+    const caseId = createRes.body.case.caseId;
+
+    const res = await request(app).get(`/api/cases/${caseId}/neoantigen-ranking`);
+
+    assert.equal(res.status, 403);
+    assert.equal(res.body.code, "consent_required");
+  });
+
+  test("GET /api/cases/:caseId/traceability proceeds after consent grant", async () => {
+    const app = createApp({ rbacAllowAll: true });
+
+    const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+    assert.equal(createRes.status, 201);
+    const caseId = createRes.body.case.caseId;
+
+    const consentRes = await request(app)
+      .post(`/api/cases/${caseId}/consent`)
+      .send({ type: "granted", scope: "full-genomic", version: "2.0" });
+    assert.equal(consentRes.status, 201);
+
+    const res = await request(app).get(`/api/cases/${caseId}/traceability`);
+
+    // With consent active, readiness rules apply (ranking/construct may still be missing)
+    assert.equal(res.status, 409);
+    assert.equal(res.body.code, "traceability_not_ready");
+  });
+
+  test("GET /api/cases/:caseId/fhir/bundle returns 403 when no consent recorded", async () => {
+    const app = createApp({ rbacAllowAll: true });
+
+    const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+    assert.equal(createRes.status, 201);
+    const caseId = createRes.body.case.caseId;
+
+    const res = await request(app).get(`/api/cases/${caseId}/fhir/bundle`);
+
+    assert.equal(res.status, 403);
+    assert.equal(res.body.code, "consent_required");
+  });
+
+  test("GET /api/cases/:caseId/fhir/bundle proceeds after consent grant", async () => {
+    const app = createApp({ rbacAllowAll: true });
+
+    const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+    assert.equal(createRes.status, 201);
+    const caseId = createRes.body.case.caseId;
+
+    const consentRes = await request(app)
+      .post(`/api/cases/${caseId}/consent`)
+      .send({ type: "granted", scope: "full-genomic", version: "2.0" });
+    assert.equal(consentRes.status, 201);
+
+    const res = await request(app).get(`/api/cases/${caseId}/fhir/bundle`);
+
+    assert.equal(res.status, 200);
+  });
+
+  test("GET /api/cases/:caseId/fhir/hla-consensus returns 403 when no consent recorded", async () => {
+    const app = createApp({ rbacAllowAll: true });
+
+    const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+    assert.equal(createRes.status, 201);
+    const caseId = createRes.body.case.caseId;
+
+    const res = await request(app).get(`/api/cases/${caseId}/fhir/hla-consensus`);
+
+    assert.equal(res.status, 403);
+    assert.equal(res.body.code, "consent_required");
+  });
+
+  test("GET /api/cases/:caseId/fhir/hla-consensus proceeds after consent grant", async () => {
+    const app = createApp({ rbacAllowAll: true });
+
+    const createRes = await request(app).post("/api/cases").send(buildCaseInput());
+    assert.equal(createRes.status, 201);
+    const caseId = createRes.body.case.caseId;
+
+    const consentRes = await request(app)
+      .post(`/api/cases/${caseId}/consent`)
+      .send({ type: "granted", scope: "full-genomic", version: "2.0" });
+    assert.equal(consentRes.status, 201);
+
+    const res = await request(app).get(`/api/cases/${caseId}/fhir/hla-consensus`);
+
+    assert.equal(res.status, 404);
+    assert.equal(res.body.code, "not_found");
   });
 
   test("consent grant enables case-write operations", async () => {

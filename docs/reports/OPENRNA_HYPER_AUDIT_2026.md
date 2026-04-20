@@ -24,7 +24,7 @@ The project is stronger than the initial audit snapshot suggested. Several previ
 That said — it's not ready for regulated human-oncology deployment or a security-sensitive pilot. The remaining blockers are narrower and more precise than before:
 
 1. Authorization is route-complete but not resource-scoped (no case-ownership enforcement);
-2. Consent gates writes but doesn't yet govern lifecycle snapshots or export surfaces;
+2. Consent gates writes and regulated disclosures (traceability, FHIR), but doesn't yet govern lifecycle snapshots;
 3. Event sourcing is durable only in memory — PostgreSQL stores projections, not the event stream;
 4. Audit signing uses HMAC for integrity, not asymmetric signatures for non-repudiation.
 
