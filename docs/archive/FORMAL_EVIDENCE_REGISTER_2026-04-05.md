@@ -1,6 +1,6 @@
 ---
 title: "OpenRNA Formal Evidence Register"
-status: active-evidence
+status: archived-evidence
 version: "1.0.0"
 last_updated: "2026-04-05"
 tags: [evidence, verification, fact-check, oncology, public-export]
@@ -8,6 +8,8 @@ evidence_cutoff: "2026-04-05"
 ---
 
 # OpenRNA Formal Evidence Register
+
+Superseded by [FORMAL_EVIDENCE_REGISTER_2026-04-20.md](FORMAL_EVIDENCE_REGISTER_2026-04-20.md). This file is retained as the April 5 verification snapshot.
 
 ## Purpose
 

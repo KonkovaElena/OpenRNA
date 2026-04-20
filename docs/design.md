@@ -1,10 +1,10 @@
 ---
 title: "OpenRNA Platform Design"
 status: active
-version: "3.1.1"
-last_updated: "2026-04-05"
+version: "3.1.2"
+last_updated: "2026-04-20"
 tags: [oncology, mrna, circRNA, saRNA, neoantigen, platform-design]
-evidence_cutoff: "2026-04-05"
+evidence_cutoff: "2026-04-20"
 ---
 
 # Design: OpenRNA Platform
@@ -53,7 +53,7 @@ Tier-маркеры указаны в квадратных скобках: **[T1
 
 ### Implemented capabilities
 
-- **Case registry**: create, list, retrieve oncology cases with 15-state lifecycle (`INTAKING` → `HANDOFF_PENDING`).
+- **Case registry**: create, list, retrieve oncology cases with 16-state lifecycle (`INTAKING` → `HANDOFF_PENDING`).
 - **Sample and artifact provenance**: sample registration (tumor DNA/RNA, normal DNA, follow-up), source and derived artifact catalog with semantic types.
 - **Workflow orchestration**: workflow request gate with idempotent submission (`x-idempotency-key`), run lifecycle tracking (`start`, `complete`, `fail`, `cancel`), Nextflow integration port for external pipeline execution, polling supervisor for run monitoring.
 - **Reference bundle registry**: versioned pipeline reference bundles pinned to workflow runs.
@@ -69,11 +69,11 @@ Tier-маркеры указаны в квадратных скобках: **[T1
 
 ### Architecture
 
-- **17 interfaces under `src/ports`**: 11 workflow/scientific seams (`IConstructDesigner`, `IHlaConsensusProvider`, `IModalityRegistry`, `INeoantigenRankingEngine`, `INextflowClient`, `IOutcomeRegistry`, `IQcGateEvaluator`, `IReferenceBundleRegistry`, `IWorkflowDispatchSink`, `IWorkflowOrchestrator`, `IWorkflowRunner`), 5 governance/compliance seams (`IAuditSignatureProvider`, `IConsentTracker`, `IFhirExporter`, `IRbacProvider`, `IStateMachineGuard`), plus `IEventStore` for domain-event replay semantics. `CaseStore` remains a local storage abstraction defined in `src/store.ts`, not a standalone port file in `src/ports`.
-- **Dual adapter strategy**: in-memory adapters for local development and testing, PostgreSQL adapters for durable persistence (`PostgresCaseStore`, `PostgresWorkflowDispatchSink`, `PostgresWorkflowRunner`).
+- **18 interfaces under `src/ports`**: 11 workflow/scientific seams (`IConstructDesigner`, `IHlaConsensusProvider`, `IModalityRegistry`, `INeoantigenRankingEngine`, `INextflowClient`, `IOutcomeRegistry`, `IQcGateEvaluator`, `IReferenceBundleRegistry`, `IWorkflowDispatchSink`, `IWorkflowOrchestrator`, `IWorkflowRunner`), 5 governance/compliance seams (`IAuditSignatureProvider`, `IConsentTracker`, `IFhirExporter`, `IRbacProvider`, `IStateMachineGuard`), 1 case-access seam (`ICaseAccessStore`), plus `IEventStore` for domain-event replay semantics. `CaseStore` remains a local storage abstraction defined in `src/store.ts`, not a standalone port file in `src/ports`.
+- **Dual adapter strategy**: in-memory adapters for local development and testing, PostgreSQL adapters for durable persistence and governed access (`PostgresCaseStore`, `PostgresCaseAccessStore`, `PostgresConsentTracker`, `PostgresWorkflowDispatchSink`, `PostgresWorkflowRunner`).
 - **Dependency injection**: all adapters injected through `AppDependencies` factory interface; no runtime coupling to specific implementations.
 - **Validation**: Zod runtime schemas for all API inputs.
-- **Auth**: optional API-key middleware with constant-time comparison.
+- **Auth**: API-key or JWT auth with optional anonymous local mode and a fail-fast `REQUIRE_AUTH` startup gate for strict deployments.
 - **Logging**: injectable structured JSON request logging.
 - **Error contract**: structured `ApiError` with operator-facing codes and HTTP status mapping.
 
@@ -103,7 +103,6 @@ Full API surface documented in [README.md](README.md).
 - Electronic signatures (21 CFR Part 11 requirement).
 - Dual-authorization release workflow.
 - Validated-system qualification documentation.
-- Consent-state handling in case lifecycle.
 
 ## External Evidence Base (March 2026)
 
@@ -393,7 +392,7 @@ Only after earlier layers are stable. Strict patient selection, combination stra
 - RNA design workbench producing multiple traceable construct candidates.
 - Manufacturing handoff package with provenance.
 - Expert review workflow with auditability.
-- 40+ API endpoints tested and stable (440 tests across 22 suites, 95.00% line coverage).
+- 40+ API endpoints tested and stable (494 tests across 22 suites, 94.43% line coverage).
 
 ### Mid-term [T2]
 - Prospective evidence of repeatable individualized product generation in clinically meaningful timeframe.

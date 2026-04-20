@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA Operations And Failure Modes"
 status: "active"
-version: "1.0.0"
-last_updated: "2026-04-05"
+version: "1.1.0"
+last_updated: "2026-04-20"
 tags: [operations, runtime, health, troubleshooting]
 ---
 
@@ -30,7 +30,11 @@ Key environment variables are validated by [src/config.ts](../src/config.ts).
 | `WORKFLOW_DISPATCH_TABLE_NAME` | `workflow_dispatches` | Must be a valid PostgreSQL identifier |
 | `API_KEY` | unset | Enables API-key authentication for protected routes |
 | `API_KEY_PRINCIPAL_ID` | unset | Optional principal identifier paired with API-key auth |
-| `RBAC_ALLOW_ALL` | `false` | Boolean compatibility switch for permissive RBAC behavior |
+| `REQUIRE_AUTH` | `false` | Strict startup gate; requires `API_KEY` or JWT configuration when `true` |
+| `RBAC_ALLOW_ALL` | `false` | Boolean compatibility switch for permissive RBAC behavior; rejected when `REQUIRE_AUTH=true` |
+| `RATE_LIMIT_ENABLED` | `true` | Enables token-bucket request throttling |
+| `RATE_LIMIT_MAX_TOKENS` | `100` | Token bucket capacity when rate limiting is enabled |
+| `RATE_LIMIT_REFILL_RATE` | `10` | Tokens replenished per second when rate limiting is enabled |
 | `JWT_SHARED_SECRET` | unset | Must be at least 32 bytes when supplied |
 | `JWT_PUBLIC_KEY_PEM` | unset | Enables RSA bearer-token verification |
 | `JWT_EXPECTED_ISSUER` | unset | Optional bearer-token claim validation |
@@ -65,6 +69,7 @@ Expected success signals:
 
 - `GET /` returns a runtime banner and the route inventory.
 - `GET /healthz`, `GET /readyz`, and `GET /metrics` are auth-exempt.
+- Strict startup mode does not change this auth-exempt probe inventory.
 
 ### Correlation IDs
 
@@ -85,8 +90,8 @@ Those values are built from `store.getOperationsSummary()` in [src/routes/system
 
 | Layer | Current behavior |
 |-------|------------------|
-| Authentication | `x-api-key` or bearer token when configured; anonymous or unsigned principal path otherwise |
-| RBAC | Route-scoped checks when an RBAC provider is present; pass-through compatibility when absent |
+| Authentication | `x-api-key` or bearer token when configured; anonymous or unsigned principal path otherwise; `REQUIRE_AUTH=true` converts missing auth configuration into a startup error |
+| RBAC | Route-scoped checks when an RBAC provider is present; pass-through compatibility when absent; `RBAC_ALLOW_ALL=true` is rejected in strict auth mode |
 | Consent | Case-scoped write routes can be blocked by `consent_required` |
 
 Important limitation: these controls improve operator discipline, but they do not make the repository a Part 11-grade identity or electronic-signature system.
@@ -96,6 +101,8 @@ Important limitation: these controls improve operator discipline, but they do no
 | Symptom | Likely cause | Typical response shape | Next move |
 |---------|--------------|------------------------|-----------|
 | Server fails on startup with `Invalid environment configuration` | Invalid `PORT`, invalid table name, or too-short `JWT_SHARED_SECRET` | process exits with startup error | Fix the environment values named by [src/config.ts](../src/config.ts) |
+| Server fails on startup with `REQUIRE_AUTH=true requires API_KEY or JWT_SHARED_SECRET/JWT_PUBLIC_KEY_PEM.` | Strict auth profile enabled without any configured auth method | process exits with startup error | Configure `API_KEY` or JWT settings, or set `REQUIRE_AUTH=false` for local bootstrap work |
+| Server fails on startup with `REQUIRE_AUTH=true cannot be used with RBAC_ALLOW_ALL=true.` | Strict auth profile enabled together with permissive RBAC compatibility mode | process exits with startup error | Disable `RBAC_ALLOW_ALL` before starting in strict mode |
 | `401` with `missing_credentials` | Protected route called without `x-api-key` or bearer token | `{ error, code }` | Supply credentials or disable auth for local bootstrap work |
 | `403` with `invalid_api_key` | API key does not match | `{ error, code }` | Re-check the configured key and caller header |
 | `403` with `invalid_token` | Bearer token parsing, signature, audience, issuer, or time claims failed | `{ error, code }` | Re-issue token or correct JWT settings |

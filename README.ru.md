@@ -8,10 +8,12 @@ OpenRNA — это операционный контур управления д
 
 Проект не заявляет замену вычислительных движков, клинических систем принятия решений или завершенных процедур квалификации. Его задача — дать воспроизводимый и аудируемый слой координации между происхождением образцов, запуском workflow, экспертным разбором, релиз-авторизацией и учетом исходов.
 
-## Доказательный срез (2026-04-19)
+## Доказательный срез (2026-04-20)
 
-- Полный локальный контур (`npm run ci`) пройден: 489 тестов, 22 набора, 0 падений.
+- Полный локальный контур (`npm run ci`) пройден: 494 теста, 22 набора, 0 падений.
+- Контур покрытия (`npm run test:coverage`) пройден: 94.43% покрытия строк, 82.91% ветвей, 94.03% функций.
 - Security gate (`npm audit --omit=dev --audit-level=high`) вернул 0 уязвимостей.
+- CycloneDX runtime SBOM пересобран через `npm run sbom:cyclonedx:file`.
 - Модель жизненного цикла кейса содержит 16 явных состояний.
 - Контур релиз-авторизации включает board review, независимый QA release и manufacturing handoff.
 - Для критических действий поддерживаются step-up подписи (`totp`, `webauthn`) при approved review и QA release.
@@ -19,7 +21,7 @@ OpenRNA — это операционный контур управления д
 - В пакет валидационной документации добавлены Intended Use, IQ/OQ/PQ план и URS traceability matrix.
 - В активный контур governance добавлены политика PHI minimization/crypto-shredding и versioned FHIR capability baseline.
 
-Формальный базовый реестр: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
+Формальный базовый реестр: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md).
 
 ## Зачем нужен этот слой
 
@@ -111,9 +113,10 @@ npm run ci
 | `CASE_STORE_DATABASE_URL` | unset | PostgreSQL для кейсов; пусто означает in-memory |
 | `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL для dispatch; пусто означает in-memory |
 | `API_KEY` | unset | Аутентификация по API-ключу (`x-api-key`) |
+| `API_KEY_PRINCIPAL_ID` | unset | Опциональный стабильный principal identifier для API-key auth |
 | `REQUIRE_AUTH` | `false` | При `true` запуск завершится ошибкой, если не настроены API key или JWT |
 | `JWT_SHARED_SECRET` / `JWT_PUBLIC_KEY_PEM` | unset | Конфигурация валидации JWT |
-| `RBAC_ALLOW_ALL` | `false` | Аварийный permissive-режим (не для production) |
+| `RBAC_ALLOW_ALL` | `false` | Аварийный permissive-режим; несовместим с `REQUIRE_AUTH=true` |
 
 ## Профили безопасного запуска
 
@@ -137,6 +140,7 @@ RBAC_ALLOW_ALL=false
 ```
 
 Если `REQUIRE_AUTH=true`, но auth-метод не настроен, приложение завершит запуск с ошибкой (fail-fast).
+Если `REQUIRE_AUTH=true` и `RBAC_ALLOW_ALL=true`, запуск также завершится fail-fast-ошибкой.
 
 ## Карта документации
 

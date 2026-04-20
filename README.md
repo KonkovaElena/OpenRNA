@@ -8,10 +8,12 @@ OpenRNA is an operational control plane for personalized neoantigen RNA vaccine 
 
 It does not claim to replace bioinformatics engines, clinical decision systems, or regulatory qualification procedures. Its purpose is to provide a testable, auditable, and reproducible coordination layer between sample provenance, computational workflows, expert review, release authorization, and outcome tracking.
 
-## Evidence Snapshot (2026-04-19)
+## Evidence Snapshot (2026-04-20)
 
-- Local full lane (`npm run ci`) passed: 489 tests across 22 suites, 0 failures.
+- Local full lane (`npm run ci`) passed: 494 tests across 22 suites, 0 failures.
+- Coverage lane (`npm run test:coverage`) passed: 94.43% line, 82.91% branch, 94.03% function coverage.
 - Security gate (`npm audit --omit=dev --audit-level=high`) reported 0 vulnerabilities.
+- CycloneDX runtime SBOM regenerated via `npm run sbom:cyclonedx:file`.
 - Case lifecycle model includes 16 explicit states.
 - Release authorization flow includes board review, independent QA release, and manufacturing handoff.
 - Critical authorization supports step-up electronic signature assertions (`totp`, `webauthn`) for approved review and QA release actions.
@@ -19,7 +21,7 @@ It does not claim to replace bioinformatics engines, clinical decision systems, 
 - Validation package now includes intended use, IQ/OQ/PQ plan, and URS traceability matrix.
 - Active governance set includes PHI minimization/crypto-shredding policy and a versioned FHIR capability baseline artifact.
 
-Formal baseline register: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md).
+Formal baseline register: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md).
 
 ## Why This Layer Exists
 
@@ -111,9 +113,10 @@ Configuration authority: [src/config.ts](src/config.ts).
 | `CASE_STORE_DATABASE_URL` | unset | PostgreSQL case persistence; empty means in-memory |
 | `WORKFLOW_DISPATCH_DATABASE_URL` | unset | PostgreSQL dispatch persistence; empty means in-memory |
 | `API_KEY` | unset | API key authentication (`x-api-key`) |
+| `API_KEY_PRINCIPAL_ID` | unset | Optional stable principal identifier attached to API-key auth |
 | `REQUIRE_AUTH` | `false` | When `true`, startup fails unless API key or JWT auth is configured |
 | `JWT_SHARED_SECRET` / `JWT_PUBLIC_KEY_PEM` | unset | JWT verification configuration |
-| `RBAC_ALLOW_ALL` | `false` | Emergency permissive mode (not for production) |
+| `RBAC_ALLOW_ALL` | `false` | Emergency permissive mode; incompatible with `REQUIRE_AUTH=true` |
 
 ## Startup Security Profiles
 
@@ -137,6 +140,7 @@ RBAC_ALLOW_ALL=false
 ```
 
 If `REQUIRE_AUTH=true` and no auth method is configured, startup fails fast.
+If `REQUIRE_AUTH=true` and `RBAC_ALLOW_ALL=true`, startup also fails fast.
 
 ## Documentation Map
 

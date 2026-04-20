@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA Public Architecture Index"
 status: "active"
-version: "1.1.0"
-last_updated: "2026-04-19"
+version: "1.1.1"
+last_updated: "2026-04-20"
 tags: [navigation, architecture, evidence, public-export]
 ---
 
@@ -40,7 +40,7 @@ The active layer is intentionally smaller than the total evidence layer. Start w
 | [fhir/FHIR_CONFORMANCE_BASELINE_2026.md](fhir/FHIR_CONFORMANCE_BASELINE_2026.md) | Active FHIR R4 conformance boundary and capability artifact map |
 | [CONSENT_ACCESS_POLICY_2026.md](CONSENT_ACCESS_POLICY_2026.md) | Consent-gating matrix for route families |
 | [archive/](archive/) | Archived evidence, publication packs, and historical audits |
-| [archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) | Current verified metrics, toolchain facts, and live registry anchors |
+| [archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md](archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md) | Current verified metrics, toolchain facts, and live registry anchors |
 | [RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md](RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md) | April 2026 payer/policy signal note with source-authority and claim-boundary guardrails |
 | [archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md](archive/MEDICAL_EVIDENCE_AND_COMPETITOR_BASELINE_2026-03.md) | Clinical, competitor, and toolchain-adjacent evidence |
 | [archive/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md](archive/TOOLCHAIN_AND_OPEN_SOURCE_BASELINE_2026-03.md) | Runtime and open-source baseline decisions |
@@ -55,6 +55,7 @@ These files remain useful for diligence and archaeology, but they are not the pr
 
 | Historical memo | Why it still exists |
 |-----------------|---------------------|
+| [archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) | Preserves the April 5 verification snapshot before the April 20 documentation refresh |
 | [archive/reports/ISOLATION_CERTIFICATION_2026-03-30.md](archive/reports/ISOLATION_CERTIFICATION_2026-03-30.md) | Preserves the March 30 repository-isolation certification pass |
 | [archive/reports/DOCUMENTATION_RECONCILIATION_AUDIT_2026-03-31.md](archive/reports/DOCUMENTATION_RECONCILIATION_AUDIT_2026-03-31.md) | Preserves the March 31 documentation reconciliation pass |
 | [archive/reports/DOCUMENTATION_RECONCILIATION_AUDIT_2026-04-02.md](archive/reports/DOCUMENTATION_RECONCILIATION_AUDIT_2026-04-02.md) | Preserves the April 2 authority-analysis refresh |
@@ -64,7 +65,7 @@ These files remain useful for diligence and archaeology, but they are not the pr
 1. Start with [README.md](../README.md).
 2. Read [design.md](design.md) for the system model and evidence tiers.
 3. Use [API_REFERENCE.md](API_REFERENCE.md) and [OPERATIONS_AND_FAILURE_MODES.md](OPERATIONS_AND_FAILURE_MODES.md) for implementation and operator questions.
-4. Use [archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) when you need the formal evidence baseline and registry anchors.
+4. Use [archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md](archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md) when you need the formal evidence baseline and registry anchors.
 5. Use [RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md](RUSSIAN_OMS_POLICY_SIGNAL_2026-04.md) when you need the April 2026 payer-side signal without over-claiming operational rollout.
 6. Use archived publication and audit docs for investor or maintainer diligence.
 7. Read the historical memos only when you need provenance of earlier decisions.

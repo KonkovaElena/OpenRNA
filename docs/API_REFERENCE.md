@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA API Reference"
 status: "active"
-version: "1.1.0"
-last_updated: "2026-04-19"
+version: "1.1.1"
+last_updated: "2026-04-20"
 tags: [api, reference, http, public-export]
 ---
 
@@ -17,8 +17,10 @@ Route registration lives in [src/app.ts](../src/app.ts). The canonical route inv
 ### Authentication
 
 - Auth-exempt paths: `GET /`, `GET /healthz`, `GET /readyz`, `GET /metrics`.
+- These bootstrap and probe endpoints remain auth-exempt even when `REQUIRE_AUTH=true`.
 - Protected requests use `x-api-key` or `Authorization: Bearer <token>` when authentication is configured.
-- If no authentication settings are configured, the app resolves an unsigned or anonymous principal path instead of hard-failing every request.
+- If no authentication settings are configured and `REQUIRE_AUTH=false`, the app resolves an unsigned or anonymous principal path instead of hard-failing every request.
+- If `REQUIRE_AUTH=true`, startup fails unless at least one auth method is configured (`API_KEY` or JWT). The same strict profile rejects `RBAC_ALLOW_ALL=true`.
 - RBAC enforcement is route-scoped. When no RBAC provider is supplied, requests pass through for backward compatibility.
 - Case-scoped write routes and regulated lifecycle/disclosure reads pass through the consent gate and can fail with `consent_required` when no active consent exists.
 - Route-level matrix: [CONSENT_ACCESS_POLICY_2026.md](CONSENT_ACCESS_POLICY_2026.md).
@@ -176,6 +178,7 @@ These codes appear repeatedly across route handlers, stores, and adapters.
 - Route registration: [src/app.ts](../src/app.ts)
 - Public route inventory returned at runtime: [src/routes/system.ts](../src/routes/system.ts)
 - Auth resolution and bearer support: [src/auth.ts](../src/auth.ts)
+- Startup security gate: [src/bootstrap/security-posture.ts](../src/bootstrap/security-posture.ts)
 - Authentication context middleware: [src/middleware/auth-context.ts](../src/middleware/auth-context.ts)
 - Consent gate: [src/middleware/consent-gate.ts](../src/middleware/consent-gate.ts)
 - Error envelope contract: [src/errors.ts](../src/errors.ts)
