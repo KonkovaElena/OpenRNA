@@ -7,6 +7,7 @@ import { requestLogger, type RequestLogWriter } from "./middleware/request-logge
 import { securityHeaders } from "./middleware/security-headers";
 import { rateLimiter } from "./middleware/rate-limiter";
 import { rbacAuth } from "./middleware/rbac-auth";
+import { caseAccessAuth } from "./middleware/case-access-auth";
 import { registerSystemRoutes } from "./routes/system";
 import { registerModalityRoutes } from "./routes/modalities";
 import { registerFhirRoutes } from "./routes/fhir";
@@ -56,6 +57,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     consentTracker,
     consentGateMw,
     rbacProvider,
+    caseAccessStore,
     auditSignatureProvider,
     fhirExporter,
     readinessCheck,
@@ -82,6 +84,8 @@ export function createApp(dependencies: AppDependencies = {}) {
       jwt: dependencies.jwtAuthOptions,
     }),
   );
+
+  app.use("/api/cases/:caseId", caseAccessAuth(caseAccessStore, rbacProvider));
 
   registerSystemRoutes(app, store, readinessCheck);
   registerModalityRoutes(app, modalityRegistry);
@@ -120,7 +124,22 @@ export function createApp(dependencies: AppDependencies = {}) {
   app.post("/api/cases", rbacAuth(rbacProvider, "CREATE_CASE"), async (req, res, next) => {
     try {
       const correlationId = String(res.locals.correlationId ?? "");
-      res.status(201).json({ case: await store.createCase(req.body, correlationId) });
+      const createPayload = dependencies.enforceServerDerivedConsentOnCreate
+        ? {
+            ...(typeof req.body === "object" && req.body !== null ? req.body as Record<string, unknown> : {}),
+            caseProfile: {
+              ...((typeof req.body === "object" && req.body !== null && typeof (req.body as Record<string, unknown>).caseProfile === "object" && (req.body as Record<string, unknown>).caseProfile !== null)
+                ? ((req.body as { caseProfile: Record<string, unknown> }).caseProfile)
+                : {}),
+              consentStatus: "missing",
+            },
+          }
+        : req.body;
+
+      const createdCase = await store.createCase(createPayload, correlationId);
+      const principalId = String(res.locals.principalId ?? "system:anonymous");
+      await caseAccessStore.setOwner(createdCase.caseId, principalId);
+      res.status(201).json({ case: createdCase });
     } catch (error) {
       next(error);
     }
@@ -130,11 +149,23 @@ export function createApp(dependencies: AppDependencies = {}) {
     try {
       const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
       const offset = Math.max(Number(req.query.offset) || 0, 0);
-      const { cases, totalCount } = await store.listCases({ limit, offset });
+      const principalId = String(res.locals.principalId ?? "system:anonymous");
+      const roles = await rbacProvider.getPrincipalRoles(principalId);
+      const isPrivileged = roles.includes("ADMIN") || roles.includes("SYSTEM");
+
+      const { cases } = await store.listCases({ limit: 2000, offset: 0 });
+      const filteredCases = isPrivileged
+        ? cases
+        : (await Promise.all(cases.map(async (candidate) => {
+            const allowed = await caseAccessStore.canAccess(candidate.caseId, principalId);
+            return allowed ? candidate : undefined;
+          }))).filter((candidate): candidate is (typeof cases)[number] => candidate !== undefined);
+
+      const pagedCases = filteredCases.slice(offset, offset + limit);
       res.json({
-        cases,
+        cases: pagedCases,
         meta: {
-          totalCases: totalCount,
+          totalCases: filteredCases.length,
           limit,
           offset,
         },

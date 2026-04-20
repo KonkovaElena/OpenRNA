@@ -13,6 +13,7 @@ import type { INeoantigenRankingEngine } from "../ports/INeoantigenRankingEngine
 import type { IRbacProvider } from "../ports/IRbacProvider";
 import type { IAuditSignatureProvider } from "../ports/IAuditSignatureProvider";
 import type { IFhirExporter } from "../ports/IFhirExporter";
+import type { ICaseAccessStore } from "../ports/ICaseAccessStore";
 import { InMemoryConstructDesigner } from "../adapters/InMemoryConstructDesigner";
 import { InMemoryHlaConsensusProvider } from "../adapters/InMemoryHlaConsensusProvider";
 import { InMemoryModalityRegistry } from "../adapters/InMemoryModalityRegistry";
@@ -25,6 +26,7 @@ import { InMemoryConsentTracker } from "../adapters/InMemoryConsentTracker";
 import { InMemoryRbacProvider } from "../adapters/InMemoryRbacProvider";
 import { InMemoryAuditSignatureProvider } from "../adapters/InMemoryAuditSignatureProvider";
 import { InMemoryFhirExporter } from "../adapters/InMemoryFhirExporter";
+import { InMemoryCaseAccessStore } from "../adapters/InMemoryCaseAccessStore";
 import { requireActiveConsent } from "../middleware/consent-gate";
 import type { RequestLogWriter } from "../middleware/request-logger";
 import type { RateLimiterOptions } from "../middleware/rate-limiter";
@@ -43,6 +45,7 @@ export interface AppDependencies {
   rbacProvider?: IRbacProvider;
   auditSignatureProvider?: IAuditSignatureProvider;
   fhirExporter?: IFhirExporter;
+  caseAccessStore?: ICaseAccessStore;
   apiKey?: string;
   apiKeyPrincipalId?: string;
   jwtAuthOptions?: JwtAuthOptions;
@@ -53,6 +56,7 @@ export interface AppDependencies {
   enableRateLimiting?: boolean;
   rateLimitOptions?: RateLimiterOptions;
   readinessCheck?: () => Promise<boolean>;
+  enforceServerDerivedConsentOnCreate?: boolean;
 }
 
 export interface ResolvedAppDependencies {
@@ -70,6 +74,7 @@ export interface ResolvedAppDependencies {
   rbacProvider: IRbacProvider;
   auditSignatureProvider: IAuditSignatureProvider;
   fhirExporter: IFhirExporter;
+  caseAccessStore: ICaseAccessStore;
   readinessCheck: () => Promise<boolean>;
 }
 
@@ -101,6 +106,7 @@ export function resolveAppDependencies(
   const auditSignatureProvider =
     dependencies.auditSignatureProvider ?? new InMemoryAuditSignatureProvider();
   const fhirExporter = dependencies.fhirExporter ?? new InMemoryFhirExporter();
+  const caseAccessStore = dependencies.caseAccessStore ?? new InMemoryCaseAccessStore();
 
   return {
     store,
@@ -117,6 +123,7 @@ export function resolveAppDependencies(
     rbacProvider,
     auditSignatureProvider,
     fhirExporter,
+    caseAccessStore,
     readinessCheck: dependencies.readinessCheck ?? (async () => true),
   };
 }

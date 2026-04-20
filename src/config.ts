@@ -10,6 +10,9 @@ export interface AppConfig {
   apiKey?: string;
   apiKeyPrincipalId?: string;
   rbacAllowAll: boolean;
+  rateLimitEnabled: boolean;
+  rateLimitMaxTokens: number;
+  rateLimitRefillRate: number;
   jwt?: JwtAuthOptions;
 }
 
@@ -69,6 +72,15 @@ const configSchema = z.object({
   API_KEY: optionalEnvText(),
   API_KEY_PRINCIPAL_ID: optionalEnvText(),
   RBAC_ALLOW_ALL: optionalEnvBoolean(false),
+  RATE_LIMIT_ENABLED: optionalEnvBoolean(true),
+  RATE_LIMIT_MAX_TOKENS: z.preprocess(
+    (value) => value === undefined || value === null || value === "" ? undefined : value,
+    z.coerce.number({ error: "RATE_LIMIT_MAX_TOKENS must be a number." }).int().min(1, "RATE_LIMIT_MAX_TOKENS must be >= 1.").default(100),
+  ),
+  RATE_LIMIT_REFILL_RATE: z.preprocess(
+    (value) => value === undefined || value === null || value === "" ? undefined : value,
+    z.coerce.number({ error: "RATE_LIMIT_REFILL_RATE must be a number." }).min(0, "RATE_LIMIT_REFILL_RATE must be >= 0.").default(10),
+  ),
   JWT_SHARED_SECRET: optionalEnvText().refine(
     (value) => value === undefined || Buffer.byteLength(value, "utf-8") >= 32,
     "JWT_SHARED_SECRET must be at least 32 bytes when provided.",
@@ -107,6 +119,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     apiKey: result.data.API_KEY,
     apiKeyPrincipalId: result.data.API_KEY_PRINCIPAL_ID,
     rbacAllowAll: result.data.RBAC_ALLOW_ALL,
+    rateLimitEnabled: result.data.RATE_LIMIT_ENABLED,
+    rateLimitMaxTokens: result.data.RATE_LIMIT_MAX_TOKENS,
+    rateLimitRefillRate: result.data.RATE_LIMIT_REFILL_RATE,
     jwt,
   };
 }
