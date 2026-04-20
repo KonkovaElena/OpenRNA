@@ -18,7 +18,7 @@ import type { IStateMachineGuard, TransitionGuardResult } from "../ports/IStateM
  * - AWAITING_REVIEW → APPROVED_FOR_HANDOFF | REVISION_REQUESTED | REVIEW_REJECTED
  * - REVISION_REQUESTED → READY_FOR_WORKFLOW (restart pipeline)
  * - APPROVED_FOR_HANDOFF → HANDOFF_PENDING (handoff packet generation)
- * - HANDOFF_PENDING is terminal (delivered to manufacturing)
+ * - HANDOFF_PENDING is terminal (delivered to the downstream handoff target)
  * - REVIEW_REJECTED is terminal (case rejected by review board)
  */
 const ALLOWED_TRANSITIONS: Readonly<Record<CaseStatus, readonly CaseStatus[]>> = {

@@ -327,7 +327,7 @@ test("sink failure during workflow dispatch does not corrupt case state and allo
     },
   };
 
-  const { MemoryCaseStore } = await import("../src/store");
+  const { MemoryCaseStore } = await import("../src/store.js");
   const store = new MemoryCaseStore(undefined, failingOnFirstCallSink);
   const app = createApp({ store });
 

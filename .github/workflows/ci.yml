@@ -1,0 +1,73 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - v*
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: CI Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Coverage
+        run: npm run test:coverage
+
+      - name: Audit runtime dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Smoke health endpoint
+        run: |
+          npm start > server.log 2>&1 &
+          server_pid=$!
+          cleanup() {
+            if kill -0 "$server_pid" 2>/dev/null; then
+              kill "$server_pid"
+              wait "$server_pid" || true
+            fi
+          }
+          trap cleanup EXIT
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4010/healthz > healthz.json; then
+              cat healthz.json
+              curl --fail --silent http://127.0.0.1:4010/readyz > readyz.json
+              cat readyz.json
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat server.log
+          exit 1

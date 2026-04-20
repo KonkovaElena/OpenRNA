@@ -1,0 +1,76 @@
+name: Feature request
+description: Propose a scoped enhancement to the OpenRNA software surface.
+title: "[Feature]: "
+labels:
+  - enhancement
+  - triage
+type: feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Keep requests bounded to the software control-plane scope of this repository.
+
+        This repository does not accept requests for clinical advice, patient-specific decision logic,
+        or sponsor-confidential manufacturing materials.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: Describe the operator or engineering problem you want to solve.
+      placeholder: What breaks today, or what cannot be done cleanly yet?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest useful change.
+      placeholder: Describe the desired API, workflow behavior, or documentation improvement.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: evidence-level
+    attributes:
+      label: Evidence level
+      description: What best describes the basis for this request?
+      options:
+        - Local implementation gap
+        - Public documentation gap
+        - Security / compliance need
+        - Research-backed improvement
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe existing workarounds or rejected alternatives.
+    validations:
+      required: false
+
+  - type: textarea
+    id: sources
+    attributes:
+      label: Sources or references
+      description: Link primary sources if this request depends on current external guidance or evidence.
+      placeholder: Docs, publications, standards, registry entries, or comparable implementations.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: This request stays within the software control-plane scope of the repository.
+          required: true
+        - label: I am not requesting patient-specific medical guidance or a clinical decision system.
+          required: true
+        - label: I agree to follow this project's Code of Conduct.
+          required: true

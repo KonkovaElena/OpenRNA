@@ -1,0 +1,11 @@
+# Global ownership for the standalone public repository.
+* @KonkovaElena
+
+# Protect repository policy and review-control surfaces explicitly.
+/.github/ @KonkovaElena
+/CITATION.cff @KonkovaElena
+/README.md @KonkovaElena
+/design.md @KonkovaElena
+/docs/ @KonkovaElena
+/src/ @KonkovaElena
+/tests/ @KonkovaElena

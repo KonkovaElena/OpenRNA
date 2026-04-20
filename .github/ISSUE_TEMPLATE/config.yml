@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security policy and private reporting path
+    url: https://github.com/KonkovaElena/OpenRNA/security/policy
+    about: Use this route for vulnerabilities or other security-sensitive disclosures.
+  - name: Support and usage guidance
+    url: https://github.com/KonkovaElena/OpenRNA/blob/main/SUPPORT.md
+    about: Read support boundaries and issue-reporting expectations before opening a request.

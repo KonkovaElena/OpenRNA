@@ -1,15 +1,15 @@
 ---
-title: "Toolchain and Open-Source Baseline — March 2026"
+title: "Toolchain and Open-Source Baseline — April 2026"
 status: active
-version: "1.0.1"
-last_updated: "2026-03-31"
+version: "1.1.0"
+last_updated: "2026-04-02"
 tags: [toolchain, typescript, nodejs, express, bioinformatics]
-evidence_cutoff: "2026-03-31"
+evidence_cutoff: "2026-04-02"
 ---
 
 # Toolchain and Open-Source Baseline
 
-This document records the dependency currency state, migration decisions, and open-source bioinformatics reference landscape as of March 2026. It is companion material to `design.md` v3.0.0.
+This document records the dependency currency state, migration decisions, and open-source bioinformatics reference landscape as of April 2026. It is companion material to `design.md` v3.0.0.
 
 ---
 
@@ -19,16 +19,16 @@ This document records the dependency currency state, migration decisions, and op
 
 | Field | Value |
 |-------|-------|
-| **Required** | ≥22 LTS (`engines.node` in package.json) |
-| **Current LTS** | 22.x (Active LTS through April 2027) |
-| **Latest stable** | 23.x (Current, not LTS) |
-| **Decision** | Stay on 22 LTS. No features in 23.x justify leaving the LTS track for a production control-plane. Reassess when Node.js 24 enters LTS (October 2026). |
+| **Required** | ≥24 (`engines.node` in `package.json`) |
+| **Current LTS** | 24.x (Active LTS) |
+| **Latest stable** | 25.x (Current, not LTS) |
+| **Decision** | Use Node 24 Active LTS as the public baseline. Node 25 is intentionally not the production claim path because the repository favors LTS reproducibility over Current-line novelty. |
 
-Key Node.js 22 features used by this project:
-- Native `node:test` runner (used for all 296+ tests)
+Key Node.js 24 baseline choices used by this project:
+- Native `node:test` runner (used for the full standalone suite and coverage lane)
 - Built-in `fetch` (available but not used; all HTTP surface is Express)
-- V8 12.x with improved async performance
-- ESM loader hooks stabilized (not used; project is CJS)
+- A validated local toolchain snapshot: Node 24.11.0 + npm 11.6.1
+- CommonJS runtime preserved intentionally; no pure-ESM migration is claimed in this release
 
 ### 1.2 TypeScript
 
@@ -36,20 +36,21 @@ Key Node.js 22 features used by this project:
 |-------|-------|
 | **Pinned** | ^6.0.2 |
 | **Previous** | 5.8.2 |
-| **Migration date** | 2026-03-31 |
+| **Public baseline refresh** | 2026-04-02 |
 
 **Migration decision**: TypeScript 6.0 was released in March 2026. Key changes relevant to this project:
 
 | TS 6 Change | Impact | Action Taken |
 |-------------|--------|-------------|
 | Legacy `node` resolution naming | TypeScript keeps `node` as an alias of `node10`, and the modules reference says `node10` should no longer be used for modern Node targets | Repo no longer sets `moduleResolution` explicitly |
-| Official Node module guidance | TypeScript modules reference says `node16`, `node18`, or `nodenext` are the correct `module` options for Node.js apps | Not adopted in this repo during this audit because the existing CommonJS graph is being kept stable first |
+| Official Node module guidance | TypeScript modules reference says `node16`, `node18`, `node20`, or `nodenext` are the correct `module` options for Node.js apps | Adopted via `module: "nodenext"` while keeping `package.json` `type: "commonjs"` |
 | `moduleResolution: "bundler"` pairing rule | Official docs require `bundler` to be paired with `module: "esnext"` or `module: "preserve"` | Historical `bundler` + `CommonJS` wording was removed from this document |
 | Stricter `isolatedDeclarations` default | No impact (not enabled) | None |
 | Improved type narrowing for discriminated unions | Beneficial for Zod schemas | Free improvement |
 | `--erasableSyntax` flag | Not needed (tsx handles TS stripping) | None |
+| Node-aware dynamic import resolution | Relative dynamic imports need emitted file extensions under `nodenext` | Explicit `.js` suffix added where runtime dynamic import is used |
 
-**Why `CommonJS` without explicit `moduleResolution` remains the repo's current state**: this setup keeps the existing import graph compiling cleanly today. It should be described as a repo-local compatibility tradeoff, not as the canonical TypeScript recommendation. The current TypeScript modules reference explicitly says Node.js apps should generally use `node16`, `node18`, or `nodenext`, says `commonjs` is not the preferred setting for modern Node targets, and says `moduleResolution: "bundler"` must only be paired with `module: "esnext"` or `module: "preserve"`.
+**Why `nodenext` plus `type: "commonjs"` is the repo's new public state**: this setup aligns the compiler with modern Node semantics while preserving the stable CommonJS runtime and import graph that already powers the application. It closes the main TypeScript guidance gap without forcing a disruptive ESM migration.
 
 ### 1.3 tsconfig.json Configuration
 
@@ -57,11 +58,12 @@ Key Node.js 22 features used by this project:
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "CommonJS",
+    "module": "nodenext",
     "strict": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
+    "noEmitOnError": true,
     "rootDir": ".",
     "outDir": "dist",
     "resolveJsonModule": true,
@@ -84,19 +86,19 @@ Key Node.js 22 features used by this project:
 
 | Package | Pinned | Latest (March 2026) | Status | Note |
 |---------|--------|---------------------|--------|------|
-| **express** | ^5.0.0 | 5.2.1 | ✅ Current | Migrated from 4.x in this audit. Express 5 includes native promise support for middleware, improved router, removed deprecated APIs |
+| **express** | ^5.2.1 | 5.2.1 | ✅ Current | Express 5 includes native promise support for middleware, improved router, and a stable 2025-12 patch line |
 | **pg** | ^8.20.0 | 8.20.0 | ✅ Current | PostgreSQL client. Stable; no breaking changes expected in 8.x |
 | **zod** | ^4.3.6 | 4.3.6 | ✅ Current | Runtime validation. Zod 4 (2025) brought major performance improvements and simplified API |
 
 ### 2.2 Development Dependencies
 
-| Package | Pinned | Latest (March 2026) | Status | Note |
+| Package | Pinned | Latest (April 2026) | Status | Note |
 |---------|--------|---------------------|--------|------|
 | **typescript** | ^6.0.2 | 6.0.2 | ✅ Current | Migrated from 5.8.2 |
 | **tsx** | ^4.21.0 | 4.21.0 | ✅ Current | TypeScript execution via esbuild. Used for `npm run dev` and test runner |
 | **supertest** | ^7.2.2 | 7.2.2 | ✅ Current | HTTP assertion library for Express testing |
 | **@types/express** | ^5.0.6 | 5.0.6 | ✅ Current | Express 5 type definitions |
-| **@types/node** | ^22.19.15 | 22.19.15 | ✅ Current | Node.js type definitions aligned with Node 22 LTS |
+| **@types/node** | ^24.12.0 | 24.12.0 | ✅ Current | Type definitions aligned with the Node 24 Active LTS baseline |
 | **pg-mem** | ^3.0.14 | 3.0.14 | ✅ Current | In-memory PostgreSQL emulator for testing |
 
 ### 2.3 Dependency Philosophy
@@ -136,9 +138,7 @@ The following Express 5 breaking changes were scanned for in the codebase with z
 
 ### 3.3 Verification
 
-- Full test suite: **296/296 pass** on Express 5.
-- TypeScript compilation: **zero errors**.
-- Runtime smoke (dev mode): `/healthz`, `/readyz`, API routes all operational.
+- Verification lane for this baseline: `npm run build`, `npm test`, `npm run test:coverage`, `npm audit --audit-level=high`, and `/healthz` smoke verification via `npm start`.
 
 ---
 
@@ -195,13 +195,13 @@ Platform integration: Academic reference pipeline. Components may be used within
 
 | Decision | Rationale for Deferral | Reassess When |
 |----------|----------------------|---------------|
-| ESM migration (`"type": "module"`) | No runtime benefit; high churn for import paths. CJS works well with `tsx` and `node:test` | Node.js 24 LTS or if ESM-only dependency is required |
+| Pure ESM runtime (`"type": "module"`) | Node-aware TypeScript config is already adopted, but a full runtime ESM migration would still add import-path churn with little immediate benefit | If an ESM-only dependency becomes mandatory or deployment tooling gains a clear ESM advantage |
 | `noUncheckedIndexedAccess` | High-value safety, but requires substantial code changes | Dedicated hardening sprint |
 | Monorepo structure (nx/turborepo) | Current project is single-package. Premature for 39 source files | When project exceeds ~80 source files or adds separate services |
-| CI/CD pipeline definition | No CI yet. GitHub Actions or similar when collaborative development begins | When team size > 1 or when approaching IND submission |
+| CodeQL / SAST expansion | Basic GitHub Actions CI is now present, but deeper code-scanning and provenance hardening are separate workstreams | When the repository is opened to external contributors or a formal security-review program starts |
 | ORM adoption (Drizzle/Prisma/Kysely) | Plain `pg` + domain ports provide sufficient abstraction. ORM adds coupling | When query complexity exceeds manual SQL ergonomics |
 | Containerization (Docker/OCI) | Not blocking development. Compose file exists at repo root level for PostgreSQL | When deploying to staging or production environment |
 
 ---
 
-*Last updated: 2026-03-31. All dependency versions verified against npm registry and project package-lock.json.*
+*Last updated: 2026-04-02. Dependency and runtime baselines were re-verified against npm registry, package-lock state, and current official Node.js and TypeScript documentation.*
