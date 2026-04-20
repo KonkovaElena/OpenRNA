@@ -7,6 +7,7 @@ import { InMemoryWorkflowRunner } from "./adapters/InMemoryWorkflowRunner";
 import { PostgresCaseStore } from "./adapters/PostgresCaseStore";
 import { PostgresWorkflowDispatchSink } from "./adapters/PostgresWorkflowDispatchSink";
 import { PostgresWorkflowRunner } from "./adapters/PostgresWorkflowRunner";
+import { closeServerAndResources } from "./runtime-shutdown";
 import { Pool } from "pg";
 
 function createDispatchSink(config: ReturnType<typeof loadConfig>) {
@@ -65,18 +66,29 @@ async function bootstrap() {
   }
   const app = createApp({ store: durable.store, workflowRunner: durable.runner });
   const server = createServer(app);
+  let shutdownPromise: Promise<void> | undefined;
 
   const shutdown = async () => {
-    server.close(() => {
-      void Promise.all([dispatch.shutdown(), durable.shutdown()]);
+    if (!shutdownPromise) {
+      shutdownPromise = closeServerAndResources(server, [dispatch.shutdown, durable.shutdown]);
+    }
+
+    await shutdownPromise;
+  };
+
+  const handleShutdownSignal = () => {
+    void shutdown().catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`${message}\n`);
+      process.exitCode = 1;
     });
   };
 
   process.on("SIGINT", () => {
-    void shutdown();
+    handleShutdownSignal();
   });
   process.on("SIGTERM", () => {
-    void shutdown();
+    handleShutdownSignal();
   });
 
   server.listen(config.port, () => {

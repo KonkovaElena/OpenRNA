@@ -70,6 +70,10 @@ npm run dev
 
 If you do not need PostgreSQL-backed persistence locally, leave the database URLs blank and the app will stay on the in-memory path.
 
+## Evidence
+
+For the current standalone certification verdict and linked-worktree delta classification, see [ISOLATION_CERTIFICATION_2026-03-30.md](ISOLATION_CERTIFICATION_2026-03-30.md).
+
 ## API Surface
 
 - `POST /api/cases`
