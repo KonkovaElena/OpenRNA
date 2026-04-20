@@ -1,9 +1,31 @@
-import { createHash, randomUUID } from "node:crypto";
-import { createAnonymousAuditContext, getCurrentAuditContext } from "./audit-context";
+import { randomUUID } from "node:crypto";
 import { InMemoryEventStore } from "./adapters/InMemoryEventStore";
 import { ApiError } from "./errors";
 import { replayCaseEvents } from "./queries/CaseProjection";
-import { buildFullTraceability } from "./traceability";
+import type { AuditContextInput } from "./store-helpers";
+import {
+  auditEvent,
+  buildEvidenceLineage,
+  cloneWorkflowRun,
+  deriveCaseStatus,
+  emptyStatusCounts,
+  hasSameDerivedArtifactsForRun,
+  hasSameRunReplayIdentity,
+  normalizeAuditContext,
+  timelineEvent,
+} from "./store-helpers";
+import {
+  generateBoardPacketForCase,
+  generateHandoffPacketForCase,
+  recordReviewOutcomeForCase,
+} from "./store-review";
+import {
+  getFullTraceabilityForCase,
+  getOutcomeTimelineForCase,
+  recordAdministrationForCase,
+  recordClinicalFollowUpForCase,
+  recordImmuneMonitoringForCase,
+} from "./store-outcomes";
 import {
   parseConstructDesignInput,
   parseCreateCaseInput,
@@ -23,7 +45,6 @@ import { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatc
 import type { IStateMachineGuard } from "./ports/IStateMachineGuard";
 import type {
   AdministrationRecord,
-  AuditContext,
   AssayType,
   ArtifactRecord,
   BoardPacketGenerationResult,
@@ -98,6 +119,8 @@ export {
   parseWorkflowOutputManifest,
   parseWorkflowRunManifest,
 } from "./validation";
+export { buildEvidenceLineage };
+export type { AuditContextInput } from "./store-helpers";
 
 export interface ReconstructedRun extends WorkflowRunRecord {
   derivedArtifacts: ReadonlyArray<Pick<RunArtifact, "semanticType" | "artifactHash" | "producingStep">>;
@@ -131,8 +154,6 @@ export function reconstructRunFromManifest(
   };
 }
 
-const requiredSampleTypes: ReadonlySet<SampleType> = new Set(["TUMOR_DNA", "NORMAL_DNA", "TUMOR_RNA"]);
-
 export interface Clock {
   nowIso(): string;
 }
@@ -145,8 +166,6 @@ export class SystemClock implements Clock {
 
 export type { IWorkflowDispatchSink as WorkflowDispatchSink } from "./ports/IWorkflowDispatchSink";
 export { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatchSink";
-
-export type AuditContextInput = string | AuditContext;
 
 export interface CaseStore {
   createCase(rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord>;
@@ -193,260 +212,6 @@ export interface CaseStore {
   recordClinicalFollowUp(caseId: string, clinicalFollowUp: ClinicalFollowUpRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
   getOutcomeTimeline(caseId: string): Promise<OutcomeTimelineEntry[]>;
   getFullTraceability(caseId: string): Promise<FullTraceabilityRecord>;
-}
-
-function timelineEvent(clock: Clock, type: string, detail: string, at: string = clock.nowIso()): TimelineEvent {
-  return { at, type, detail };
-}
-
-function normalizeAuditContext(context: AuditContextInput): AuditContext {
-  if (typeof context !== "string") {
-    return context;
-  }
-
-  const currentContext = getCurrentAuditContext();
-  if (currentContext) {
-    return {
-      correlationId: context,
-      actorId: currentContext.actorId,
-      authMechanism: currentContext.authMechanism,
-    };
-  }
-
-  return createAnonymousAuditContext(context);
-}
-
-function auditEvent(
-  clock: Clock,
-  type: CaseAuditEventType,
-  detail: string,
-  correlationId: AuditContextInput,
-  occurredAt: string = clock.nowIso(),
-): CaseAuditEventRecord {
-  const context = normalizeAuditContext(correlationId);
-  return {
-    eventId: `event_${randomUUID()}`,
-    type,
-    detail,
-    correlationId: context.correlationId,
-    actorId: context.actorId,
-    authMechanism: context.authMechanism,
-    occurredAt,
-  };
-}
-
-function emptyStatusCounts(): Record<CaseStatus, number> {
-  return Object.fromEntries(caseStatuses.map((status) => [status, 0])) as Record<CaseStatus, number>;
-}
-
-function hasRequiredSamples(samples: SampleRecord[]): boolean {
-  const seen = new Set(samples.map((sample) => sample.sampleType));
-  for (const sampleType of requiredSampleTypes) {
-    if (!seen.has(sampleType)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function hasRequiredSourceArtifacts(samples: SampleRecord[], artifacts: ArtifactRecord[]): boolean {
-  for (const sampleType of requiredSampleTypes) {
-    const sample = samples.find((candidate) => candidate.sampleType === sampleType);
-    if (!sample) {
-      return false;
-    }
-
-    const hasCompatibleSourceArtifact = artifacts.some(
-      (artifact) =>
-        artifact.artifactClass === "SOURCE" &&
-        artifact.sampleId === sample.sampleId &&
-        isCompatibleSourceArtifactSemanticType(sample.sampleType, artifact.semanticType),
-    );
-
-    if (!hasCompatibleSourceArtifact) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function deriveCaseStatus(
-  consentStatus: ConsentStatus,
-  samples: SampleRecord[],
-  artifacts: ArtifactRecord[],
-  hasWorkflowRequest: boolean,
-): CaseStatus {
-  if (hasWorkflowRequest) {
-    return "WORKFLOW_REQUESTED";
-  }
-
-  if (consentStatus === "missing") {
-    return "AWAITING_CONSENT";
-  }
-
-  if (hasRequiredSamples(samples) && hasRequiredSourceArtifacts(samples, artifacts)) {
-    return "READY_FOR_WORKFLOW";
-  }
-
-  return "INTAKING";
-}
-
-function computePacketHash(value: unknown): string {
-  return `sha256:${createHash("sha256").update(JSON.stringify(value)).digest("hex")}`;
-}
-
-function cloneWorkflowRun(run: WorkflowRunRecord): WorkflowRunRecord {
-  return structuredClone(run);
-}
-
-function sortOutcomeTimeline(entries: OutcomeTimelineEntry[]): void {
-  entries.sort((left, right) => {
-    const byTime = left.occurredAt.localeCompare(right.occurredAt);
-    return byTime !== 0 ? byTime : left.entryId.localeCompare(right.entryId);
-  });
-}
-
-function stableReviewOutcomeSignature(value: RecordReviewOutcomeInput): string {
-  return JSON.stringify({
-    packetId: value.packetId,
-    reviewerId: value.reviewerId,
-    reviewerRole: value.reviewerRole ?? null,
-    reviewDisposition: value.reviewDisposition,
-    rationale: value.rationale,
-    comments: value.comments ?? null,
-  });
-}
-
-function stableHandoffPacketSignature(value: GenerateHandoffPacketInput): string {
-  return JSON.stringify({
-    reviewId: value.reviewId,
-    handoffTarget: value.handoffTarget,
-    requestedBy: value.requestedBy,
-    turnaroundDays: value.turnaroundDays,
-    notes: value.notes ?? null,
-  });
-}
-
-function normalizeTraceabilityError(error: unknown): never {
-  if (error instanceof ApiError) {
-    throw error;
-  }
-
-  if (error instanceof Error) {
-    if (
-      error.message === "Neoantigen ranking is required to build full traceability."
-      || error.message === "Construct design is required to build full traceability."
-    ) {
-      throw new ApiError(
-        409,
-        "traceability_not_ready",
-        error.message,
-        "Record both neoantigen ranking and construct design before requesting full traceability.",
-      );
-    }
-
-    throw new ApiError(
-      409,
-      "traceability_invalid",
-      error.message,
-      "Repair the stored ranking, construct design, or outcome timeline before requesting full traceability.",
-    );
-  }
-
-  throw new ApiError(
-    500,
-    "internal_error",
-    "Traceability evaluation failed unexpectedly.",
-    "Retry the request or inspect server logs.",
-  );
-}
-
-function hasSameRunReplayIdentity(existingRun: WorkflowRunRecord, nextRun: WorkflowRunRecord): boolean {
-  return (
-    existingRun.runId === nextRun.runId &&
-    existingRun.caseId === nextRun.caseId &&
-    existingRun.requestId === nextRun.requestId &&
-    existingRun.workflowName === nextRun.workflowName &&
-    existingRun.referenceBundleId === nextRun.referenceBundleId &&
-    existingRun.executionProfile === nextRun.executionProfile &&
-    JSON.stringify(existingRun.manifest ?? null) === JSON.stringify(nextRun.manifest ?? null)
-  );
-}
-
-function stableDerivedArtifactSignature(
-  artifact: Pick<RunArtifact, "semanticType" | "artifactHash" | "producingStep">,
-): string {
-  return `${artifact.semanticType}::${artifact.artifactHash}::${artifact.producingStep}`;
-}
-
-function hasSameDerivedArtifactsForRun(existingArtifacts: RunArtifact[], nextArtifacts: RunArtifact[]): boolean {
-  if (existingArtifacts.length !== nextArtifacts.length) {
-    return false;
-  }
-
-  return existingArtifacts.every((artifact, index) => {
-    const nextArtifact = nextArtifacts[index];
-    return Boolean(nextArtifact) && stableDerivedArtifactSignature(artifact) === stableDerivedArtifactSignature(nextArtifact);
-  });
-}
-
-/**
- * Builds an evidence lineage graph from completed workflow runs and their derived artifacts.
- * Edges represent "run A produced artifact X which was consumed by run B" relationships,
- * inferred from the workflowDependencies contract and artifact semantic types.
- */
-export function buildEvidenceLineage(
-  completedRuns: WorkflowRunRecord[],
-  derivedArtifacts: RunArtifact[],
-): EvidenceLineageGraph {
-  const edges: EvidenceLineageEdge[] = [];
-  const runsByWorkflow = new Map<string, WorkflowRunRecord>();
-  for (const run of completedRuns) {
-    runsByWorkflow.set(run.workflowName, run);
-  }
-
-  const artifactsByRun = new Map<string, RunArtifact[]>();
-  for (const art of derivedArtifacts) {
-    const arr = artifactsByRun.get(art.runId) ?? [];
-    arr.push(art);
-    artifactsByRun.set(art.runId, arr);
-  }
-
-  // For each completed run, check if its workflow's dependencies were also completed.
-  // If so, link the upstream run's artifacts to this downstream run.
-  for (const run of completedRuns) {
-    const wfName = run.workflowName;
-    const wfDeps = (workflowDependencies as Record<string, readonly string[]>)[wfName];
-    if (!wfDeps) continue;
-
-    for (const depName of wfDeps) {
-      const upstreamRun = runsByWorkflow.get(depName);
-      if (!upstreamRun) continue;
-
-      const upstreamArtifacts = artifactsByRun.get(upstreamRun.runId) ?? [];
-      for (const art of upstreamArtifacts) {
-        edges.push({
-          producerRunId: upstreamRun.runId,
-          producerWorkflow: depName,
-          artifactId: art.artifactId,
-          semanticType: art.semanticType,
-          consumerRunId: run.runId,
-          consumerWorkflow: wfName,
-        });
-      }
-    }
-  }
-
-  const allProducers = new Set(edges.map((e) => e.producerRunId));
-  const allConsumers = new Set(edges.map((e) => e.consumerRunId));
-  const allRunIds = completedRuns.map((r) => r.runId);
-
-  const roots = allRunIds.filter((id) => !allConsumers.has(id));
-  const terminal = allRunIds.filter((id) => !allProducers.has(id));
-
-  return { edges, roots, terminal };
 }
 
 export class MemoryCaseStore implements CaseStore {
@@ -534,6 +299,25 @@ export class MemoryCaseStore implements CaseStore {
       }
     }
     record.status = nextStatus;
+  }
+
+  private getReviewMutationContext() {
+    return {
+      clock: this.clock,
+      applyTransition: this.applyTransition.bind(this),
+      createCaseEvent: this.createCaseEvent.bind(this),
+      appendCaseEvent: this.appendCaseEvent.bind(this),
+      rebuildCaseProjection: this.rebuildCaseProjection.bind(this),
+    };
+  }
+
+  private getOutcomeMutationContext() {
+    return {
+      clock: this.clock,
+      createCaseEvent: this.createCaseEvent.bind(this),
+      appendCaseEvent: this.appendCaseEvent.bind(this),
+      rebuildCaseProjection: this.rebuildCaseProjection.bind(this),
+    };
   }
 
   async createCase(rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord> {
@@ -1184,126 +968,7 @@ export class MemoryCaseStore implements CaseStore {
   }
 
   async generateBoardPacket(caseId: string, correlationId: AuditContextInput): Promise<BoardPacketGenerationResult> {
-    const record = this.getMutableRecord(caseId);
-    const boardRoute = record.caseProfile.boardRoute;
-
-    if (!boardRoute) {
-      throw new ApiError(
-        409,
-        "review_route_not_configured",
-        "Case is missing a configured multidisciplinary review route.",
-        "Set caseProfile.boardRoute before generating a board packet.",
-      );
-    }
-
-    const latestQcGate = record.qcGates[record.qcGates.length - 1];
-    const completedRuns = record.workflowRuns.filter((run) => run.status === "COMPLETED");
-    const pinnedReferenceBundles = [
-      ...new Map(
-        completedRuns
-          .map((run) => run.pinnedReferenceBundle)
-          .filter((bundle): bundle is ReferenceBundleManifest => Boolean(bundle))
-          .map((bundle) => [bundle.bundleId, structuredClone(bundle)]),
-      ).values(),
-    ];
-
-    if (!record.hlaConsensus || !latestQcGate || latestQcGate.outcome === "FAILED" || completedRuns.length === 0 || record.derivedArtifacts.length === 0) {
-      throw new ApiError(
-        409,
-        "board_packet_not_ready",
-        "Case does not yet have the evidence required for board packet generation.",
-        "Complete workflow execution, HLA consensus, and a passing QC gate before generating a board packet.",
-      );
-    }
-
-    const snapshot: BoardPacketSnapshot = {
-      caseSummary: {
-        caseId: record.caseId,
-        status: "QC_PASSED",
-        indication: record.caseProfile.indication,
-        siteId: record.caseProfile.siteId,
-        protocolVersion: record.caseProfile.protocolVersion,
-        boardRoute,
-      },
-      workflowRuns: structuredClone(completedRuns),
-      pinnedReferenceBundles,
-      derivedArtifacts: structuredClone(record.derivedArtifacts),
-      hlaConsensus: structuredClone(record.hlaConsensus),
-      latestQcGate: structuredClone(latestQcGate),
-      hlaToolBreakdown: record.hlaConsensus.perToolEvidence.length > 0
-        ? structuredClone(record.hlaConsensus.perToolEvidence)
-        : undefined,
-      hlaDisagreements: record.hlaConsensus.disagreements,
-      bundleRetrievalProvenance: (() => {
-        const provs = pinnedReferenceBundles
-          .map((b) => b.retrievalProvenance)
-          .filter((p): p is RetrievalProvenance => Boolean(p));
-        return provs.length > 0 ? provs : undefined;
-      })(),
-      evidenceLineage: (() => {
-        const lineage = buildEvidenceLineage(completedRuns, record.derivedArtifacts);
-        return lineage.edges.length > 0 ? lineage : undefined;
-      })(),
-      neoantigenRanking: record.neoantigenRanking
-        ? structuredClone(record.neoantigenRanking)
-        : undefined,
-      constructDesign: record.constructDesign
-        ? structuredClone(record.constructDesign)
-        : undefined,
-    };
-
-    const packetHash = computePacketHash(snapshot);
-    const existingPacket = record.boardPackets.find((packet) => packet.packetHash === packetHash);
-    if (existingPacket) {
-      return {
-        case: structuredClone(record),
-        packet: structuredClone(existingPacket),
-        created: false,
-      };
-    }
-
-    const createdAt = this.clock.nowIso();
-    const packet: BoardPacketRecord = {
-      packetId: `packet_${randomUUID()}`,
-      caseId,
-      artifactClass: "BOARD_PACKET",
-      boardRoute,
-      version: record.boardPackets.length + 1,
-      schemaVersion: 1,
-      packetHash,
-      createdAt,
-      snapshot,
-    };
-
-    record.boardPackets.push(packet);
-    await this.applyTransition(record, "AWAITING_REVIEW", correlationId);
-    record.timeline.push(timelineEvent(this.clock, "board_packet_generated", `Board packet ${packet.packetId} generated for ${boardRoute}.`));
-    record.auditEvents.push(
-      auditEvent(this.clock, "board.packet.generated", `Board packet ${packet.packetId} generated for ${boardRoute}.`, correlationId),
-    );
-    record.updatedAt = createdAt;
-
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "board.packet.generated",
-        {
-          packet: structuredClone(packet),
-          nextStatus: record.status,
-        },
-        correlationId,
-        createdAt,
-        createdAt,
-      ),
-    );
-
-    const rebuiltCase = await this.rebuildCaseProjection(caseId);
-
-    return {
-      case: rebuiltCase,
-      packet: structuredClone(packet),
-      created: true,
-    };
+    return generateBoardPacketForCase(this.getReviewMutationContext(), this.getMutableRecord(caseId), caseId, correlationId);
   }
 
   async listBoardPackets(caseId: string): Promise<BoardPacketRecord[]> {
@@ -1324,90 +989,7 @@ export class MemoryCaseStore implements CaseStore {
   // ─── Wave 15: Review Outcome + Manufacturing Handoff ────────────
 
   async recordReviewOutcome(caseId: string, input: RecordReviewOutcomeInput, correlationId: AuditContextInput): Promise<ReviewOutcomeResult> {
-    const record = this.getMutableRecord(caseId);
-    const packet = record.boardPackets.find((candidate) => candidate.packetId === input.packetId);
-    if (!packet) {
-      throw new ApiError(404, "board_packet_not_found", "Board packet was not found for this case.", "Use a valid packetId from the board packet list endpoint.");
-    }
-
-    const existingOutcome = record.reviewOutcomes.find((candidate) => candidate.packetId === input.packetId);
-    if (existingOutcome) {
-      if (stableReviewOutcomeSignature(existingOutcome) === stableReviewOutcomeSignature(input)) {
-        return {
-          case: structuredClone(record),
-          reviewOutcome: structuredClone(existingOutcome),
-          created: false,
-        };
-      }
-
-      throw new ApiError(
-        409,
-        "review_outcome_already_recorded",
-        "A review outcome is already recorded for this board packet.",
-        "Reuse the stored review outcome or generate a new board packet revision before recording a different decision.",
-      );
-    }
-
-    const reviewedAt = this.clock.nowIso();
-    const reviewOutcome: ReviewOutcomeRecord = {
-      reviewId: `review_${randomUUID()}`,
-      caseId,
-      packetId: packet.packetId,
-      reviewerId: input.reviewerId,
-      reviewerRole: input.reviewerRole,
-      reviewDisposition: input.reviewDisposition,
-      rationale: input.rationale,
-      comments: input.comments,
-      reviewedAt,
-    };
-
-    record.reviewOutcomes.push(reviewOutcome);
-    const reviewTargetStatus = input.reviewDisposition === "approved"
-      ? "APPROVED_FOR_HANDOFF" as const
-      : input.reviewDisposition === "rejected"
-        ? "REVIEW_REJECTED" as const
-        : "REVISION_REQUESTED" as const;
-    await this.applyTransition(record, reviewTargetStatus, correlationId);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "review_outcome_recorded",
-        `Recorded ${input.reviewDisposition} review outcome ${reviewOutcome.reviewId} for packet ${packet.packetId}.`,
-        reviewedAt,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "review.outcome.recorded",
-        `Recorded ${input.reviewDisposition} review outcome ${reviewOutcome.reviewId} for packet ${packet.packetId}.`,
-        correlationId,
-        reviewedAt,
-      ),
-    );
-    record.updatedAt = reviewedAt;
-
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "review.outcome.recorded",
-        {
-          reviewOutcome: structuredClone(reviewOutcome),
-          nextStatus: record.status,
-        },
-        correlationId,
-        reviewedAt,
-        reviewedAt,
-      ),
-    );
-
-    const rebuiltCase = await this.rebuildCaseProjection(caseId);
-
-    return {
-      case: rebuiltCase,
-      reviewOutcome: structuredClone(reviewOutcome),
-      created: true,
-    };
+    return recordReviewOutcomeForCase(this.getReviewMutationContext(), this.getMutableRecord(caseId), caseId, input, correlationId);
   }
 
   async listReviewOutcomes(caseId: string): Promise<ReviewOutcomeRecord[]> {
@@ -1426,127 +1008,7 @@ export class MemoryCaseStore implements CaseStore {
   }
 
   async generateHandoffPacket(caseId: string, input: GenerateHandoffPacketInput, correlationId: AuditContextInput): Promise<HandoffPacketGenerationResult> {
-    const record = this.getMutableRecord(caseId);
-    const reviewOutcome = record.reviewOutcomes.find((candidate) => candidate.reviewId === input.reviewId);
-    if (!reviewOutcome) {
-      throw new ApiError(404, "review_outcome_not_found", "Review outcome was not found for this case.", "Use a valid reviewId from the review outcome list endpoint.");
-    }
-
-    if (reviewOutcome.reviewDisposition !== "approved") {
-      throw new ApiError(
-        409,
-        "review_outcome_not_approved",
-        "Only approved review outcomes can emit a manufacturing handoff packet.",
-        "Record an approved review outcome before generating a handoff packet.",
-      );
-    }
-
-    const boardPacket = record.boardPackets.find((candidate) => candidate.packetId === reviewOutcome.packetId);
-    if (!boardPacket) {
-      throw new ApiError(404, "board_packet_not_found", "Board packet was not found for this case.", "Use a valid packetId from the board packet list endpoint.");
-    }
-
-    if (!record.constructDesign) {
-      throw new ApiError(
-        409,
-        "construct_design_required",
-        "Manufacturing handoff requires a stored construct design.",
-        "Generate and persist a construct design before creating a handoff packet.",
-      );
-    }
-
-    const snapshot: HandoffPacketSnapshot = {
-      caseSummary: {
-        caseId: record.caseId,
-        status: record.status,
-        indication: record.caseProfile.indication,
-        siteId: record.caseProfile.siteId,
-        protocolVersion: record.caseProfile.protocolVersion,
-        boardRoute: boardPacket.boardRoute,
-      },
-      boardPacket: {
-        packetId: boardPacket.packetId,
-        boardRoute: boardPacket.boardRoute,
-        version: boardPacket.version,
-        packetHash: boardPacket.packetHash,
-        createdAt: boardPacket.createdAt,
-      },
-      reviewOutcome: structuredClone(reviewOutcome),
-      constructDesign: structuredClone(record.constructDesign),
-      handoffTarget: input.handoffTarget,
-      requestedBy: input.requestedBy,
-      turnaroundDays: input.turnaroundDays,
-      notes: input.notes,
-    };
-
-    const packetHash = computePacketHash(snapshot);
-    const existingPacket = record.handoffPackets.find((candidate) => candidate.packetHash === packetHash);
-    if (existingPacket) {
-      return {
-        case: structuredClone(record),
-        handoff: structuredClone(existingPacket),
-        created: false,
-      };
-    }
-
-    const createdAt = this.clock.nowIso();
-    const handoff: HandoffPacketRecord = {
-      handoffId: `handoff_${randomUUID()}`,
-      caseId,
-      reviewId: reviewOutcome.reviewId,
-      packetId: boardPacket.packetId,
-      artifactClass: "HANDOFF_PACKET",
-      constructId: record.constructDesign.constructId,
-      constructVersion: record.constructDesign.version,
-      handoffTarget: input.handoffTarget,
-      schemaVersion: 1,
-      packetHash,
-      createdAt,
-      snapshot,
-    };
-
-    record.handoffPackets.push(handoff);
-    await this.applyTransition(record, "HANDOFF_PENDING", correlationId);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "handoff_packet_generated",
-        `Generated manufacturing handoff packet ${handoff.handoffId} for ${input.handoffTarget}.`,
-        createdAt,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "handoff.packet.generated",
-        `Generated manufacturing handoff packet ${handoff.handoffId} for ${input.handoffTarget}.`,
-        correlationId,
-        createdAt,
-      ),
-    );
-    record.updatedAt = createdAt;
-
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "handoff.packet.generated",
-        {
-          handoffPacket: structuredClone(handoff),
-          nextStatus: record.status,
-        },
-        correlationId,
-        createdAt,
-        createdAt,
-      ),
-    );
-
-    const rebuiltCase = await this.rebuildCaseProjection(caseId);
-
-    return {
-      case: rebuiltCase,
-      handoff: structuredClone(handoff),
-      created: true,
-    };
+    return generateHandoffPacketForCase(this.getReviewMutationContext(), this.getMutableRecord(caseId), caseId, input, correlationId);
   }
 
   async listHandoffPackets(caseId: string): Promise<HandoffPacketRecord[]> {
@@ -1646,199 +1108,23 @@ export class MemoryCaseStore implements CaseStore {
     return record.constructDesign ?? null;
   }
 
-  private assertOutcomeConstruct(record: CaseRecord, caseId: string, constructId: string, constructVersion: number): void {
-    if (!record.constructDesign) {
-      throw new ApiError(
-        409,
-        "construct_design_required",
-        "Outcome events require a stored construct design.",
-        "Generate and persist a construct design before recording outcomes.",
-      );
-    }
-
-    if (record.constructDesign.caseId !== caseId) {
-      throw new ApiError(409, "invalid_transition", "Construct design caseId does not match the outcome target case.", "Use the construct design linked to this case.");
-    }
-
-    if (record.constructDesign.constructId !== constructId || record.constructDesign.version !== constructVersion) {
-      throw new ApiError(
-        409,
-        "construct_mismatch",
-        "Outcome event does not match the stored construct design identity.",
-        "Record outcomes only against the stored constructId and constructVersion.",
-      );
-    }
-  }
-
-  private appendOutcomeEntry(record: CaseRecord, entry: OutcomeTimelineEntry): void {
-    record.outcomeTimeline.push(structuredClone(entry));
-    sortOutcomeTimeline(record.outcomeTimeline);
-  }
-
   async recordAdministration(caseId: string, administration: AdministrationRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
-    const record = this.getMutableRecord(caseId);
-    if (administration.caseId !== caseId) {
-      throw new ApiError(409, "invalid_transition", "Administration record caseId does not match the target case.", "Use an administration record for the target case.");
-    }
-
-    this.assertOutcomeConstruct(record, caseId, administration.constructId, administration.constructVersion);
-
-    const entry: OutcomeTimelineEntry = {
-      entryId: `outcome_${randomUUID()}`,
-      caseId,
-      constructId: administration.constructId,
-      constructVersion: administration.constructVersion,
-      entryType: "administration",
-      occurredAt: administration.administeredAt,
-      administration: structuredClone(administration),
-    };
-
-    this.appendOutcomeEntry(record, entry);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "construct_administered",
-        `Recorded construct administration ${administration.administrationId} via ${administration.route}.`,
-        administration.administeredAt,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "outcome.recorded",
-        `Recorded administration outcome ${administration.administrationId} for construct ${administration.constructId}.`,
-        correlationId,
-        administration.administeredAt,
-      ),
-    );
-    record.updatedAt = this.clock.nowIso();
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "administration.recorded",
-        { entry: structuredClone(entry) },
-        correlationId,
-        administration.administeredAt,
-        record.updatedAt,
-      ),
-    );
-
-    return this.rebuildCaseProjection(caseId);
+    return recordAdministrationForCase(this.getOutcomeMutationContext(), this.getMutableRecord(caseId), caseId, administration, correlationId);
   }
 
   async recordImmuneMonitoring(caseId: string, immuneMonitoring: ImmuneMonitoringRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
-    const record = this.getMutableRecord(caseId);
-    if (immuneMonitoring.caseId !== caseId) {
-      throw new ApiError(409, "invalid_transition", "Immune monitoring record caseId does not match the target case.", "Use an immune monitoring record for the target case.");
-    }
-
-    this.assertOutcomeConstruct(record, caseId, immuneMonitoring.constructId, immuneMonitoring.constructVersion);
-
-    const entry: OutcomeTimelineEntry = {
-      entryId: `outcome_${randomUUID()}`,
-      caseId,
-      constructId: immuneMonitoring.constructId,
-      constructVersion: immuneMonitoring.constructVersion,
-      entryType: "immune-monitoring",
-      occurredAt: immuneMonitoring.collectedAt,
-      immuneMonitoring: structuredClone(immuneMonitoring),
-    };
-
-    this.appendOutcomeEntry(record, entry);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "immune_monitoring_recorded",
-        `Recorded immune monitoring ${immuneMonitoring.monitoringId} for biomarker ${immuneMonitoring.biomarker}.`,
-        immuneMonitoring.collectedAt,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "outcome.recorded",
-        `Recorded immune monitoring outcome ${immuneMonitoring.monitoringId} for construct ${immuneMonitoring.constructId}.`,
-        correlationId,
-        immuneMonitoring.collectedAt,
-      ),
-    );
-    record.updatedAt = this.clock.nowIso();
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "immune-monitoring.recorded",
-        { entry: structuredClone(entry) },
-        correlationId,
-        immuneMonitoring.collectedAt,
-        record.updatedAt,
-      ),
-    );
-
-    return this.rebuildCaseProjection(caseId);
+    return recordImmuneMonitoringForCase(this.getOutcomeMutationContext(), this.getMutableRecord(caseId), caseId, immuneMonitoring, correlationId);
   }
 
   async recordClinicalFollowUp(caseId: string, clinicalFollowUp: ClinicalFollowUpRecord, correlationId: AuditContextInput): Promise<CaseRecord> {
-    const record = this.getMutableRecord(caseId);
-    if (clinicalFollowUp.caseId !== caseId) {
-      throw new ApiError(409, "invalid_transition", "Clinical follow-up record caseId does not match the target case.", "Use a clinical follow-up record for the target case.");
-    }
-
-    this.assertOutcomeConstruct(record, caseId, clinicalFollowUp.constructId, clinicalFollowUp.constructVersion);
-
-    const entry: OutcomeTimelineEntry = {
-      entryId: `outcome_${randomUUID()}`,
-      caseId,
-      constructId: clinicalFollowUp.constructId,
-      constructVersion: clinicalFollowUp.constructVersion,
-      entryType: "clinical-follow-up",
-      occurredAt: clinicalFollowUp.evaluatedAt,
-      clinicalFollowUp: structuredClone(clinicalFollowUp),
-    };
-
-    this.appendOutcomeEntry(record, entry);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "clinical_follow_up_recorded",
-        `Recorded clinical follow-up ${clinicalFollowUp.followUpId} with response ${clinicalFollowUp.responseCategory}.`,
-        clinicalFollowUp.evaluatedAt,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "outcome.recorded",
-        `Recorded clinical follow-up outcome ${clinicalFollowUp.followUpId} for construct ${clinicalFollowUp.constructId}.`,
-        correlationId,
-        clinicalFollowUp.evaluatedAt,
-      ),
-    );
-    record.updatedAt = this.clock.nowIso();
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "clinical-follow-up.recorded",
-        { entry: structuredClone(entry) },
-        correlationId,
-        clinicalFollowUp.evaluatedAt,
-        record.updatedAt,
-      ),
-    );
-
-    return this.rebuildCaseProjection(caseId);
+    return recordClinicalFollowUpForCase(this.getOutcomeMutationContext(), this.getMutableRecord(caseId), caseId, clinicalFollowUp, correlationId);
   }
 
   async getOutcomeTimeline(caseId: string): Promise<OutcomeTimelineEntry[]> {
-    const record = await this.getCase(caseId);
-    return structuredClone(record.outcomeTimeline);
+    return getOutcomeTimelineForCase(await this.getCase(caseId));
   }
 
   async getFullTraceability(caseId: string): Promise<FullTraceabilityRecord> {
-    const record = await this.getCase(caseId);
-    try {
-      return buildFullTraceability(record, record.outcomeTimeline);
-    } catch (error) {
-      normalizeTraceabilityError(error);
-    }
+    return getFullTraceabilityForCase(await this.getCase(caseId));
   }
 }

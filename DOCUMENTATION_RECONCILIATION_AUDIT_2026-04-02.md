@@ -1,6 +1,6 @@
 ---
 title: "Documentation Reconciliation Audit 2026-04-02"
-status: "active-evidence"
+status: "historical-evidence"
 version: "1.0.0"
 last_updated: "2026-04-02"
 tags: [documentation, audit, evidence, academic-analysis, regulatory, clinical-trials]
@@ -10,7 +10,7 @@ tags: [documentation, audit, evidence, academic-analysis, regulatory, clinical-t
 
 ## Scope
 
-This memo certifies the April 2, 2026 refresh of the OpenRNA authority analysis layer in `external/mRNA-standalone`.
+This memo captures the April 2, 2026 refresh of the OpenRNA authority analysis layer in the standalone OpenRNA repository.
 
 Assessment boundary:
 - [docs/ACADEMIC_ANALYSIS_2026-04.md](docs/ACADEMIC_ANALYSIS_2026-04.md)

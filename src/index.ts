@@ -1,86 +1,16 @@
 import { createServer } from "node:http";
 import { createApp } from "./app";
 import { loadConfig } from "./config";
-import { MemoryCaseStore } from "./store";
-import { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatchSink";
-import { InMemoryWorkflowRunner } from "./adapters/InMemoryWorkflowRunner";
-import { PostgresCaseStore } from "./adapters/PostgresCaseStore";
-import { PostgresWorkflowDispatchSink } from "./adapters/PostgresWorkflowDispatchSink";
-import { PostgresWorkflowRunner } from "./adapters/PostgresWorkflowRunner";
+import {
+  createDurableRuntimeDependencies,
+  createWorkflowDispatchDependency,
+} from "./bootstrap/runtime-dependencies";
 import { closeServerAndResources } from "./runtime-shutdown";
-import { InMemoryStateMachineGuard } from "./adapters/InMemoryStateMachineGuard";
-import { Pool } from "pg";
-
-function createDispatchSink(config: ReturnType<typeof loadConfig>) {
-  const connectionString = config.workflowDispatchDatabaseUrl;
-  if (!connectionString) {
-    return {
-      sink: new InMemoryWorkflowDispatchSink(),
-      shutdown: async () => {},
-    };
-  }
-
-  const pool = new Pool({
-    connectionString,
-    max: 20,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
-    statement_timeout: 30000,
-    keepAlive: true,
-    keepAliveInitialDelayMillis: 10_000,
-  });
-  const sink = new PostgresWorkflowDispatchSink(pool, {
-    tableName: config.workflowDispatchTableName,
-  });
-
-  return {
-    sink,
-    shutdown: async () => sink.close(),
-  };
-}
-
-function createDurableAdapters(
-  config: ReturnType<typeof loadConfig>,
-  dispatchSink: InMemoryWorkflowDispatchSink | PostgresWorkflowDispatchSink,
-) {
-  const connectionString = config.caseStoreDatabaseUrl;
-  if (!connectionString) {
-    return {
-      store: new MemoryCaseStore(undefined, dispatchSink, [], new InMemoryStateMachineGuard()) as MemoryCaseStore | PostgresCaseStore,
-      runner: new InMemoryWorkflowRunner() as InMemoryWorkflowRunner | PostgresWorkflowRunner,
-      shutdown: async () => {},
-    };
-  }
-
-  const pool = new Pool({
-    connectionString,
-    max: 20,
-    idleTimeoutMillis: 30_000,
-    connectionTimeoutMillis: 5_000,
-    statement_timeout: 30000,
-    keepAlive: true,
-    keepAliveInitialDelayMillis: 10_000,
-  });
-  const store = new PostgresCaseStore(pool, undefined, dispatchSink, new InMemoryStateMachineGuard());
-  const runner = new PostgresWorkflowRunner(pool);
-
-  return {
-    store,
-    runner,
-    shutdown: async () => store.close(),
-  };
-}
 
 async function bootstrap() {
   const config = loadConfig();
-  const dispatch = createDispatchSink(config);
-  if (dispatch.sink instanceof PostgresWorkflowDispatchSink) {
-    await dispatch.sink.initialize();
-  }
-  const durable = createDurableAdapters(config, dispatch.sink);
-  if (durable.store instanceof PostgresCaseStore) {
-    await durable.store.initialize();
-  }
+  const dispatch = await createWorkflowDispatchDependency(config);
+  const durable = await createDurableRuntimeDependencies(config, dispatch.sink);
   if (!config.apiKey) {
     process.stderr.write("WARNING: API_KEY not set — API endpoints are unprotected.\n");
   }
@@ -119,7 +49,7 @@ async function bootstrap() {
   });
 
   server.listen(config.port, () => {
-    process.stdout.write(`personalized-mrna-control-plane listening on http://localhost:${config.port}\n`);
+    process.stdout.write(`OpenRNA listening on http://localhost:${config.port}\n`);
   });
 }
 

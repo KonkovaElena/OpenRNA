@@ -1,53 +1,48 @@
 ---
 title: "GitHub Export And Investor Readiness Audit — April 2026"
 status: active-evidence
-version: "1.4.0"
-last_updated: "2026-04-02"
+version: "1.5.0"
+last_updated: "2026-04-04"
 tags: [github, investor, audit, evidence, toolchain, oncology]
-evidence_cutoff: "2026-04-02"
+evidence_cutoff: "2026-04-04"
 ---
 
-# GitHub Export And Investor Readiness Audit
+# GitHub Export & Investor Readiness
 
 ## Scope
 
-This memo defines the conservative public-export boundary for the standalone OpenRNA repository and records what was re-verified on April 2, 2026.
+This memo draws the public-export boundary for the standalone OpenRNA repository and records what we've verified as of April 4, 2026.
 
-Assessment boundary:
+**What we checked:**
 
-- repository identity and package metadata
-- toolchain baseline and dependency freshness
+- Repository identity and package metadata
+- Toolchain and dependency freshness
 - GitHub community-health and automation surfaces
-- investor-facing technical narrative and evidence posture
-- current public clinical and regulatory anchor claims
+- Investor-facing technical narrative and evidence posture
+- Current clinical and regulatory anchor claims
 
-Out of scope:
-
-- legal opinions
-- regulatory submissions
-- CMC qualification packages
-- sponsor-confidential manufacturing materials
-- patient-specific clinical decision support
+**What's out of scope:** legal opinions, regulatory submissions, CMC qualification packages, manufacturing materials, clinical decision support.
 
 ## Executive Verdict
 
-OpenRNA is now materially closer to a public GitHub-ready technical repository than it was in the March 2026 state.
+OpenRNA is ready for public technical diligence. Not clinically deployable, not Part 11-complete — but substantially more legible for an investor doing engineering diligence than the March 2026 snapshot.
 
-The hardening pass closed fourteen external-review gaps:
+We closed fourteen gaps in a single hardening pass:
 
-1. the runtime baseline is explicit and reproducible around Node 24 Active LTS;
-2. the TypeScript configuration is aligned with current Node-aware guidance without forcing a disruptive ESM rewrite;
-3. GitHub community-health surfaces now exist for contributing, conduct, security, and support;
-4. repository-level review ownership is declared through `CODEOWNERS`;
-5. structured issue and pull-request intake now exist for external contributors and reviewers;
-6. CI and dependency-watch automation are present for an external reviewer to inspect;
-7. GitHub-native security automation now includes CodeQL and pull-request dependency review;
-8. a reproducible CycloneDX SBOM can now be generated from the standalone repository itself;
-9. build artifacts and SBOMs now have a GitHub-native attestation path based on short-lived Sigstore-backed signing;
-10. a release contract now exists for semver tags, generated release notes, and artifact handling;
-11. a consumer verification path now exists for checksums and GitHub attestations;
-12. GitHub-side branch protection and security-setting expectations are now explicit instead of implicit;
-13. tagged provenance runs now auto-publish GitHub release assets instead of leaving that step as manual maintainer toil;
+1. Runtime baseline is explicit — Node 24 Active LTS, pinned in `engines.node`, `.nvmrc`, and `packageManager`;
+2. TypeScript config follows current Node-aware guidance (no forced ESM rewrite);
+3. Community-health surfaces exist: `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `SUPPORT.md`;
+4. Review ownership is declared via `CODEOWNERS`;
+5. Structured issue and PR intake via templates;
+6. CI and Dependabot automation are present and inspectable;
+7. GitHub-native SAST via CodeQL + dependency review on PRs;
+8. CycloneDX SBOM generation works from the standalone repo;
+9. Build artifacts have a Sigstore attestation path;
+10. Release contract exists for semver tags with generated notes;
+11. Consumer verification path exists (checksums + `gh attestation verify`);
+12. Branch protection expectations are documented, not implicit;
+13. Tagged provenance runs auto-publish GitHub release assets;
+14. This investor audit separates implemented software from external evidence from remaining gaps.
 14. an April 2026 investor-facing technical audit now separates implemented software, validated external evidence, and remaining gaps.
 
 This does not make the repository clinically deployable, Part 11 complete, or investment-grade proof of market traction. It makes the repository substantially more legible for technical diligence.
@@ -110,40 +105,42 @@ Operational conclusion:
 - standalone public surfaces: clean for export
 - root monorepo lineage docs: historical and internal, not export surfaces
 
-## What An Investor Can Reliably Infer
+## What An Investor Can Take Away
 
-### Reasonable technical inferences
+### The strong signals
 
-1. The team understands the control-plane boundaries around personalized neoantigen RNA workflows.
-2. The repository already implements non-trivial orchestration, provenance, QC, review, and handoff concepts.
-3. The documentation distinguishes implemented software from external clinical evidence and from future modality bets.
-4. The codebase is testable and automation-ready rather than being a static idea repository.
+1. **We understand the problem space.** The control-plane boundaries we've drawn — case lifecycle, consent governance, reference-bundle pinning, review packets, manufacturing handoff — aren't generic CRUD. They track the actual operational complexity of individualized neoantigen workflows.
+2. **The code is real.** 430 tests across 22 suites, 94.81% line coverage. `npm run build`, `npm test`, and `npm audit --omit=dev --audit-level=high` all pass clean. This isn't a pitch deck with a prototype behind it — it's a working system with behavioral verification.
+3. **We separate fact from aspiration.** Every design claim carries a tier marker (T1 = implemented, T2 = validated trajectory, T3 = strategic bet, T4 = horizon). The documentation doesn't blur what exists with what's planned.
+4. **The platform is automation-ready.** CI, CodeQL, dependency review, CycloneDX SBOM, Sigstore attestations, and semver-tagged release assets — all present and inspectable in the repository.
 
-### What an investor should not infer
+### What we're not claiming
 
-1. This repository is not a clinical product.
-2. This repository is not a validated manufacturing execution system.
-3. This repository is not a regulatory submission package.
-4. This repository does not prove commercial traction, payer readiness, or manufacturing scale.
+1. This is **not** a clinical product — it hasn't touched real patient data.
+2. This is **not** a validated manufacturing execution system.
+3. This is **not** a regulatory submission package.
+4. This is **not** proof of commercial traction, payer readiness, or manufacturing scale.
+
+We're honest about these gaps because investors who've done biotech diligence can smell overclaiming instantly — and it destroys trust in everything else.
 
 ## Remaining Gaps
 
-| Gap | Why it still matters |
-|-----|----------------------|
-| No electronic signatures | Part 11 and clinical-signoff completeness remain open |
-| No individual-user RBAC | API-key auth is not an adequate clinical identity boundary |
-| No validated-system package | IQ/OQ/PQ and formal CSV evidence are still absent |
-| GitHub settings remain manual | Branch protection, private vulnerability reporting, and higher-tier secret-protection controls still depend on hosted repository settings |
-| No current market-validation evidence | Investor narrative is still product-kernel and technical-diligence oriented |
+| Gap | What it blocks |
+|-----|---------------|
+| No electronic signatures | 21 CFR Part 11 clinical-signoff completeness |
+| No individual-user auth | API-key identity isn't an adequate clinical boundary |
+| No IQ/OQ/PQ package | Formal validated-system qualification still absent |
+| GitHub settings are manual | Branch protection and private vuln reporting depend on hosted settings |
+| No market-validation evidence | Narrative is product-kernel + technical-diligence, not revenue or LOIs |
 
-## Conservative Release Statement
+## Where We Stand
 
-As of April 2, 2026, OpenRNA can be presented as an evidence-aware standalone technical repository for personalized neoantigen RNA control-plane design and implementation.
+As of April 4, 2026, OpenRNA can be presented as **a serious technical foundation for personalized neoantigen RNA workflow governance**, backed by current evidence anchors and honest engineering practice.
 
-It should be presented to investors as:
+Present it as:
 
-- a serious technical foundation;
-- a credible software and workflow architecture artifact;
-- a repository with honest boundaries and current public-source anchors.
+- A credible software architecture artifact with deep verification
+- An early-stage platform with clear upgrade paths to clinical-grade
+- An honest repository that distinguishes what's built from what's planned
 
-It should not be presented as a clinically validated or commercially de-risked platform.
+Don't present it as a clinically validated platform or a commercially de-risked product. It isn't. Yet.

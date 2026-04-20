@@ -1,42 +1,42 @@
 ---
 title: "OpenRNA Hardening Roadmap 2026"
 status: active
-version: "1.1.0"
-last_updated: "2026-04-03"
+version: "1.2.0"
+last_updated: "2026-04-04"
 tags: [openrna, roadmap, hardening, security, architecture]
 mode: how-to
 ---
 
 # OpenRNA Hardening Roadmap 2026
 
-This roadmap converts the findings from [`OPENRNA_HYPER_AUDIT_2026.md`](OPENRNA_HYPER_AUDIT_2026.md) into a sequenced engineering program.
+This roadmap converts our audit findings from [`OPENRNA_HYPER_AUDIT_2026.md`](OPENRNA_HYPER_AUDIT_2026.md) into a sequenced engineering program.
 
 ## Goal
 
-Raise OpenRNA from a research-grade, strongly tested control plane to a pre-production platform with explicit enforcement at the resource-authorization, consent-governance, durable-traceability, and release-authority layers.
+Take OpenRNA from research-grade control plane to pre-production — with explicit enforcement at four layers: resource-authorization, consent-governance, durable-traceability, and release-authority.
 
 ## Priority Rule
 
-Do not spend the next wave on new product features first.
+Don't build new product features next.
 
-The next highest-value work is control completion:
+The highest-value work right now is control completion:
 
-1. resource-scoped authorization;
-2. authoritative consent governance;
-3. durable domain event history semantics;
-4. release and signing authority.
+1. Resource-scoped authorization
+2. Authoritative consent governance
+3. Durable domain event history
+4. Release and signing authority
 
-## Completed Baseline As Of 2026-04-03
+Each of these is well-defined, testable, and incremental. None requires re-architecture.
 
-The following baseline hardening work is already materially in place and should be preserved, not re-opened:
+## Completed Baseline (2026-04-03)
 
-- `RBAC_ALLOW_ALL=false` is now the secure default in `src/config.ts`;
-- `InMemoryRbacProvider` is deny-by-default unless permissive mode is explicitly enabled;
-- route-level RBAC coverage exists across case reads and case-mutating endpoints in `src/app.ts`;
-- case-scoped write routes are gated by `requireActiveConsent(...)` in `src/middleware/consent-gate.ts`;
-- `stateMachineGuard` is injected into both bootstrapped memory and PostgreSQL store paths via `src/index.ts` and `src/adapters/PostgresCaseStore.ts`.
+We've already closed the most critical baseline gaps. This work should be preserved, not re-opened:
 
-The next roadmap waves should extend these controls, not revisit them as if they were still missing.
+- `RBAC_ALLOW_ALL=false` is the secure default in `src/config.ts`
+- `InMemoryRbacProvider` is deny-by-default unless explicitly opted out
+- Route-level RBAC covers case reads and writes in `src/app.ts`
+- Case-scoped write routes gated by `requireActiveConsent(...)` in `src/middleware/consent-gate.ts`
+- `stateMachineGuard` injected in both memory and PostgreSQL store paths
 
 ## Workstream 1. Resource-Scoped Authorization
 

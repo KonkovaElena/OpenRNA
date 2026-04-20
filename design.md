@@ -1,13 +1,13 @@
 ---
-title: "Personalized Neoantigen RNA Platform Design"
+title: "OpenRNA Platform Design"
 status: active
-version: "3.0.0"
-last_updated: "2026-04-02"
+version: "3.1.0"
+last_updated: "2026-04-04"
 tags: [oncology, mrna, circRNA, saRNA, neoantigen, platform-design]
-evidence_cutoff: "2026-04-02"
+evidence_cutoff: "2026-04-04"
 ---
 
-# Design: Personalized Neoantigen RNA Platform
+# Design: OpenRNA Platform
 
 ## Goal
 
@@ -69,7 +69,7 @@ Tier-маркеры указаны в квадратных скобках: **[T1
 
 ### Architecture
 
-- **11 interfaces under `src/ports`**: `IConstructDesigner`, `IHlaConsensusProvider`, `IModalityRegistry`, `INeoantigenRankingEngine`, `INextflowClient`, `IOutcomeRegistry`, `IQcGateEvaluator`, `IReferenceBundleRegistry`, `IWorkflowDispatchSink`, `IWorkflowOrchestrator`, `IWorkflowRunner`. `CaseStore` remains a local storage abstraction defined in `src/store.ts`, not a standalone port file in `src/ports`.
+- **17 interfaces under `src/ports`**: 11 workflow/scientific seams (`IConstructDesigner`, `IHlaConsensusProvider`, `IModalityRegistry`, `INeoantigenRankingEngine`, `INextflowClient`, `IOutcomeRegistry`, `IQcGateEvaluator`, `IReferenceBundleRegistry`, `IWorkflowDispatchSink`, `IWorkflowOrchestrator`, `IWorkflowRunner`), 5 governance/compliance seams (`IAuditSignatureProvider`, `IConsentTracker`, `IFhirExporter`, `IRbacProvider`, `IStateMachineGuard`), plus `IEventStore` for domain-event replay semantics. `CaseStore` remains a local storage abstraction defined in `src/store.ts`, not a standalone port file in `src/ports`.
 - **Dual adapter strategy**: in-memory adapters for local development and testing, PostgreSQL adapters for durable persistence (`PostgresCaseStore`, `PostgresWorkflowDispatchSink`, `PostgresWorkflowRunner`).
 - **Dependency injection**: all adapters injected through `AppDependencies` factory interface; no runtime coupling to specific implementations.
 - **Validation**: Zod runtime schemas for all API inputs.
@@ -253,7 +253,7 @@ Full API surface documented in [README.md](README.md).
 
 ## Core Thesis
 
-**Personalized neoantigen RNA platform = molecular profiling + neoantigen intelligence + RNA engineering + delivery/manufacturing workflow + clinical evidence loop.**
+**OpenRNA = molecular profiling + neoantigen intelligence + RNA engineering + delivery/manufacturing workflow + clinical evidence loop.**
 
 Каждый слой улучшается независимо:
 - better calling and annotation;
@@ -393,7 +393,7 @@ Only after earlier layers are stable. Strict patient selection, combination stra
 - RNA design workbench producing multiple traceable construct candidates.
 - Manufacturing handoff package with provenance.
 - Expert review workflow with auditability.
-- 40+ API endpoints tested and stable (296+ passing tests).
+- 40+ API endpoints tested and stable (430 tests across 22 suites, 94.81% line coverage).
 
 ### Mid-term [T2]
 - Prospective evidence of repeatable individualized product generation in clinically meaningful timeframe.
