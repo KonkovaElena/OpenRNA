@@ -1,5 +1,6 @@
 import { type NextFunction, type Request, type Response } from "express";
 import { timingSafeEqual } from "node:crypto";
+import { ApiError } from "../errors";
 
 const EXEMPT_PATHS = new Set(["/", "/healthz", "/readyz", "/metrics"]);
 
@@ -14,7 +15,7 @@ export function apiKeyAuth(expectedKey: string) {
 
     const provided = req.header("x-api-key");
     if (!provided) {
-      res.status(401).json({ error: "Missing x-api-key header." });
+      next(new ApiError(401, "missing_credentials", "Missing x-api-key header.", "Provide the required authentication credentials and retry."));
       return;
     }
 
@@ -23,7 +24,7 @@ export function apiKeyAuth(expectedKey: string) {
       expectedBuffer.length !== providedBuffer.length ||
       !timingSafeEqual(expectedBuffer, providedBuffer)
     ) {
-      res.status(403).json({ error: "Invalid API key." });
+      next(new ApiError(403, "invalid_api_key", "Invalid API key.", "Retry with a valid x-api-key header."));
       return;
     }
 

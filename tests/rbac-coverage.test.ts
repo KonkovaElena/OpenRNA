@@ -86,7 +86,10 @@ describe("RBAC deny-by-default coverage", () => {
     test(`${route.label} → 403 without RBAC role`, async () => {
       const res = await request(app).post(route.path).send(route.body);
       assert.equal(res.status, 403, `Expected 403 for ${route.label}, got ${res.status}`);
-      assert.equal(res.body.error, "Forbidden");
+      assert.equal(res.body.code, "forbidden");
+      assert.equal(res.body.message, "Forbidden.");
+      assert.equal(typeof res.body.nextStep, "string");
+      assert.equal(typeof res.body.correlationId, "string");
     });
   }
 
@@ -94,7 +97,10 @@ describe("RBAC deny-by-default coverage", () => {
     test(`${route.label} → 403 without RBAC role`, async () => {
       const res = await request(app).get(route.path);
       assert.equal(res.status, 403, `Expected 403 for ${route.label}, got ${res.status}`);
-      assert.equal(res.body.error, "Forbidden");
+      assert.equal(res.body.code, "forbidden");
+      assert.equal(res.body.message, "Forbidden.");
+      assert.equal(typeof res.body.nextStep, "string");
+      assert.equal(typeof res.body.correlationId, "string");
     });
   }
 

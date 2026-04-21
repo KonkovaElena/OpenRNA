@@ -134,7 +134,10 @@ test("RBAC Auth Middleware", async (t) => {
       .set("x-api-key", "unauthorized-user")
       .send(buildCaseInput());
     assert.strictEqual(res.status, 403);
-    assert.ok(res.body.error);
+    assert.strictEqual(res.body.code, "forbidden");
+    assert.strictEqual(res.body.message, "Forbidden.");
+    assert.equal(typeof res.body.nextStep, "string");
+    assert.equal(typeof res.body.correlationId, "string");
   });
 
   await t.test("strict RBAC does not trust unsigned x-api-key hints when auth is not configured", async () => {
@@ -161,7 +164,8 @@ test("RBAC Auth Middleware", async (t) => {
       .set("x-api-key", "unknown-user")
       .send(buildCaseInput());
     assert.strictEqual(res.status, 403);
-    assert.ok(res.body.detail, "response should include detail about the denied action");
+    assert.strictEqual(res.body.code, "forbidden");
+    assert.match(String(res.body.nextStep), /CREATE_CASE|permission/i, "response should include detail about the denied action");
   });
 
   await t.test("strict RBAC allows configured api-key principal id instead of raw secret", async () => {
@@ -231,6 +235,9 @@ test("RBAC Auth Middleware", async (t) => {
       .set("authorization", "Bearer invalid.token.value")
       .send(buildCaseInput());
     assert.strictEqual(res.status, 403);
-    assert.match(String(res.body.error), /token/i);
+    assert.strictEqual(res.body.code, "invalid_token");
+    assert.match(String(res.body.message), /token/i);
+    assert.equal(typeof res.body.nextStep, "string");
+    assert.equal(typeof res.body.correlationId, "string");
   });
 });

@@ -59,7 +59,10 @@ test("PROB-002: protected route returns 401 without x-api-key header", async () 
   const app = createApp({ apiKey: "secret-key-42" , rbacAllowAll: true, consentGateEnabled: false });
   const res = await request(app).get("/api/cases");
   assert.equal(res.status, 401);
-  assert.match(res.body.error, /Missing x-api-key/);
+  assert.equal(res.body.code, "missing_credentials");
+  assert.match(res.body.message, /Missing x-api-key/);
+  assert.equal(typeof res.body.nextStep, "string");
+  assert.equal(typeof res.body.correlationId, "string");
 });
 
 test("PROB-002: protected route returns 403 with wrong api key", async () => {
@@ -68,7 +71,10 @@ test("PROB-002: protected route returns 403 with wrong api key", async () => {
     .get("/api/cases")
     .set("x-api-key", "wrong-key");
   assert.equal(res.status, 403);
-  assert.match(res.body.error, /Invalid API key/);
+  assert.equal(res.body.code, "invalid_api_key");
+  assert.match(res.body.message, /Invalid API key/);
+  assert.equal(typeof res.body.nextStep, "string");
+  assert.equal(typeof res.body.correlationId, "string");
 });
 
 test("PROB-002: protected route returns 200 with correct api key", async () => {

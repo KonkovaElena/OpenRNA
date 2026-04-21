@@ -1,5 +1,6 @@
 import { type NextFunction, type Request, type Response } from "express";
 import { createAnonymousAuditContext, runWithAuditContext } from "../audit-context";
+import { ApiError } from "../errors";
 import {
   anonymousPrincipal,
   type AuthSettings,
@@ -18,6 +19,17 @@ function setPrincipalLocals(res: Response, principal: ReturnType<typeof anonymou
   res.locals.actorId = principal.actorId;
   res.locals.authMechanism = principal.authMechanism;
   res.locals.roles = principal.roles;
+}
+
+function nextStepForAuthResolution(code: AuthResolutionError["code"]): string {
+  switch (code) {
+    case "missing_credentials":
+      return "Provide the required authentication credentials and retry.";
+    case "invalid_api_key":
+      return "Retry with a valid x-api-key header.";
+    case "invalid_token":
+      return "Retry with a valid bearer token.";
+  }
 }
 
 export function authenticationContext(settings: AuthSettings) {
@@ -44,7 +56,7 @@ export function authenticationContext(settings: AuthSettings) {
       runWithAuditContext(toAuditContext(correlationId, principal), next);
     } catch (error) {
       if (error instanceof AuthResolutionError) {
-        res.status(error.statusCode).json({ error: error.message, code: error.code });
+        next(new ApiError(error.statusCode, error.code, error.message, nextStepForAuthResolution(error.code)));
         return;
       }
       next(error);

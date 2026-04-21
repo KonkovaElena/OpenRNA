@@ -1,4 +1,5 @@
 import { type NextFunction, type Request, type Response } from "express";
+import { ApiError } from "../errors";
 import type { ICaseAccessStore } from "../ports/ICaseAccessStore";
 import type { IRbacProvider } from "../ports/IRbacProvider";
 
@@ -24,10 +25,12 @@ export function caseAccessAuth(
 
       const allowed = await caseAccessStore.canAccess(caseId, principalId);
       if (!allowed) {
-        res.status(403).json({
-          error: "Forbidden",
-          detail: `Principal '${principalId}' does not have access to case '${caseId}'.`,
-        });
+        next(new ApiError(
+          403,
+          "forbidden",
+          "Forbidden.",
+          `Principal '${principalId}' does not have access to case '${caseId}'.`,
+        ));
         return;
       }
 

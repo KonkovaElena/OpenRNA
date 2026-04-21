@@ -36,9 +36,8 @@ Route registration lives in [src/app.ts](../src/app.ts). The canonical route inv
 
 - JSON request bodies are limited to 1 MB.
 - Most successful application routes return object envelopes such as `{ case }`, `{ run }`, `{ runs, meta }`, `{ consensus }`, or `{ gate }`.
-- Most application errors use the `ApiError` envelope: `{ code, message, nextStep, correlationId }`.
-- Authentication middleware currently returns a smaller envelope: `{ error, code }`.
-- RBAC denials currently return `{ error, detail }`.
+- Authentication, authorization, validation, and lifecycle failures use the `ApiError` envelope: `{ code, message, nextStep, correlationId }`.
+- `message` is operator-facing, while `nextStep` tells the caller what to fix before retrying.
 
 ## Route Groups
 
@@ -156,6 +155,7 @@ These codes appear repeatedly across route handlers, stores, and adapters.
 | `missing_credentials` | No usable API key or bearer token was supplied |
 | `invalid_api_key` | API key failed constant-time comparison |
 | `invalid_token` | JWT could not be parsed, verified, or validated |
+| `forbidden` | Authenticated principal lacks the required RBAC permission or case-level access grant |
 | `consent_required` | Case-scoped write operation or consent-gated lifecycle/disclosure read attempted without active consent |
 | `not_found` | Resource type exists conceptually, but no record exists for this case or run |
 | `case_not_found` | `caseId` does not resolve to a stored case |

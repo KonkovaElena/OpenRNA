@@ -46,7 +46,10 @@ test("resource-scoped authorization", async (t) => {
       .get(`/api/cases/${caseId}`)
       .set("x-principal-id", "bob");
     assert.equal(res.status, 403);
-    assert.equal(res.body.error, "Forbidden");
+    assert.equal(res.body.code, "forbidden");
+    assert.equal(res.body.message, "Forbidden.");
+    assert.equal(typeof res.body.nextStep, "string");
+    assert.equal(typeof res.body.correlationId, "string");
   });
 
   await t.test("admin can access foreign case", async () => {
