@@ -8,11 +8,13 @@ A control plane for personalized neoantigen RNA vaccine workflows.
 
 ## At a glance
 
-- Re-verified on 2026-04-20: 498 tests (22 suites), 94.93% line coverage, 83.46% branch coverage, 94.59% function coverage, `npm audit --omit=dev --audit-level=high` clean.
+- Re-verified on 2026-04-21: 504 tests (22 suites), 94.49% line coverage, 82.88% branch coverage, 94.11% function coverage, `npm audit --omit=dev --audit-level=high` clean, `npm run sbom:cyclonedx:file` refreshed.
 - Architecture baseline: 18 port interfaces, 23 adapters (18 in-memory + 5 integration), 17 case lifecycle states.
 - The repository is ready for engineering diligence, but it does not claim clinical deployment readiness and does not claim full 21 CFR Part 11 completion.
 
-Formal baseline snapshot: [`docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md`](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-20.md).
+Formal baseline snapshot: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-21.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-21.md).
+
+Migration note for the April 21, 2026 control-plane changes: [docs/archive/reports/BREAKING_CHANGES_2026-04-21.md](docs/archive/reports/BREAKING_CHANGES_2026-04-21.md).
 
 ## Why this project exists
 
@@ -62,7 +64,7 @@ Architecture authority document: [`docs/design.md`](docs/design.md).
 | Technical control-plane implementation | Implemented and test-covered |
 | Repository engineering posture (CI/SAST/SBOM/provenance) | Implemented |
 | Clinical deployment | Not claimed |
-| Electronic signature manifestations and dual-authorization release ceremony | Partially implemented, but not identity-bound or Part 11-complete |
+| Electronic signature manifestations and independent final release ceremony | Partially implemented, but not identity-bound or Part 11-complete |
 | Resource-scoped authorization and part of regulatory controls | In active hardening roadmap |
 
 Hardening details: [`docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md).

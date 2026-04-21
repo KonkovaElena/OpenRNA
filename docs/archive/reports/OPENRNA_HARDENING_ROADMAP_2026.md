@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA Hardening Roadmap 2026"
 status: active
-version: "1.2.0"
-last_updated: "2026-04-04"
+version: "1.3.0"
+last_updated: "2026-04-21"
 tags: [openrna, roadmap, hardening, security, architecture]
 mode: how-to
 ---
@@ -124,18 +124,39 @@ npm test -- tests/postgres-restart.test.ts
 
 **Objective:** prepare the repository for stronger external trust and compliance claims.
 
+### Status on 2026-04-21
+
+The repository now has an independent final-release step before manufacturing handoff.
+
+This closes one important control gap at the application layer:
+
+- approved review outcomes now land in `AWAITING_FINAL_RELEASE`;
+- `POST /api/cases/:caseId/final-releases` records a separate releaser identity;
+- the releaser must differ from the reviewer (`dual_authorization_required`);
+- handoff is rejected unless `requestedBy` matches the final releaser.
+
+The remaining work is still material: signer identity is not yet deployment-bound, release evidence still relies on HMAC integrity rather than asymmetric signatures, and the current control set should not be treated as 21 CFR Part 11 completion.
+
 ### Deliverables
 
 - replace integrity-only HMAC audit signatures with asymmetric signing for review and release actions;
 - define signer identity, key provenance, and rotation model;
-- add dual-authorization for manufacturing handoff or release-grade artifacts;
+- bind the existing dual-authorization ceremony to independently verifiable signer identity and release-grade evidence;
 - document a deployment-time trust model for secrets, attestation verification, and release consumers.
 
 ### Acceptance Evidence
 
-- review and handoff artifacts have signer identity plus verification path;
+- review, final-release, and handoff artifacts have signer identity plus verification path;
 - release artifacts can be verified independently from the build system;
 - docs do not overclaim 21 CFR Part 11 readiness before the controls exist.
+
+### Suggested Verification
+
+```bash
+npm test -- tests/review-routes.test.ts
+npm test -- tests/final-release-flow.test.ts
+npm test -- tests/security-middleware.test.ts
+```
 
 ## Sequencing
 
