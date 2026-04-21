@@ -209,13 +209,14 @@ Full API surface documented in [README.md](README.md).
 | Construct-to-outcome traceability | ICH Q5E comparability | `traceability.ts`: evidence lineage graph from stored ranking, construct, review, handoff, and outcome state |
 | Validated input schemas | 21 CFR Part 11.10(h) | Zod runtime validation on all API inputs |
 | Idempotent submission | GxP data integrity | `x-idempotency-key` prevents duplicate workflow dispatches |
+| Independent release gate (partial) | cGMP release segregation, EU Annex 13 | Approved review now transitions to `AWAITING_FINAL_RELEASE`, and manufacturing handoff requires a second stored release authorization |
 
 ### Honest compliance gaps
 
 | Gap | Regulation | Severity | Path to close |
 |-----|-----------|----------|---------------|
-| No electronic signatures | 21 CFR Part 11.50/11.70 | **High** — required for closed systems | Add PKCE/FIDO2-based signing to review and release flows |
-| No dual-authorization release | cGMP, EU Annex 13 | **High** — QP release is mandatory | Add `qualified-person-release` workflow step |
+| No identity-bound electronic signatures | 21 CFR Part 11.50/11.70 | **High** — required for closed systems | Upgrade persisted review/release manifestations to PKCE/FIDO2 or equivalent signer-bound controls |
+| No qualified-person-grade release authority | cGMP, EU Annex 13 | **High** — QP release is mandatory | Strengthen the existing final-release step with site identity, validated procedure, and stronger signer controls |
 | No validated-system qualification | 21 CFR Part 11.10(a) | **Medium** — required before clinical deployment | IQ/OQ/PQ documentation package |
 | No consent-state in case lifecycle | ICH-GCP E6(R2) | **Medium** — clinical protocol compliance | Add consent port to case FSM |
 | Timestamp precision | 21 CFR Part 11.10(e) | **Low** — ISO 8601 with timezone, not yet NTP-synced | Add NTP synchronization requirement to deployment |

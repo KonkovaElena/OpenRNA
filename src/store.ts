@@ -15,6 +15,7 @@ import {
   timelineEvent,
 } from "./store-helpers";
 import {
+  authorizeFinalReleaseForCase,
   generateBoardPacketForCase,
   generateHandoffPacketForCase,
   recordReviewOutcomeForCase,
@@ -29,6 +30,7 @@ import {
 import {
   parseConstructDesignInput,
   parseCreateCaseInput,
+  parseAuthorizeFinalReleaseInput,
   parseGenerateHandoffPacketInput,
   parseRecordNeoantigenRankingInput,
   parseRecordAdministrationInput,
@@ -45,6 +47,7 @@ import { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatc
 import type { IStateMachineGuard } from "./ports/IStateMachineGuard";
 import type {
   AdministrationRecord,
+  AuthorizeFinalReleaseInput,
   AssayType,
   ArtifactRecord,
   BoardPacketGenerationResult,
@@ -62,6 +65,7 @@ import type {
   DerivedArtifactSemanticType,
   EvidenceLineageEdge,
   EvidenceLineageGraph,
+  FinalReleaseAuthorizationResult,
   FullTraceabilityRecord,
   GenerateHandoffPacketInput,
   HandoffPacketGenerationResult,
@@ -99,6 +103,7 @@ import {
 
 export {
   parseActivateModalityInput,
+  parseAuthorizeFinalReleaseInput,
   parseCompleteWorkflowRunInput,
   parseConstructDesignInput,
   parseCreateCaseInput,
@@ -195,6 +200,7 @@ export interface CaseStore {
   getBoardPacket(caseId: string, packetId: string): Promise<BoardPacketRecord>;
   // Wave 15: review outcome + handoff
   recordReviewOutcome(caseId: string, input: RecordReviewOutcomeInput, correlationId: AuditContextInput): Promise<ReviewOutcomeResult>;
+  authorizeFinalRelease(caseId: string, input: AuthorizeFinalReleaseInput, correlationId: AuditContextInput): Promise<FinalReleaseAuthorizationResult>;
   listReviewOutcomes(caseId: string): Promise<ReviewOutcomeRecord[]>;
   getReviewOutcome(caseId: string, reviewId: string): Promise<ReviewOutcomeRecord>;
   generateHandoffPacket(caseId: string, input: GenerateHandoffPacketInput, correlationId: AuditContextInput): Promise<HandoffPacketGenerationResult>;
@@ -996,6 +1002,10 @@ export class MemoryCaseStore implements CaseStore {
 
   async recordReviewOutcome(caseId: string, input: RecordReviewOutcomeInput, correlationId: AuditContextInput): Promise<ReviewOutcomeResult> {
     return recordReviewOutcomeForCase(this.getReviewMutationContext(), this.getMutableRecord(caseId), caseId, input, correlationId);
+  }
+
+  async authorizeFinalRelease(caseId: string, input: AuthorizeFinalReleaseInput, correlationId: AuditContextInput): Promise<FinalReleaseAuthorizationResult> {
+    return authorizeFinalReleaseForCase(this.getReviewMutationContext(), this.getMutableRecord(caseId), caseId, input, correlationId);
   }
 
   async listReviewOutcomes(caseId: string): Promise<ReviewOutcomeRecord[]> {

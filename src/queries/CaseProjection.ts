@@ -334,6 +334,32 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
       return record;
     }
 
+    case "final.release.authorized": {
+      const index = record.reviewOutcomes.findIndex((candidate) => candidate.reviewId === event.payload.reviewOutcome.reviewId);
+      if (index === -1) {
+        record.reviewOutcomes.push(structuredClone(event.payload.reviewOutcome));
+      } else {
+        record.reviewOutcomes[index] = structuredClone(event.payload.reviewOutcome);
+      }
+      record.status = event.payload.nextStatus;
+      record.timeline.push(
+        timelineEvent(
+          event.occurredAt,
+          "final_release_authorized",
+          `Authorized final release for review outcome ${event.payload.reviewOutcome.reviewId} by ${event.payload.reviewOutcome.finalRelease?.releaserId ?? "unknown"}.`,
+        ),
+      );
+      record.auditEvents.push(
+        auditEvent(
+          event,
+          "final.release.authorized",
+          `Authorized final release for review outcome ${event.payload.reviewOutcome.reviewId} by ${event.payload.reviewOutcome.finalRelease?.releaserId ?? "unknown"}.`,
+        ),
+      );
+      record.updatedAt = event.updatedAt;
+      return record;
+    }
+
     case "handoff.packet.generated": {
       record.handoffPackets.push(structuredClone(event.payload.handoffPacket));
       record.status = event.payload.nextStatus;

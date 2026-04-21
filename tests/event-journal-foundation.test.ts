@@ -514,12 +514,23 @@ test("event journal replays board review and handoff state exactly", async () =>
     },
     auditContext,
   );
+  await store.authorizeFinalRelease(
+    caseId,
+    {
+      reviewId: reviewOutcomeResult.reviewOutcome.reviewId,
+      releaserId: "qa-release-officer",
+      releaserRole: "quality-person",
+      rationale: "Independent final release completed.",
+      comments: "Proceed to GMP handoff.",
+    },
+    auditContext,
+  );
   await store.generateHandoffPacket(
     caseId,
     {
       reviewId: reviewOutcomeResult.reviewOutcome.reviewId,
       handoffTarget: "gmp-site-alpha",
-      requestedBy: "oncology-board",
+      requestedBy: "qa-release-officer",
       turnaroundDays: 14,
       notes: "Release after QA packet review.",
     },
@@ -530,9 +541,10 @@ test("event journal replays board review and handoff state exactly", async () =>
   const events = await store.listCaseEvents(caseId);
   const replayed = replayCaseEvents(events);
 
-  assert.deepEqual(events.slice(-3).map((event) => event.type), [
+  assert.deepEqual(events.slice(-4).map((event) => event.type), [
     "board.packet.generated",
     "review.outcome.recorded",
+    "final.release.authorized",
     "handoff.packet.generated",
   ]);
   assert.deepEqual(replayed.boardPackets, live.boardPackets);

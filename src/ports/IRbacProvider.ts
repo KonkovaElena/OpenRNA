@@ -1,4 +1,4 @@
-export const roles = ["OPERATOR", "REVIEWER", "ADMIN", "SYSTEM"] as const;
+export const roles = ["OPERATOR", "REVIEWER", "QUALITY_PERSON", "ADMIN", "SYSTEM"] as const;
 export type Role = (typeof roles)[number];
 
 export const rbacActions = [
@@ -6,6 +6,7 @@ export const rbacActions = [
   "REGISTER_SAMPLE",
   "REQUEST_WORKFLOW",
   "APPROVE_REVIEW",
+  "RELEASE_CASE",
   "VIEW_CASE",
   "ADMIN_OPERATIONS",
 ] as const;

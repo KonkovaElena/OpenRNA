@@ -353,6 +353,17 @@ function buildReviewOutcomeInput(packetId: string, overrides: Record<string, unk
   };
 }
 
+function buildFinalReleaseInput(reviewId: string, overrides: Record<string, unknown> = {}) {
+  return {
+    reviewId,
+    releaserId: "ops@example.org",
+    releaserRole: "quality-person",
+    rationale: "Quality release authorized after independent verification.",
+    comments: "Proceed to manufacturing handoff.",
+    ...overrides,
+  };
+}
+
 function buildHandoffPacketInput(reviewId: string, overrides: Record<string, unknown> = {}) {
   return {
     reviewId,
@@ -874,7 +885,7 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
     assert.equal(response.body.reviewOutcome.caseId, caseId);
     assert.equal(response.body.reviewOutcome.packetId, packetId);
     assert.equal(response.body.reviewOutcome.reviewDisposition, "approved");
-    assert.equal(response.body.case.status, "APPROVED_FOR_HANDOFF");
+    assert.equal(response.body.case.status, "AWAITING_FINAL_RELEASE");
     assert.equal(response.headers["x-correlation-id"], "corr-wave15-review");
 
     const storedCase = await store.getCase(caseId) as unknown as {
@@ -887,6 +898,29 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
     assert.equal(storedCase.auditEvents.at(-1)?.type, "review.outcome.recorded");
     assert.equal(storedCase.auditEvents.at(-1)?.correlationId, "corr-wave15-review");
     assert.equal(storedCase.timeline.at(-1)?.type, "review_outcome_recorded");
+  });
+
+  it("POST /api/cases/:caseId/final-releases authorizes final release for an approved review outcome", async () => {
+    const store = new MemoryCaseStore();
+    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const { caseId, packetId } = await createBoardPacketReadyHttpCase(app);
+
+    const reviewResponse = await request(app)
+      .post(`/api/cases/${caseId}/review-outcomes`)
+      .send(buildReviewOutcomeInput(packetId));
+    assert.equal(reviewResponse.status, 201);
+
+    const reviewId = String(reviewResponse.body.reviewOutcome.reviewId);
+    const releaseResponse = await request(app)
+      .post(`/api/cases/${caseId}/final-releases`)
+      .set("x-correlation-id", "corr-wave15-release")
+      .send(buildFinalReleaseInput(reviewId));
+
+    assert.equal(releaseResponse.status, 201);
+    assert.equal(releaseResponse.body.reviewOutcome.reviewId, reviewId);
+    assert.equal(releaseResponse.body.finalRelease.releaserId, "ops@example.org");
+    assert.equal(releaseResponse.body.case.status, "APPROVED_FOR_HANDOFF");
+    assert.equal(releaseResponse.headers["x-correlation-id"], "corr-wave15-release");
   });
 
   it("POST /api/cases/:caseId/review-outcomes is idempotent for exact replay and rejects conflicting replay", async () => {
@@ -923,6 +957,11 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
       .send(buildReviewOutcomeInput(packetId));
     assert.equal(reviewResponse.status, 201);
     const reviewId = String(reviewResponse.body.reviewOutcome.reviewId);
+
+    const releaseResponse = await request(app)
+      .post(`/api/cases/${caseId}/final-releases`)
+      .send(buildFinalReleaseInput(reviewId));
+    assert.equal(releaseResponse.status, 201);
 
     const handoffResponse = await request(app)
       .post(`/api/cases/${caseId}/handoff-packets`)
@@ -987,6 +1026,11 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
         .send(buildReviewOutcomeInput(packetId));
       assert.equal(reviewResponse.status, 201);
       const reviewId = String(reviewResponse.body.reviewOutcome.reviewId);
+
+      const releaseResponse = await request(app)
+        .post(`/api/cases/${caseId}/final-releases`)
+        .send(buildFinalReleaseInput(reviewId));
+      assert.equal(releaseResponse.status, 201);
 
       const handoffResponse = await request(app)
         .post(`/api/cases/${caseId}/handoff-packets`)

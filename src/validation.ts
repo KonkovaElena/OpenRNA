@@ -18,6 +18,7 @@ import {
   workflowFailureCategories,
   type AssayType,
   type AdministrationRecord,
+  type AuthorizeFinalReleaseInput,
   type CaseProfile,
   type ClinicalFollowUpRecord,
   type CompleteWorkflowRunInput,
@@ -415,6 +416,14 @@ const signatureManifestationSchema = z.object({
   signatureMethod: requiredText("signatureManifestation.signatureMethod"),
 }).strict();
 
+const reviewSignatureManifestationSchema = signatureManifestationSchema.extend({
+  meaning: z.literal("review", { error: "signatureManifestation.meaning must be 'review'." }),
+});
+
+const releaseSignatureManifestationSchema = signatureManifestationSchema.extend({
+  meaning: z.literal("release", { error: "signatureManifestation.meaning must be 'release'." }),
+});
+
 const recordReviewOutcomeInputSchema = z.object({
   packetId: requiredText("packetId"),
   reviewerId: requiredText("reviewerId"),
@@ -424,8 +433,17 @@ const recordReviewOutcomeInputSchema = z.object({
   }),
   rationale: requiredText("rationale"),
   comments: optionalText("comments"),
-  signatureManifestation: signatureManifestationSchema.optional(),
+  signatureManifestation: reviewSignatureManifestationSchema.optional(),
 }).strict() satisfies z.ZodType<RecordReviewOutcomeInput>;
+
+const authorizeFinalReleaseInputSchema = z.object({
+  reviewId: requiredText("reviewId"),
+  releaserId: requiredText("releaserId"),
+  releaserRole: optionalText("releaserRole"),
+  rationale: requiredText("rationale"),
+  comments: optionalText("comments"),
+  signatureManifestation: releaseSignatureManifestationSchema.optional(),
+}).strict() satisfies z.ZodType<AuthorizeFinalReleaseInput>;
 
 const generateHandoffPacketInputSchema = z.object({
   reviewId: requiredText("reviewId"),
@@ -577,6 +595,14 @@ export function parseRecordReviewOutcomeInput(value: unknown): RecordReviewOutco
     value,
     recordReviewOutcomeInputSchema,
     "Submit a JSON object with packetId, reviewer identity, reviewDisposition, and rationale.",
+  );
+}
+
+export function parseAuthorizeFinalReleaseInput(value: unknown): AuthorizeFinalReleaseInput {
+  return parseObjectWithSchema(
+    value,
+    authorizeFinalReleaseInputSchema,
+    "Submit a JSON object with reviewId, releaser identity, and release rationale.",
   );
 }
 

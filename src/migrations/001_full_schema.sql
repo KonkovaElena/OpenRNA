@@ -196,7 +196,14 @@ CREATE TABLE IF NOT EXISTS review_outcomes (
   review_disposition  TEXT        NOT NULL,
   rationale           TEXT        NOT NULL,
   comments            TEXT,
-  reviewed_at         TIMESTAMPTZ NOT NULL
+  signature_manifestation JSONB,
+  releaser_id         TEXT,
+  releaser_role       TEXT,
+  release_rationale   TEXT,
+  release_comments    TEXT,
+  release_signature_manifestation JSONB,
+  reviewed_at         TIMESTAMPTZ NOT NULL,
+  released_at         TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS review_outcomes_case_idx ON review_outcomes (case_id, reviewed_at);

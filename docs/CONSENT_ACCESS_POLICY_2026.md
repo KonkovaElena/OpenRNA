@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA Consent Access Policy 2026"
 status: "active"
-version: "1.0.0"
-last_updated: "2026-04-18"
+version: "1.1.0"
+last_updated: "2026-04-21"
 tags: [consent, authorization, policy, api]
 ---
 
@@ -27,7 +27,7 @@ Consent gate implementation: [src/middleware/consent-gate.ts](../src/middleware/
 | Workflow reads: `GET /api/cases/:caseId/runs`, `GET /api/cases/:caseId/runs/:runId`, `GET /api/cases/:caseId/hla-consensus`, `GET /api/cases/:caseId/runs/:runId/qc` | Required |
 | Design writes: `POST /api/cases/:caseId/neoantigen-ranking`, `POST /api/cases/:caseId/construct-design` | Required |
 | Design reads: `GET /api/cases/:caseId/neoantigen-ranking`, `GET /api/cases/:caseId/construct-design` | Required |
-| Review/handoff writes: `POST /api/cases/:caseId/board-packets`, `POST /api/cases/:caseId/review-outcomes`, `POST /api/cases/:caseId/handoff-packets` | Required |
+| Review/handoff writes: `POST /api/cases/:caseId/board-packets`, `POST /api/cases/:caseId/review-outcomes`, `POST /api/cases/:caseId/final-releases`, `POST /api/cases/:caseId/handoff-packets` | Required |
 | Review/handoff reads: `GET /api/cases/:caseId/board-packets*`, `GET /api/cases/:caseId/review-outcomes*`, `GET /api/cases/:caseId/handoff-packets*` | Required |
 | Outcomes writes: `POST /api/cases/:caseId/outcomes/*` | Required |
 | Outcomes reads: `GET /api/cases/:caseId/outcomes`, `GET /api/cases/:caseId/traceability` | Required |

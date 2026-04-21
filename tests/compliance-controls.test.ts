@@ -15,7 +15,7 @@ import type { CaseRecord } from "../src/types";
  *    review outcomes accept and persist a linked electronic signature.
  *
  * 3. Two-Person Release Control (EU GMP Annex 16 / 21 CFR 211.22):
- *    handoff release requestor must differ from the review signer.
+ *    final releaser must differ from the review signer, and handoff is blocked until release.
  */
 
 function buildCaseInput(overrides: Record<string, unknown> = {}) {
@@ -247,6 +247,42 @@ test("Part 11 Signature Manifestation", async (t) => {
     assert.strictEqual(reviewRes.status, 201);
     assert.strictEqual(reviewRes.body.reviewOutcome.signatureManifestation, undefined);
   });
+
+  await t.test("final release accepts and persists release signature manifestation", async () => {
+    const consentTracker = new InMemoryConsentTracker();
+    const app = createApp({ consentTracker, rbacAllowAll: true });
+
+    const rec = await createReadyCase(app);
+    const packetId = await advanceThroughReview(app, rec.caseId);
+
+    const reviewRes = await request(app).post(`/api/cases/${rec.caseId}/review-outcomes`).send({
+      packetId,
+      reviewerId: "dr-reviewer-001",
+      reviewerRole: "molecular-pathologist",
+      reviewDisposition: "approved",
+      rationale: "Board approved after discussion.",
+    });
+    assert.strictEqual(reviewRes.status, 201);
+
+    const releaseRes = await request(app).post(`/api/cases/${rec.caseId}/final-releases`).send({
+      reviewId: reviewRes.body.reviewOutcome.reviewId,
+      releaserId: "qp-001",
+      releaserRole: "quality-person",
+      rationale: "Independent quality release authorization.",
+      signatureManifestation: {
+        meaning: "release",
+        signedBy: "qp-001",
+        signedAt: new Date().toISOString(),
+        signatureHash: "release-abc123",
+        signatureMethod: "hmac-sha256",
+      },
+    });
+
+    assert.strictEqual(releaseRes.status, 201, `Release failed: ${JSON.stringify(releaseRes.body)}`);
+    assert.ok(releaseRes.body.finalRelease);
+    assert.strictEqual(releaseRes.body.finalRelease.meaning ?? releaseRes.body.finalRelease.signatureManifestation.meaning, "release");
+    assert.strictEqual(releaseRes.body.reviewOutcome.finalRelease.signatureManifestation.signedBy, "qp-001");
+  });
 });
 
 // ─── 3. Two-Person Release Control ─────────────────────────────────
@@ -288,24 +324,46 @@ test("Two-Person Release Control", async (t) => {
   await t.test("rejects handoff when requestedBy === reviewerId (same person)", async () => {
     const { app, caseId, reviewId } = await buildApprovedCase();
 
-    const res = await request(app).post(`/api/cases/${caseId}/handoff-packets`).send({
+    const releaseRes = await request(app).post(`/api/cases/${caseId}/final-releases`).send({
       reviewId,
-      handoffTarget: "manufacturing-site-A",
-      requestedBy: "dr-reviewer-alpha", // same as reviewer — must be rejected
-      turnaroundDays: 14,
+      releaserId: "dr-reviewer-alpha",
+      releaserRole: "quality-person",
+      rationale: "Attempted self-release.",
     });
 
-    assert.strictEqual(res.status, 403);
-    assert.strictEqual(res.body.code, "dual_authorization_required");
+    assert.strictEqual(releaseRes.status, 403);
+    assert.strictEqual(releaseRes.body.code, "dual_authorization_required");
   });
 
-  await t.test("allows handoff when requestedBy is independent (different person)", async () => {
+  await t.test("rejects handoff before final release authorization", async () => {
     const { app, caseId, reviewId } = await buildApprovedCase();
 
     const res = await request(app).post(`/api/cases/${caseId}/handoff-packets`).send({
       reviewId,
       handoffTarget: "manufacturing-site-A",
-      requestedBy: "qa-manager-beta", // different person
+      requestedBy: "qa-manager-beta",
+      turnaroundDays: 14,
+    });
+
+    assert.strictEqual(res.status, 409);
+    assert.strictEqual(res.body.code, "final_release_required");
+  });
+
+  await t.test("allows handoff after independent final release authorization", async () => {
+    const { app, caseId, reviewId } = await buildApprovedCase();
+
+    const releaseRes = await request(app).post(`/api/cases/${caseId}/final-releases`).send({
+      reviewId,
+      releaserId: "qa-manager-beta",
+      releaserRole: "quality-person",
+      rationale: "Independent final release.",
+    });
+    assert.strictEqual(releaseRes.status, 201, `Release failed: ${JSON.stringify(releaseRes.body)}`);
+
+    const res = await request(app).post(`/api/cases/${caseId}/handoff-packets`).send({
+      reviewId,
+      handoffTarget: "manufacturing-site-A",
+      requestedBy: "qa-manager-beta",
       turnaroundDays: 14,
     });
 

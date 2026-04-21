@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA Public Architecture Index"
 status: "active"
-version: "1.0.0"
-last_updated: "2026-04-05"
+version: "1.1.0"
+last_updated: "2026-04-21"
 tags: [navigation, architecture, evidence, public-export]
 ---
 
@@ -17,6 +17,7 @@ The active layer is intentionally smaller than the total evidence layer. Start w
 | Document | Use it when you need |
 |----------|----------------------|
 | [README.md](../README.md) | The fastest orientation to the repository, runtime, and public scope |
+| [INTENDED_USE.md](INTENDED_USE.md) | The formal intended-use statement and deployment boundary |
 | [design.md](design.md) | The authority architecture memo and T1-T4 evidence model |
 | [API_REFERENCE.md](API_REFERENCE.md) | The grouped HTTP route map, auth headers, and response conventions |
 | [OPERATIONS_AND_FAILURE_MODES.md](OPERATIONS_AND_FAILURE_MODES.md) | Runtime modes, health probes, metrics, and the main operational failure classes |
@@ -52,8 +53,9 @@ These files remain useful for diligence and archaeology, but they are not the pr
 ## Reading Order
 
 1. Start with [README.md](../README.md).
-2. Read [design.md](design.md) for the system model and evidence tiers.
-3. Use [API_REFERENCE.md](API_REFERENCE.md) and [OPERATIONS_AND_FAILURE_MODES.md](OPERATIONS_AND_FAILURE_MODES.md) for implementation and operator questions.
-4. Use [archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) when you need the formal evidence baseline and registry anchors.
-5. Use archived publication and audit docs for investor or maintainer diligence.
-6. Read the historical memos only when you need provenance of earlier decisions.
+2. Read [INTENDED_USE.md](INTENDED_USE.md) to anchor what the repository is and is not meant to do.
+3. Read [design.md](design.md) for the system model and evidence tiers.
+4. Use [API_REFERENCE.md](API_REFERENCE.md) and [OPERATIONS_AND_FAILURE_MODES.md](OPERATIONS_AND_FAILURE_MODES.md) for implementation and operator questions.
+5. Use [archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md](archive/FORMAL_EVIDENCE_REGISTER_2026-04-05.md) when you need the formal evidence baseline and registry anchors.
+6. Use archived publication and audit docs for investor or maintainer diligence.
+7. Read the historical memos only when you need provenance of earlier decisions.

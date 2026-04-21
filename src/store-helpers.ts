@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { createAnonymousAuditContext, getCurrentAuditContext } from "./audit-context";
 import { ApiError } from "./errors";
 import type {
+  AuthorizeFinalReleaseInput,
   ArtifactRecord,
   AuditContext,
   CaseAuditEventRecord,
@@ -183,6 +184,16 @@ export function stableHandoffPacketSignature(value: GenerateHandoffPacketInput):
     requestedBy: value.requestedBy,
     turnaroundDays: value.turnaroundDays,
     notes: value.notes ?? null,
+  });
+}
+
+export function stableFinalReleaseSignature(value: AuthorizeFinalReleaseInput): string {
+  return JSON.stringify({
+    reviewId: value.reviewId,
+    releaserId: value.releaserId,
+    releaserRole: value.releaserRole ?? null,
+    rationale: value.rationale,
+    comments: value.comments ?? null,
   });
 }
 

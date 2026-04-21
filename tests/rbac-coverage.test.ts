@@ -45,6 +45,7 @@ describe("RBAC deny-by-default coverage", () => {
     { path: "/api/cases/c1/outcomes/clinical-follow-up", body: {}, status: 403, label: "POST outcomes/clinical-follow-up" },
     { path: "/api/cases/c1/board-packets", body: {}, status: 403, label: "POST /api/cases/:caseId/board-packets" },
     { path: "/api/cases/c1/review-outcomes", body: {}, status: 403, label: "POST /api/cases/:caseId/review-outcomes" },
+    { path: "/api/cases/c1/final-releases", body: {}, status: 403, label: "POST /api/cases/:caseId/final-releases" },
     { path: "/api/cases/c1/handoff-packets", body: {}, status: 403, label: "POST /api/cases/:caseId/handoff-packets" },
     { path: "/api/cases/c1/consent", body: { type: "granted", scope: "full", version: "1.0" }, status: 403, label: "POST /api/cases/:caseId/consent" },
     { path: "/api/reference-bundles", body: {}, status: 403, label: "POST /api/reference-bundles (ADMIN)" },

@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA API Reference"
 status: "active"
-version: "1.0.0"
-last_updated: "2026-04-05"
+version: "1.1.0"
+last_updated: "2026-04-21"
 tags: [api, reference, http, public-export]
 ---
 
@@ -103,6 +103,7 @@ Notes:
 | `POST` | `/api/cases/:caseId/review-outcomes` |
 | `GET` | `/api/cases/:caseId/review-outcomes` |
 | `GET` | `/api/cases/:caseId/review-outcomes/:reviewId` |
+| `POST` | `/api/cases/:caseId/final-releases` |
 | `POST` | `/api/cases/:caseId/handoff-packets` |
 | `GET` | `/api/cases/:caseId/handoff-packets` |
 | `GET` | `/api/cases/:caseId/handoff-packets/:handoffId` |
@@ -110,6 +111,12 @@ Notes:
 | `POST` | `/api/cases/:caseId/outcomes/immune-monitoring` |
 | `POST` | `/api/cases/:caseId/outcomes/clinical-follow-up` |
 | `GET` | `/api/cases/:caseId/outcomes` |
+
+Notes:
+
+- `POST /api/cases/:caseId/review-outcomes` records the expert board decision. An approved review moves the case to `AWAITING_FINAL_RELEASE`, not directly to handoff readiness.
+- `POST /api/cases/:caseId/final-releases` records an independent release authorization tied to a previously approved `reviewId`.
+- `POST /api/cases/:caseId/handoff-packets` requires an approved review, stored construct design, and a matching final releaser identity in `requestedBy`.
 
 ## Governance, Consent, FHIR, And Audit
 

@@ -76,7 +76,38 @@ test("RBAC route guards", async (t) => {
     assert.notStrictEqual(response.status, 403);
   });
 
-  await t.test("handoff route denies principals without APPROVE_REVIEW permission", async () => {
+  await t.test("final release route denies principals without RELEASE_CASE permission", async () => {
+    const { app } = createStrictApp();
+
+    const response = await request(app)
+      .post("/api/cases/case-missing/final-releases")
+      .set("x-principal-id", "principal-no-role")
+      .send({
+        reviewId: "review-1",
+        releaserId: "qp-1",
+        rationale: "Independent release.",
+      });
+
+    assert.strictEqual(response.status, 403);
+  });
+
+  await t.test("final release route allows QUALITY_PERSON past RBAC", async () => {
+    const { app, rbacProvider } = createStrictApp();
+    await rbacProvider.assignRole("qp-1", "QUALITY_PERSON");
+
+    const response = await request(app)
+      .post("/api/cases/case-missing/final-releases")
+      .set("x-principal-id", "qp-1")
+      .send({
+        reviewId: "review-1",
+        releaserId: "qp-1",
+        rationale: "Independent release.",
+      });
+
+    assert.notStrictEqual(response.status, 403);
+  });
+
+  await t.test("handoff route denies principals without RELEASE_CASE permission", async () => {
     const { app } = createStrictApp();
 
     const response = await request(app)
@@ -92,13 +123,13 @@ test("RBAC route guards", async (t) => {
     assert.strictEqual(response.status, 403);
   });
 
-  await t.test("handoff route allows REVIEWER past RBAC", async () => {
+  await t.test("handoff route allows QUALITY_PERSON past RBAC", async () => {
     const { app, rbacProvider } = createStrictApp();
-    await rbacProvider.assignRole("reviewer-1", "REVIEWER");
+    await rbacProvider.assignRole("qp-1", "QUALITY_PERSON");
 
     const response = await request(app)
       .post("/api/cases/case-missing/handoff-packets")
-      .set("x-principal-id", "reviewer-1")
+      .set("x-principal-id", "qp-1")
       .send({
         reviewId: "review-1",
         handoffTarget: "manufacturing-site-A",

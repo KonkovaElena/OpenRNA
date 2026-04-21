@@ -1,8 +1,8 @@
 ---
 title: "Regulatory Context for Personalized Neoantigen RNA Vaccines"
 status: active
-version: "1.1.0"
-last_updated: "2026-04-02"
+version: "1.2.0"
+last_updated: "2026-04-21"
 tags: [regulatory, fda, ema, part-11, atmp, oncology]
 evidence_cutoff: "2026-04-02"
 ---
@@ -12,6 +12,8 @@ evidence_cutoff: "2026-04-02"
 This document maps the regulatory landscape for personalized neoantigen RNA vaccines as it applies to the capabilities implemented in this repository. It distinguishes between what the current software provides and what remains required for clinical deployment.
 
 This is a regulatory-orientation and gap-analysis note, not a formal product-classification opinion.
+
+Formal intended-use boundary: [INTENDED_USE.md](INTENDED_USE.md).
 
 ## Applicable Regulatory Frameworks
 
@@ -108,8 +110,8 @@ FDA's 2003 scope-and-application guidance explicitly says the Agency intends to 
 | **§11.10(e)** Secure, computer-generated, time-stamped audit trails | Audit trail | ⚠️ `store.ts` records audit events during mutations; `traceability.ts` builds read-side lineage views from stored state | NTP synchronization for timestamp accuracy needed |
 | **§11.10(h)** Input checks (device checks) | Input validation | ✅ Zod runtime schemas on all API inputs | Validation rules need formal specification document |
 | **§11.10(k)** Documentation and audit trail for system changes | Change control | ⚠️ Git version control | Needs formal change control procedure documentation |
-| **§11.50** Electronic signature manifestations | E-signatures | ⚠️ Audit-signature seam exists, but not Part 11-complete | Needs signer name, execution time, signing meaning, and stronger identity binding than the current HMAC helper |
-| **§11.70** Electronic signature/record linking | Signature binding | ⚠️ Signature provider exists, but signatures are not yet bound into release-grade records | Required for review approval, release authorization, and non-repudiation |
+| **§11.50** Electronic signature manifestations | E-signatures | ⚠️ Review and final-release records now accept and persist signature manifestations, but signer identity is still caller-supplied | Needs stronger identity binding, signer verification, and operational controls beyond the current HMAC helper |
+| **§11.70** Electronic signature/record linking | Signature binding | ⚠️ Review outcomes now carry both review and final-release manifestations in the stored record | Required for stronger non-repudiation and cryptographic record linking |
 
 ### ALCOA+ Data Integrity Principles
 
@@ -153,13 +155,15 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 
 6. **Dual adapter architecture**: In-memory for development; PostgreSQL for durable records. Allows validated-system qualification on the durable path without constraining development velocity.
 
+7. **Independent final release step** (`review-outcomes` → `final-releases` → `handoff-packets`): approved board review no longer unlocks manufacturing handoff directly. A second authorization is stored before handoff packet emission.
+
 ### Gaps (honest assessment)
 
 | Gap | Priority | Regulatory Driver | Effort Estimate |
 |-----|----------|-------------------|-----------------|
-| Electronic signatures | **Critical** | 21 CFR Part 11 §11.50/11.70 and Subpart C | Significant — current audit-signature seam must evolve into signer-bound electronic records |
+| Electronic signatures | **Critical** | 21 CFR Part 11 §11.50/11.70 and Subpart C | Significant — current signature manifestations must evolve into signer-bound electronic records |
 | Individual user authentication | **Critical** | 21 CFR Part 11 §11.10(d)/(g), §11.100, cGMP | Moderate — replace API-key baseline with RBAC + identity provider |
-| Dual-authorization release | **Critical** | EU QP release, cGMP release workflow | Moderate — new workflow step + e-signature prerequisite |
+| Qualified-person-grade release authority | **Critical** | EU QP release, cGMP release workflow | Moderate — current repo has a dual-authorization workflow step, but it still lacks site-integrated identity proofing, validated procedures, and stronger signer authentication |
 | System validation documentation | **High** | 21 CFR Part 11 §11.10(a) | Documentation-heavy — IQ/OQ/PQ package |
 | Formal change control | **High** | 21 CFR Part 11 §11.10(k) | Process documentation — Git history is necessary but not sufficient |
 | Consent-state management | **High** | ICH E6(R2) | Moderate — add consent port to case lifecycle FSM |
@@ -173,7 +177,7 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 |--------------------|-------------------|
 | OpenRNA has Part 11-oriented seams for audit, access control, and signature handling | OpenRNA is Part 11 compliant |
 | The PostgreSQL path can support durable regulated records | Record retention, archival, and recovery controls are formally validated |
-| The review and handoff workflow can evolve into release authorization controls | Dual-authorization or qualified-person release exists today |
+| OpenRNA now records an independent final release authorization before handoff | This alone does not constitute full qualified-person release or Part 11-complete signer identity |
 | FHIR export is a first-class interoperability seam | Clinical profile conformance and site-to-site interoperability are formally qualified |
 | The repository has engineering verification evidence | The repository is a validated computerized system for regulated use |
 
@@ -187,7 +191,7 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 5. Add consent-state handling to case lifecycle.
 
 ### IND-Enabling Phase
-6. Dual-authorization release workflow (Qualified Person).
+6. Strengthen the current dual-authorization release workflow into a qualified-person-grade, identity-bound release process.
 7. Retention and archival policy documentation.
 8. NTP synchronization requirement in deployment specification.
 9. Formal computer system validation against predefined user requirements, documented risk assessment, and traceability from requirements to evidence.

@@ -1,5 +1,5 @@
 import type { Express, RequestHandler } from "express";
-import { parseGenerateHandoffPacketInput, parseRecordReviewOutcomeInput } from "../store";
+import { parseAuthorizeFinalReleaseInput, parseGenerateHandoffPacketInput, parseRecordReviewOutcomeInput } from "../store";
 import { rbacAuth } from "../middleware/rbac-auth";
 import type { IRbacProvider } from "../ports/IRbacProvider";
 import type { CaseStore } from "../store";
@@ -90,7 +90,24 @@ export function registerReviewRoutes(
     }
   });
 
-  app.post("/api/cases/:caseId/handoff-packets", rbacAuth(rbacProvider, "APPROVE_REVIEW"), consentGateMw, async (req, res, next) => {
+  app.post("/api/cases/:caseId/final-releases", rbacAuth(rbacProvider, "RELEASE_CASE"), consentGateMw, async (req, res, next) => {
+    try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      const correlationId = String(res.locals.correlationId ?? "");
+      const input = parseAuthorizeFinalReleaseInput(req.body);
+      const result = await store.authorizeFinalRelease(caseId, input, correlationId);
+      res.status(result.created ? 201 : 200).json({
+        case: result.case,
+        reviewOutcome: result.reviewOutcome,
+        finalRelease: result.reviewOutcome.finalRelease,
+        meta: { created: result.created },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/cases/:caseId/handoff-packets", rbacAuth(rbacProvider, "RELEASE_CASE"), consentGateMw, async (req, res, next) => {
     try {
       const caseId = getRequiredRouteParam(req, "caseId");
       const correlationId = String(res.locals.correlationId ?? "");

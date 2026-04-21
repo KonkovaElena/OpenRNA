@@ -101,6 +101,7 @@ export const caseAuditEventTypes = [
   "outcome.recorded",
   "board.packet.generated",
   "review.outcome.recorded",
+  "final.release.authorized",
   "handoff.packet.generated",
   "consent.updated",
   "revision.restarted",
@@ -700,6 +701,7 @@ export const caseDomainEventTypes = [
   "qc.evaluated",
   "board.packet.generated",
   "review.outcome.recorded",
+  "final.release.authorized",
   "handoff.packet.generated",
   "neoantigen.ranking.recorded",
   "construct.design.recorded",
@@ -794,6 +796,11 @@ export interface ReviewOutcomeRecordedEventPayload {
   nextStatus: CaseStatus;
 }
 
+export interface FinalReleaseAuthorizedEventPayload {
+  reviewOutcome: ReviewOutcomeRecord;
+  nextStatus: CaseStatus;
+}
+
 export interface HandoffPacketGeneratedEventPayload {
   handoffPacket: HandoffPacketRecord;
   nextStatus: CaseStatus;
@@ -832,6 +839,7 @@ export type CaseDomainEventInput =
   | DomainEventInput<"qc.evaluated", QcEvaluatedEventPayload>
   | DomainEventInput<"board.packet.generated", BoardPacketGeneratedEventPayload>
   | DomainEventInput<"review.outcome.recorded", ReviewOutcomeRecordedEventPayload>
+  | DomainEventInput<"final.release.authorized", FinalReleaseAuthorizedEventPayload>
   | DomainEventInput<"handoff.packet.generated", HandoffPacketGeneratedEventPayload>
   | DomainEventInput<"neoantigen.ranking.recorded", NeoantigenRankingRecordedEventPayload>
   | DomainEventInput<"construct.design.recorded", ConstructDesignRecordedEventPayload>
@@ -852,6 +860,7 @@ export type CaseDomainEventRecord =
   | DomainEventRecord<"qc.evaluated", QcEvaluatedEventPayload>
   | DomainEventRecord<"board.packet.generated", BoardPacketGeneratedEventPayload>
   | DomainEventRecord<"review.outcome.recorded", ReviewOutcomeRecordedEventPayload>
+  | DomainEventRecord<"final.release.authorized", FinalReleaseAuthorizedEventPayload>
   | DomainEventRecord<"handoff.packet.generated", HandoffPacketGeneratedEventPayload>
   | DomainEventRecord<"neoantigen.ranking.recorded", NeoantigenRankingRecordedEventPayload>
   | DomainEventRecord<"construct.design.recorded", ConstructDesignRecordedEventPayload>
@@ -1020,6 +1029,15 @@ export interface RecordReviewOutcomeInput {
   signatureManifestation?: SignatureManifestation;
 }
 
+export interface FinalReleaseRecord {
+  releaserId: string;
+  releaserRole?: string;
+  rationale: string;
+  comments?: string;
+  signatureManifestation?: SignatureManifestation;
+  releasedAt: string;
+}
+
 export interface ReviewOutcomeRecord {
   reviewId: string;
   caseId: string;
@@ -1030,10 +1048,26 @@ export interface ReviewOutcomeRecord {
   rationale: string;
   comments?: string;
   signatureManifestation?: SignatureManifestation;
+  finalRelease?: FinalReleaseRecord;
   reviewedAt: string;
 }
 
 export interface ReviewOutcomeResult {
+  case: CaseRecord;
+  reviewOutcome: ReviewOutcomeRecord;
+  created: boolean;
+}
+
+export interface AuthorizeFinalReleaseInput {
+  reviewId: string;
+  releaserId: string;
+  releaserRole?: string;
+  rationale: string;
+  comments?: string;
+  signatureManifestation?: SignatureManifestation;
+}
+
+export interface FinalReleaseAuthorizationResult {
   case: CaseRecord;
   reviewOutcome: ReviewOutcomeRecord;
   created: boolean;

@@ -36,6 +36,7 @@ const API_SURFACE = [
   "POST /api/cases/:caseId/review-outcomes",
   "GET /api/cases/:caseId/review-outcomes",
   "GET /api/cases/:caseId/review-outcomes/:reviewId",
+  "POST /api/cases/:caseId/final-releases",
   "POST /api/cases/:caseId/handoff-packets",
   "GET /api/cases/:caseId/handoff-packets",
   "GET /api/cases/:caseId/handoff-packets/:handoffId",

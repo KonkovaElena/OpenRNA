@@ -22,6 +22,7 @@ test("app delegates review endpoints through a dedicated review registrar", () =
   assert.match(appSource, /registerReviewRoutes\(app,\s*\{/);
   assert.match(reviewSource, /\/api\/cases\/:caseId\/board-packets/);
   assert.match(reviewSource, /\/api\/cases\/:caseId\/review-outcomes/);
+  assert.match(reviewSource, /\/api\/cases\/:caseId\/final-releases/);
   assert.match(reviewSource, /\/api\/cases\/:caseId\/handoff-packets/);
 });
 

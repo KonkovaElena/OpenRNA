@@ -72,6 +72,8 @@ const caseStatuses: readonly CaseStatus[] = [
   "QC_PASSED",
   "QC_FAILED",
   "AWAITING_REVIEW",
+  "HLA_REVIEW_REQUIRED",
+  "AWAITING_FINAL_RELEASE",
   "APPROVED_FOR_HANDOFF",
   "REVISION_REQUESTED",
   "REVIEW_REJECTED",
@@ -242,6 +244,19 @@ function mapReviewOutcomeRow(r: Record<string, unknown>): ReviewOutcomeRecord {
     reviewDisposition: String(r.review_disposition) as ReviewOutcomeRecord["reviewDisposition"],
     rationale: String(r.rationale),
     comments: r.comments != null ? String(r.comments) : undefined,
+    signatureManifestation: r.signature_manifestation != null ? parseJsonb<ReviewOutcomeRecord["signatureManifestation"]>(r.signature_manifestation) : undefined,
+    finalRelease: r.released_at != null
+      ? {
+          releaserId: String(r.releaser_id),
+          releaserRole: r.releaser_role != null ? String(r.releaser_role) : undefined,
+          rationale: String(r.release_rationale),
+          comments: r.release_comments != null ? String(r.release_comments) : undefined,
+          signatureManifestation: r.release_signature_manifestation != null
+            ? parseJsonb<ReviewOutcomeRecord["signatureManifestation"]>(r.release_signature_manifestation)
+            : undefined,
+          releasedAt: toIso(r.released_at),
+        }
+      : undefined,
     reviewedAt: toIso(r.reviewed_at),
   };
 }
@@ -481,6 +496,24 @@ export class PostgresCaseStore implements CaseStore {
       await client.query("BEGIN");
       const store = await this.createMemoryStoreForCase(caseId, client, true);
       const result = await store.recordReviewOutcome(caseId, input, correlationId);
+      await this.saveCaseRecord(client, result.case);
+      await client.query("COMMIT");
+      return result;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async authorizeFinalRelease(caseId: string, input: Parameters<MemoryCaseStore["authorizeFinalRelease"]>[1], correlationId: Parameters<MemoryCaseStore["authorizeFinalRelease"]>[2]) {
+    await this.initialize();
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+      const store = await this.createMemoryStoreForCase(caseId, client, true);
+      const result = await store.authorizeFinalRelease(caseId, input, correlationId);
       await this.saveCaseRecord(client, result.case);
       await client.query("COMMIT");
       return result;
@@ -817,8 +850,8 @@ export class PostgresCaseStore implements CaseStore {
 
     for (const reviewOutcome of record.reviewOutcomes) {
       await queryable.query(
-        `INSERT INTO review_outcomes (review_id, case_id, packet_id, reviewer_id, reviewer_role, review_disposition, rationale, comments, reviewed_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+        `INSERT INTO review_outcomes (review_id, case_id, packet_id, reviewer_id, reviewer_role, review_disposition, rationale, comments, signature_manifestation, releaser_id, releaser_role, release_rationale, release_comments, release_signature_manifestation, reviewed_at, released_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
         [
           reviewOutcome.reviewId,
           id,
@@ -828,7 +861,14 @@ export class PostgresCaseStore implements CaseStore {
           reviewOutcome.reviewDisposition,
           reviewOutcome.rationale,
           reviewOutcome.comments ?? null,
+          jsonOrNull(reviewOutcome.signatureManifestation),
+          reviewOutcome.finalRelease?.releaserId ?? null,
+          reviewOutcome.finalRelease?.releaserRole ?? null,
+          reviewOutcome.finalRelease?.rationale ?? null,
+          reviewOutcome.finalRelease?.comments ?? null,
+          jsonOrNull(reviewOutcome.finalRelease?.signatureManifestation),
           reviewOutcome.reviewedAt,
+          reviewOutcome.finalRelease?.releasedAt ?? null,
         ],
       );
     }
