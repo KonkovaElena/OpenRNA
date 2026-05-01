@@ -23,10 +23,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -47,30 +47,30 @@ jobs:
         run: sha256sum openrna-dist-${{ github.sha }}.tgz openrna-runtime-sbom.cdx.json > openrna-artifacts.sha256
 
       - name: Upload build bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: openrna-dist-${{ github.sha }}
           path: openrna-dist-${{ github.sha }}.tgz
 
       - name: Upload SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: openrna-runtime-sbom-${{ github.sha }}
           path: openrna-runtime-sbom.cdx.json
 
       - name: Upload checksums
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: openrna-artifacts-sha256-${{ github.sha }}
           path: openrna-artifacts.sha256
 
       - name: Attest build provenance
-        uses: actions/attest@v4
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-path: ${{ github.workspace }}/openrna-dist-${{ github.sha }}.tgz
 
       - name: Attest SBOM
-        uses: actions/attest@v4
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-path: ${{ github.workspace }}/openrna-dist-${{ github.sha }}.tgz
           sbom-path: ${{ github.workspace }}/openrna-runtime-sbom.cdx.json
