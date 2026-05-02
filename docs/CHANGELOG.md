@@ -12,6 +12,67 @@ This changelog tracks public repository changes that matter to release consumers
 
 It is intentionally scoped to the standalone OpenRNA repository and excludes private investor annex material.
 
+## [0.1.3] - 2026-05-02
+
+Regulatory hardening pass — milestone 2: audit hash-chain write path, OIDC JWKS URI, identity-bound
+electronic signatures, and IQ/OQ/PQ validation package.
+
+### Added
+
+- **`verifyAuditChain(caseId)` port + route** (`GET /api/cases/:caseId/audit-chain/verify`):
+  verifies the SHA-256 hash-chain integrity of all audit events for a case. Returns
+  `{ valid, eventCount, firstBreakAt? }` with HTTP 200 (valid) or 409 (broken chain).
+- **Audit hash-chain write path** in `PostgresCaseStore.saveCaseRecord()`: `record_hash`
+  and `prev_hash` columns (added by migration 004) are now populated on every audit event INSERT
+  using the canonical formula from `computeAuditEventRecordHash()`. Closes GAP-VAL-003.
+- **`AuditChainVerificationResult`** type; `verifyAuditChainIntegrity()` pure function;
+  `computeAuditEventRecordHash()` utility — all in `src/store-helpers.ts`.
+- **`ICaseStore.verifyAuditChain()`** — interface extended; both `MemoryCaseStore` and
+  `PostgresCaseStore` implement it.
+- **OIDC JWKS URI support** in `src/auth.ts`:
+  - `JwtAuthOptions.jwksUri?: string` + `jwksCacheTtlSec?: number`.
+  - `fetchJwkForKid()` — module-level cached JWKS fetch using native Node 24 `fetch()`
+    + `crypto.webcrypto.subtle.importKey('jwk', ...)` for RS256. No new npm dependencies.
+  - `hasAuthenticationConfig()` now detects JWKS URI as a valid auth configuration.
+  - `resolveRequestPrincipal()` made `async`; `authenticationContext` middleware uses promise
+    handler to remain compatible.
+  - JWT `name` claim propagated as `principalName` to `res.locals.principalName`
+    (21 CFR Part 11 §11.50 signer display name).
+- **New env vars**: `JWT_JWKS_URI`, `JWT_JWKS_CACHE_TTL_SEC` (default 300, min 60),
+  `SIGNATURE_SEAL_KEY` (≥32 bytes, HMAC key for server seals).
+- **`signatureSealKey` and `enforceIdentityBoundSignatures`** options in `AppDependencies`.
+- **Identity-bound signature enforcement** in review routes:
+  - When `enforceIdentityBoundSignatures=true`, `reviewerId` / `releaserId` are overridden
+    with `res.locals.principalId` (verified JWT `sub` claim). Closes 21 CFR Part 11 §11.50.
+  - When `signatureSealKey` provided, a server-side HMAC-SHA256 `serverSeal` is computed and
+    stored on `signatureManifestation` (21 CFR Part 11 §11.70 record-signature linking).
+- **`SignatureManifestation.serverSeal?: string`** optional field.
+- **Production OIDC advisory warning** in `loadConfig()`: emits `stderr` notice when
+  `NODE_ENV=production` with API-key-only auth and no JWKS URI or PEM.
+- **`docs/VALIDATION_PACKAGE.md`** — IQ/OQ/PQ draft validation package with 16 URS entries,
+  12 IQ checklist items, 17 OQ test-suite mappings, 8 PQ scenarios, traceability matrix, and
+  change-control procedure. Satisfies 21 CFR Part 11 §11.10(a) documentation requirement.
+  Closes GAP-VAL-004.
+
+### Tests
+
+- **`tests/audit-chain.test.ts`** — 19 tests covering hash utility, pure chain verification,
+  in-memory store path, PostgreSQL (pg-mem) path, and HTTP endpoint.
+- **`tests/signature-integrity.test.ts`** — 15 tests covering JWKS detection, seal
+  determinism, seal field-sensitivity, identity enforcement, graceful degradation, config wiring.
+- Total: **539 tests (22 suites), 0 failures**.
+
+### Compatibility Notes
+
+- `resolveRequestPrincipal` is now `async` — internal change only; `auth-context` middleware is
+  the single caller and handles the promise. External adapters using the function directly must
+  `await` it.
+- `CaseAuditEventRecord` has two new optional fields: `recordHash?: string`, `prevHash?: string`.
+  Existing callers constructing the struct are unaffected (optional fields).
+- `SignatureManifestation` has a new optional `serverSeal?: string` field.
+- `ICaseStore` has one new method `verifyAuditChain()`. Callers implementing the interface
+  from scratch must add this method.
+
 ## [0.1.2] - 2026-05-02
 
 Regulatory hardening pass based on academic gap analysis across five dimensions:

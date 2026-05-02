@@ -1,7 +1,7 @@
 ---
 title: "Regulatory Context for Personalized Neoantigen RNA Vaccines"
 status: active
-version: "1.3.0"
+version: "1.4.0"
 last_updated: "2026-05-02"
 tags: [regulatory, fda, ema, part-11, atmp, oncology]
 evidence_cutoff: "2026-05-02"
@@ -164,7 +164,7 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 | Electronic signatures | **Critical** | 21 CFR Part 11 §11.50/11.70 and Subpart C | Significant — current signature manifestations must evolve into signer-bound electronic records |
 | Individual user authentication | **Critical** | 21 CFR Part 11 §11.10(d)/(g), §11.100, cGMP | Moderate — replace API-key baseline with RBAC + identity provider |
 | Qualified-person-grade release authority | **Critical** | EU QP release, cGMP release workflow | Moderate — current repo has a dual-authorization workflow step, but it still lacks site-integrated identity proofing, validated procedures, and stronger signer authentication |
-| System validation documentation | **High** | 21 CFR Part 11 §11.10(a) | Documentation-heavy — IQ/OQ/PQ package |
+| System validation documentation | **IQ/OQ/PQ template available (v0.1.3)** | 21 CFR Part 11 §11.10(a) | Draft validation package at [`docs/VALIDATION_PACKAGE.md`](VALIDATION_PACKAGE.md). Formal sign-off by validation engineer required before clinical deployment. |
 | Formal change control | **High** | 21 CFR Part 11 §11.10(k) | Process documentation — Git history is necessary but not sufficient |
 | Consent-state management | **Closed (May 2026)** | ICH E6(R2) §4.8.2 | `CONSENT_WITHDRAWN` absorbing FSM state implemented; store guards block all mutations on withdrawn cases; governance route enforces new-case requirement for renewal |
 | Retention and archival policy | **Medium** | FDA Data Integrity Guidance | Documentation and infrastructure — backup/archival procedures |
@@ -189,6 +189,8 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 3. Document system validation (IQ/OQ/PQ).
 4. Formalize change control procedures.
 5. ~~Add consent-state handling to case lifecycle.~~ ✅ Implemented May 2026 (`CONSENT_WITHDRAWN` absorbing state).
+6. ~~Complete electronic signature infrastructure.~~ ⚠️ Partially closed: `SIGNATURE_SEAL_KEY` server seals + `enforceIdentityBoundSignatures` implemented; full OIDC `sub`-bound flow requires deployment configuration.
+7. ~~IQ/OQ/PQ documentation.~~ Draft at [`docs/VALIDATION_PACKAGE.md`](VALIDATION_PACKAGE.md) — formal execution and sign-off pending.
 
 ### IND-Enabling Phase
 6. Strengthen the current dual-authorization release workflow into a qualified-person-grade, identity-bound release process.

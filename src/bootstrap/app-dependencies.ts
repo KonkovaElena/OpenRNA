@@ -57,6 +57,22 @@ export interface AppDependencies {
   rateLimitOptions?: RateLimiterOptions;
   readinessCheck?: () => Promise<boolean>;
   enforceServerDerivedConsentOnCreate?: boolean;
+  /**
+   * When true, the `reviewerId` (review-outcomes) and `releaserId` (final-releases)
+   * fields are derived from the verified JWT `sub` claim rather than from the request
+   * body. Satisfies 21 CFR Part 11 §11.50: "electronic signature includes printed
+   * name of the signer, the date and time the signature was executed, and the
+   * meaning of the signature."  Requires `signatureSealKey` to generate the
+   * corresponding server-side HMAC seal (§11.70 record-signature linking).
+   */
+  enforceIdentityBoundSignatures?: boolean;
+  /**
+   * HMAC-SHA256 key for server-side signature seals (21 CFR Part 11 §11.70).
+   * Minimum 32 bytes. Manage via secrets manager in production. When absent and
+   * `enforceIdentityBoundSignatures` is true, server seals are omitted with a
+   * warning rather than blocking the request.
+   */
+  signatureSealKey?: string;
 }
 
 export interface ResolvedAppDependencies {
@@ -85,28 +101,40 @@ const passThroughConsentGate: RequestHandler = (_req, _res, next) => {
 export function resolveAppDependencies(
   dependencies: AppDependencies = {},
 ): ResolvedAppDependencies {
-  const modalityRegistry = dependencies.modalityRegistry ?? new InMemoryModalityRegistry();
-  const constructDesigner = dependencies.constructDesigner ?? new InMemoryConstructDesigner(modalityRegistry);
-  const workflowRunner = dependencies.workflowRunner ?? new InMemoryWorkflowRunner();
+  const modalityRegistry =
+    dependencies.modalityRegistry ?? new InMemoryModalityRegistry();
+  const constructDesigner =
+    dependencies.constructDesigner ??
+    new InMemoryConstructDesigner(modalityRegistry);
+  const workflowRunner =
+    dependencies.workflowRunner ?? new InMemoryWorkflowRunner();
   const store = dependencies.store ?? new MemoryCaseStore();
   const referenceBundleRegistry =
-    dependencies.referenceBundleRegistry ?? new InMemoryReferenceBundleRegistry();
-  const qcGateEvaluator = dependencies.qcGateEvaluator ?? new InMemoryQcGateEvaluator();
-  const hlaConsensusProvider = dependencies.hlaConsensusProvider ?? new InMemoryHlaConsensusProvider();
+    dependencies.referenceBundleRegistry ??
+    new InMemoryReferenceBundleRegistry();
+  const qcGateEvaluator =
+    dependencies.qcGateEvaluator ?? new InMemoryQcGateEvaluator();
+  const hlaConsensusProvider =
+    dependencies.hlaConsensusProvider ?? new InMemoryHlaConsensusProvider();
   const neoantigenRankingEngine =
-    dependencies.neoantigenRankingEngine ?? new InMemoryNeoantigenRankingEngine();
-  const stateMachineGuard = dependencies.stateMachineGuard ?? new InMemoryStateMachineGuard();
-  const consentTracker = dependencies.consentTracker ?? new InMemoryConsentTracker();
+    dependencies.neoantigenRankingEngine ??
+    new InMemoryNeoantigenRankingEngine();
+  const stateMachineGuard =
+    dependencies.stateMachineGuard ?? new InMemoryStateMachineGuard();
+  const consentTracker =
+    dependencies.consentTracker ?? new InMemoryConsentTracker();
   const consentGateMw =
     dependencies.consentGateEnabled === false
       ? passThroughConsentGate
       : requireActiveConsent(consentTracker);
   const rbacProvider =
-    dependencies.rbacProvider ?? new InMemoryRbacProvider({ allowAll: dependencies.rbacAllowAll });
+    dependencies.rbacProvider ??
+    new InMemoryRbacProvider({ allowAll: dependencies.rbacAllowAll });
   const auditSignatureProvider =
     dependencies.auditSignatureProvider ?? new InMemoryAuditSignatureProvider();
   const fhirExporter = dependencies.fhirExporter ?? new InMemoryFhirExporter();
-  const caseAccessStore = dependencies.caseAccessStore ?? new InMemoryCaseAccessStore();
+  const caseAccessStore =
+    dependencies.caseAccessStore ?? new InMemoryCaseAccessStore();
 
   return {
     store,

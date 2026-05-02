@@ -263,4 +263,18 @@ export function registerGovernanceRoutes(
       }
     },
   );
+
+  app.get(
+    "/api/cases/:caseId/audit-chain/verify",
+    rbacAuth(rbacProvider, "VIEW_CASE"),
+    async (req, res, next) => {
+      try {
+        const caseId = getRequiredRouteParam(req, "caseId");
+        const result = await store.verifyAuditChain(caseId);
+        res.status(result.valid ? 200 : 409).json({ caseId, ...result });
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 }

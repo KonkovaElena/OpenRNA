@@ -13,6 +13,7 @@ import {
   hasSameRunReplayIdentity,
   normalizeAuditContext,
   timelineEvent,
+  verifyAuditChainIntegrity,
 } from "./store-helpers";
 import {
   authorizeFinalReleaseForCase,
@@ -48,6 +49,7 @@ import type { IStateMachineGuard } from "./ports/IStateMachineGuard";
 import type { ICaseStore } from "./ports/ICaseStore";
 import type {
   AdministrationRecord,
+  AuditChainVerificationResult,
   AuthorizeFinalReleaseInput,
   AssayType,
   ArtifactRecord,
@@ -1774,5 +1776,16 @@ export class MemoryCaseStore implements ICaseStore {
       ),
     );
     return this.rebuildCaseProjection(caseId);
+  }
+
+  async verifyAuditChain(
+    caseId: string,
+  ): Promise<AuditChainVerificationResult> {
+    const record = await this.getCase(caseId);
+    const sorted = [...record.auditEvents].sort((a, b) => {
+      const byTime = a.occurredAt.localeCompare(b.occurredAt);
+      return byTime !== 0 ? byTime : a.eventId.localeCompare(b.eventId);
+    });
+    return verifyAuditChainIntegrity(sorted);
   }
 }

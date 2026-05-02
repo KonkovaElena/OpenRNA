@@ -7,6 +7,7 @@ import { ApiError } from "./errors";
 import type {
   AuthorizeFinalReleaseInput,
   ArtifactRecord,
+  AuditChainVerificationResult,
   AuditContext,
   CaseAuditEventRecord,
   CaseAuditEventType,
@@ -175,6 +176,87 @@ export function deriveCaseStatus(
 
 export function computePacketHash(value: unknown): string {
   return `sha256:${createHash("sha256").update(JSON.stringify(value)).digest("hex")}`;
+}
+
+/**
+ * Computes the canonical SHA-256 fingerprint for a single audit event record.
+ *
+ * Formula: SHA-256(eventId | "|" | type | "|" | detail | "|" |
+ *                  correlationId | "|" | actorId | "|" | authMechanism | "|" | occurredAt)
+ *
+ * Per FDA Data Integrity Guidance 2018 (ALCOA+ Accurate principle): the hash
+ * covers the immutable identity and integrity fields of the record. Optional
+ * metadata fields (recordHash, prevHash) are excluded to avoid circularity.
+ */
+export function computeAuditEventRecordHash(
+  event: Pick<
+    CaseAuditEventRecord,
+    | "eventId"
+    | "type"
+    | "detail"
+    | "correlationId"
+    | "actorId"
+    | "authMechanism"
+    | "occurredAt"
+  >,
+): string {
+  const payload = [
+    event.eventId,
+    event.type,
+    event.detail,
+    event.correlationId,
+    event.actorId,
+    event.authMechanism,
+    event.occurredAt,
+  ].join("|");
+  return createHash("sha256").update(payload, "utf8").digest("hex");
+}
+
+/**
+ * Verifies the hash-chain integrity of an ordered array of audit events.
+ * Events must be in chronological order (ascending occurredAt / eventId).
+ * Returns the first detected inconsistency if any.
+ */
+export function verifyAuditChainIntegrity(
+  events: readonly CaseAuditEventRecord[],
+): AuditChainVerificationResult {
+  if (events.length === 0) {
+    return { valid: true, eventCount: 0, detail: "No audit events." };
+  }
+
+  let expectedPrev: string | undefined = undefined;
+
+  for (const event of events) {
+    // prevHash check: only enforce when the event explicitly declares prevHash
+    if (event.prevHash !== undefined && event.prevHash !== expectedPrev) {
+      return {
+        valid: false,
+        eventCount: events.length,
+        firstBreakAt: event.eventId,
+        detail: `prevHash mismatch on event ${event.eventId}: expected ${
+          expectedPrev ?? "genesis (undefined)"
+        }, found ${event.prevHash}.`,
+      };
+    }
+
+    // recordHash check
+    const expectedRecordHash = computeAuditEventRecordHash(event);
+    if (
+      event.recordHash !== undefined &&
+      event.recordHash !== expectedRecordHash
+    ) {
+      return {
+        valid: false,
+        eventCount: events.length,
+        firstBreakAt: event.eventId,
+        detail: `recordHash mismatch on event ${event.eventId}.`,
+      };
+    }
+
+    expectedPrev = event.recordHash ?? computeAuditEventRecordHash(event);
+  }
+
+  return { valid: true, eventCount: events.length };
 }
 
 export function cloneWorkflowRun(run: WorkflowRunRecord): WorkflowRunRecord {

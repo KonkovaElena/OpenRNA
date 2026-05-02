@@ -4,6 +4,7 @@ import type { IWorkflowDispatchSink } from "../ports/IWorkflowDispatchSink";
 import type { IStateMachineGuard } from "../ports/IStateMachineGuard";
 import type {
   AdministrationRecord,
+  AuditChainVerificationResult,
   ArtifactRecord,
   BoardPacketRecord,
   BoardPacketSnapshot,
@@ -43,6 +44,10 @@ import {
   type CaseStore,
   type Clock,
 } from "../store";
+import {
+  computeAuditEventRecordHash,
+  verifyAuditChainIntegrity,
+} from "../store-helpers";
 
 interface QueryResult<T> {
   rows: T[];
@@ -215,6 +220,8 @@ function mapAuditEventRow(r: Record<string, unknown>): CaseAuditEventRecord {
         ? (String(r.auth_mechanism) as CaseAuditEventRecord["authMechanism"])
         : "anonymous",
     occurredAt: toIso(r.occurred_at),
+    recordHash: r.record_hash != null ? String(r.record_hash) : undefined,
+    prevHash: r.prev_hash != null ? String(r.prev_hash) : undefined,
   };
 }
 
@@ -394,6 +401,23 @@ export class PostgresCaseStore implements CaseStore {
       throw new Error(
         "Database schema not found. Run migration 001_full_schema.sql before starting the application.",
       );
+    }
+    // Ensure audit hash-chain columns exist (migration 004).
+    // Uses try/catch for idempotency: a real DB with migration 004 already applied
+    // will throw "column already exists"; pg-mem without IF NOT EXISTS support needs this too.
+    try {
+      await this.pool.query(
+        `ALTER TABLE audit_events ADD COLUMN record_hash TEXT`,
+      );
+    } catch {
+      // column already exists — this is expected in production and after migration 004
+    }
+    try {
+      await this.pool.query(
+        `ALTER TABLE audit_events ADD COLUMN prev_hash TEXT`,
+      );
+    } catch {
+      // column already exists — this is expected in production and after migration 004
     }
     this.initialized = true;
   }
@@ -1090,11 +1114,17 @@ export class PostgresCaseStore implements CaseStore {
       );
     }
 
-    // Insert audit events
-    for (const e of record.auditEvents) {
+    // Insert audit events with hash-chain (ALCOA+ integrity)
+    const sortedAuditEvents = [...record.auditEvents].sort((a, b) => {
+      const byTime = a.occurredAt.localeCompare(b.occurredAt);
+      return byTime !== 0 ? byTime : a.eventId.localeCompare(b.eventId);
+    });
+    let prevHash: string | undefined = undefined;
+    for (const e of sortedAuditEvents) {
+      const recordHash = computeAuditEventRecordHash(e);
       await queryable.query(
-        `INSERT INTO audit_events (event_id, case_id, event_type, detail, correlation_id, actor_id, auth_mechanism, occurred_at)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        `INSERT INTO audit_events (event_id, case_id, event_type, detail, correlation_id, actor_id, auth_mechanism, occurred_at, record_hash, prev_hash)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
         [
           e.eventId,
           id,
@@ -1104,8 +1134,11 @@ export class PostgresCaseStore implements CaseStore {
           e.actorId,
           e.authMechanism,
           e.occurredAt,
+          recordHash,
+          prevHash ?? null,
         ],
       );
+      prevHash = recordHash;
     }
 
     // Insert timeline events
@@ -1301,5 +1334,17 @@ export class PostgresCaseStore implements CaseStore {
     return this.mutateCase(caseId, (store) =>
       store.resolveHlaReview(caseId, resolution, correlationId),
     );
+  }
+
+  async verifyAuditChain(
+    caseId: string,
+  ): Promise<AuditChainVerificationResult> {
+    await this.initialize();
+    const result = await this.pool.query<Record<string, unknown>>(
+      `SELECT * FROM audit_events WHERE case_id = $1 ORDER BY occurred_at ASC, event_id ASC`,
+      [caseId],
+    );
+    const events = result.rows.map(mapAuditEventRow);
+    return verifyAuditChainIntegrity(events);
   }
 }

@@ -206,6 +206,15 @@ export interface CaseAuditEventRecord {
   actorId: string;
   authMechanism: AuthMechanism;
   occurredAt: string;
+  recordHash?: string; // SHA-256 of canonical record fields
+  prevHash?: string; // SHA-256 of previous event in chain; undefined = genesis
+}
+
+export interface AuditChainVerificationResult {
+  valid: boolean;
+  eventCount: number;
+  firstBreakAt?: string; // eventId of first inconsistency
+  detail?: string;
 }
 
 export interface CaseRecord {
@@ -1165,6 +1174,15 @@ export interface SignatureManifestation {
   signedAt: string;
   signatureHash: string;
   signatureMethod: string;
+  /**
+   * Server-side HMAC-SHA256 seal computed from (caseId | recordId | signedBy |
+   * meaning | signedAt) keyed with `SIGNATURE_SEAL_KEY`.
+   *
+   * When present, the server verifies this field on read and rejects tampered
+   * records. Satisfies 21 CFR Part 11 §11.70 (electronic signature / record
+   * linking) and FDA Data Integrity Guidance 2018 ALCOA+ Accurate principle.
+   */
+  serverSeal?: string;
 }
 
 export interface RecordReviewOutcomeInput {
