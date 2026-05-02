@@ -36,14 +36,23 @@ import type {
   WorkflowRunManifest,
   ReferenceBundleManifest,
 } from "../types";
-import { MemoryCaseStore, SystemClock, type AuditContextInput, type CaseStore, type Clock } from "../store";
+import {
+  MemoryCaseStore,
+  SystemClock,
+  type AuditContextInput,
+  type CaseStore,
+  type Clock,
+} from "../store";
 
 interface QueryResult<T> {
   rows: T[];
 }
 
 interface PostgresCaseStoreQueryable {
-  query<T = Record<string, unknown>>(text: string, values?: readonly unknown[]): Promise<QueryResult<T>>;
+  query<T = Record<string, unknown>>(
+    text: string,
+    values?: readonly unknown[],
+  ): Promise<QueryResult<T>>;
 }
 
 interface PostgresCaseStoreClient extends PostgresCaseStoreQueryable {
@@ -78,6 +87,7 @@ const caseStatuses: readonly CaseStatus[] = [
   "REVISION_REQUESTED",
   "REVIEW_REJECTED",
   "HANDOFF_PENDING",
+  "CONSENT_WITHDRAWN",
 ];
 
 // ── JSONB / timestamp helpers ────────────────────────────────────────
@@ -97,7 +107,10 @@ function jsonOrNull(value: unknown): string | null {
 }
 
 function emptyStatusCounts(): Record<CaseStatus, number> {
-  return Object.fromEntries(caseStatuses.map((s) => [s, 0])) as Record<CaseStatus, number>;
+  return Object.fromEntries(caseStatuses.map((s) => [s, 0])) as Record<
+    CaseStatus,
+    number
+  >;
 }
 
 // ── Row → domain mappers ─────────────────────────────────────────────
@@ -127,7 +140,9 @@ function mapArtifactRow(r: Record<string, unknown>): ArtifactRecord {
   };
 }
 
-function mapWorkflowRequestRow(r: Record<string, unknown>): WorkflowRequestRecord {
+function mapWorkflowRequestRow(
+  r: Record<string, unknown>,
+): WorkflowRequestRecord {
   return {
     requestId: String(r.request_id),
     workflowName: String(r.workflow_name),
@@ -135,8 +150,10 @@ function mapWorkflowRequestRow(r: Record<string, unknown>): WorkflowRequestRecor
     executionProfile: String(r.execution_profile),
     requestedBy: r.requested_by != null ? String(r.requested_by) : undefined,
     requestedAt: toIso(r.requested_at),
-    idempotencyKey: r.idempotency_key != null ? String(r.idempotency_key) : undefined,
-    correlationId: r.correlation_id != null ? String(r.correlation_id) : undefined,
+    idempotencyKey:
+      r.idempotency_key != null ? String(r.idempotency_key) : undefined,
+    correlationId:
+      r.correlation_id != null ? String(r.correlation_id) : undefined,
   };
 }
 
@@ -148,15 +165,28 @@ function mapWorkflowRunRow(r: Record<string, unknown>): WorkflowRunRecord {
     status: String(r.status) as WorkflowRunRecord["status"],
     workflowName: String(r.workflow_name),
     referenceBundleId: String(r.reference_bundle_id),
-    pinnedReferenceBundle: r.pinned_reference_bundle != null ? parseJsonb<ReferenceBundleManifest>(r.pinned_reference_bundle) : undefined,
+    pinnedReferenceBundle:
+      r.pinned_reference_bundle != null
+        ? parseJsonb<ReferenceBundleManifest>(r.pinned_reference_bundle)
+        : undefined,
     executionProfile: String(r.execution_profile),
     acceptedAt: r.accepted_at != null ? toIso(r.accepted_at) : undefined,
     startedAt: r.started_at != null ? toIso(r.started_at) : undefined,
     completedAt: r.completed_at != null ? toIso(r.completed_at) : undefined,
-    failureReason: r.failure_reason != null ? String(r.failure_reason) : undefined,
-    failureCategory: r.failure_category != null ? String(r.failure_category) as WorkflowRunRecord["failureCategory"] : undefined,
-    terminalMetadata: r.terminal_metadata != null ? parseJsonb<WorkflowTerminalMetadata>(r.terminal_metadata) : undefined,
-    manifest: r.manifest != null ? parseJsonb<WorkflowRunManifest>(r.manifest) : undefined,
+    failureReason:
+      r.failure_reason != null ? String(r.failure_reason) : undefined,
+    failureCategory:
+      r.failure_category != null
+        ? (String(r.failure_category) as WorkflowRunRecord["failureCategory"])
+        : undefined,
+    terminalMetadata:
+      r.terminal_metadata != null
+        ? parseJsonb<WorkflowTerminalMetadata>(r.terminal_metadata)
+        : undefined,
+    manifest:
+      r.manifest != null
+        ? parseJsonb<WorkflowRunManifest>(r.manifest)
+        : undefined,
   };
 }
 
@@ -178,10 +208,12 @@ function mapAuditEventRow(r: Record<string, unknown>): CaseAuditEventRecord {
     type: String(r.event_type) as CaseAuditEventRecord["type"],
     detail: String(r.detail),
     correlationId: String(r.correlation_id),
-    actorId: r.actor_id != null ? String(r.actor_id) : DEFAULT_ANONYMOUS_ACTOR_ID,
-    authMechanism: r.auth_mechanism != null
-      ? String(r.auth_mechanism) as CaseAuditEventRecord["authMechanism"]
-      : "anonymous",
+    actorId:
+      r.actor_id != null ? String(r.actor_id) : DEFAULT_ANONYMOUS_ACTOR_ID,
+    authMechanism:
+      r.auth_mechanism != null
+        ? (String(r.auth_mechanism) as CaseAuditEventRecord["authMechanism"])
+        : "anonymous",
     occurredAt: toIso(r.occurred_at),
   };
 }
@@ -198,16 +230,25 @@ function mapHlaConsensusRow(r: Record<string, unknown>): HlaConsensusRecord {
   return {
     caseId: String(r.case_id),
     alleles: parseJsonb<string[]>(r.alleles),
-    perToolEvidence: parseJsonb<HlaConsensusRecord["perToolEvidence"]>(r.per_tool_evidence),
+    perToolEvidence: parseJsonb<HlaConsensusRecord["perToolEvidence"]>(
+      r.per_tool_evidence,
+    ),
     confidenceScore: Number(r.confidence_score),
     operatorReviewThreshold: Number(r.operator_review_threshold),
     unresolvedDisagreementCount: Number(r.unresolved_disagreement_count),
     manualReviewRequired: Boolean(r.manual_review_required),
-    tieBreakNotes: r.tie_break_notes != null ? String(r.tie_break_notes) : undefined,
+    tieBreakNotes:
+      r.tie_break_notes != null ? String(r.tie_break_notes) : undefined,
     referenceVersion: String(r.reference_version),
     producedAt: toIso(r.produced_at),
-    disagreements: r.disagreements != null ? parseJsonb<HlaDisagreementRecord[]>(r.disagreements) : undefined,
-    confidenceDecomposition: r.confidence_decomposition != null ? parseJsonb<Record<string, number>>(r.confidence_decomposition) : undefined,
+    disagreements:
+      r.disagreements != null
+        ? parseJsonb<HlaDisagreementRecord[]>(r.disagreements)
+        : undefined,
+    confidenceDecomposition:
+      r.confidence_decomposition != null
+        ? parseJsonb<Record<string, number>>(r.confidence_decomposition)
+        : undefined,
   };
 }
 
@@ -241,22 +282,37 @@ function mapReviewOutcomeRow(r: Record<string, unknown>): ReviewOutcomeRecord {
     packetId: String(r.packet_id),
     reviewerId: String(r.reviewer_id),
     reviewerRole: r.reviewer_role != null ? String(r.reviewer_role) : undefined,
-    reviewDisposition: String(r.review_disposition) as ReviewOutcomeRecord["reviewDisposition"],
+    reviewDisposition: String(
+      r.review_disposition,
+    ) as ReviewOutcomeRecord["reviewDisposition"],
     rationale: String(r.rationale),
     comments: r.comments != null ? String(r.comments) : undefined,
-    signatureManifestation: r.signature_manifestation != null ? parseJsonb<ReviewOutcomeRecord["signatureManifestation"]>(r.signature_manifestation) : undefined,
-    finalRelease: r.released_at != null
-      ? {
-          releaserId: String(r.releaser_id),
-          releaserRole: r.releaser_role != null ? String(r.releaser_role) : undefined,
-          rationale: String(r.release_rationale),
-          comments: r.release_comments != null ? String(r.release_comments) : undefined,
-          signatureManifestation: r.release_signature_manifestation != null
-            ? parseJsonb<ReviewOutcomeRecord["signatureManifestation"]>(r.release_signature_manifestation)
-            : undefined,
-          releasedAt: toIso(r.released_at),
-        }
-      : undefined,
+    signatureManifestation:
+      r.signature_manifestation != null
+        ? parseJsonb<ReviewOutcomeRecord["signatureManifestation"]>(
+            r.signature_manifestation,
+          )
+        : undefined,
+    finalRelease:
+      r.released_at != null
+        ? {
+            releaserId: String(r.releaser_id),
+            releaserRole:
+              r.releaser_role != null ? String(r.releaser_role) : undefined,
+            rationale: String(r.release_rationale),
+            comments:
+              r.release_comments != null
+                ? String(r.release_comments)
+                : undefined,
+            signatureManifestation:
+              r.release_signature_manifestation != null
+                ? parseJsonb<ReviewOutcomeRecord["signatureManifestation"]>(
+                    r.release_signature_manifestation,
+                  )
+                : undefined,
+            releasedAt: toIso(r.released_at),
+          }
+        : undefined,
     reviewedAt: toIso(r.reviewed_at),
   };
 }
@@ -278,7 +334,9 @@ function mapHandoffPacketRow(r: Record<string, unknown>): HandoffPacketRecord {
   };
 }
 
-function mapOutcomeTimelineRow(r: Record<string, unknown>): OutcomeTimelineEntry {
+function mapOutcomeTimelineRow(
+  r: Record<string, unknown>,
+): OutcomeTimelineEntry {
   const entryType = String(r.entry_type);
   const base = {
     entryId: String(r.entry_id),
@@ -333,12 +391,17 @@ export class PostgresCaseStore implements CaseStore {
       `SELECT table_name FROM information_schema.tables WHERE table_name = 'cases' LIMIT 1`,
     );
     if (!exists.rows[0]) {
-      throw new Error("Database schema not found. Run migration 001_full_schema.sql before starting the application.");
+      throw new Error(
+        "Database schema not found. Run migration 001_full_schema.sql before starting the application.",
+      );
     }
     this.initialized = true;
   }
 
-  async createCase(rawInput: unknown, correlationId: Parameters<MemoryCaseStore["createCase"]>[1]): Promise<CaseRecord> {
+  async createCase(
+    rawInput: unknown,
+    correlationId: Parameters<MemoryCaseStore["createCase"]>[1],
+  ): Promise<CaseRecord> {
     await this.initialize();
     const store = this.createMemoryStore();
     const record = await store.createCase(rawInput, correlationId);
@@ -356,11 +419,16 @@ export class PostgresCaseStore implements CaseStore {
     return record;
   }
 
-  async listCases(options?: { limit?: number; offset?: number }): Promise<{ cases: CaseRecord[]; totalCount: number }> {
+  async listCases(options?: {
+    limit?: number;
+    offset?: number;
+  }): Promise<{ cases: CaseRecord[]; totalCount: number }> {
     await this.initialize();
     const limit = options?.limit ?? 50;
     const offset = options?.offset ?? 0;
-    const countResult = await this.pool.query<{ count: string }>(`SELECT COUNT(*) AS count FROM cases`);
+    const countResult = await this.pool.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM cases`,
+    );
     const totalCount = Number(countResult.rows[0]?.count ?? 0);
     const result = await this.pool.query<{ case_id: string }>(
       `SELECT case_id FROM cases ORDER BY created_at ASC, case_id ASC LIMIT $1 OFFSET $2`,
@@ -380,16 +448,34 @@ export class PostgresCaseStore implements CaseStore {
     return store.getCase(caseId);
   }
 
-  async registerSample(caseId: string, rawInput: unknown, correlationId: Parameters<MemoryCaseStore["registerSample"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.registerSample(caseId, rawInput, correlationId));
+  async registerSample(
+    caseId: string,
+    rawInput: unknown,
+    correlationId: Parameters<MemoryCaseStore["registerSample"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.registerSample(caseId, rawInput, correlationId),
+    );
   }
 
-  async registerArtifact(caseId: string, rawInput: unknown, correlationId: Parameters<MemoryCaseStore["registerArtifact"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.registerArtifact(caseId, rawInput, correlationId));
+  async registerArtifact(
+    caseId: string,
+    rawInput: unknown,
+    correlationId: Parameters<MemoryCaseStore["registerArtifact"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.registerArtifact(caseId, rawInput, correlationId),
+    );
   }
 
-  async requestWorkflow(caseId: string, rawInput: unknown, correlationId: Parameters<MemoryCaseStore["requestWorkflow"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.requestWorkflow(caseId, rawInput, correlationId));
+  async requestWorkflow(
+    caseId: string,
+    rawInput: unknown,
+    correlationId: Parameters<MemoryCaseStore["requestWorkflow"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.requestWorkflow(caseId, rawInput, correlationId),
+    );
   }
 
   async getOperationsSummary(): Promise<OperationsSummary> {
@@ -401,7 +487,10 @@ export class PostgresCaseStore implements CaseStore {
     for (const row of result.rows) {
       statusCounts[row.status] = Number(row.count);
     }
-    const totalCases = Object.values(statusCounts).reduce((sum, c) => sum + c, 0);
+    const totalCases = Object.values(statusCounts).reduce(
+      (sum, c) => sum + c,
+      0,
+    );
     return {
       totalCases,
       statusCounts,
@@ -411,24 +500,60 @@ export class PostgresCaseStore implements CaseStore {
     };
   }
 
-  async startWorkflowRun(caseId: string, startedRun: Parameters<MemoryCaseStore["startWorkflowRun"]>[1], correlationId: Parameters<MemoryCaseStore["startWorkflowRun"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.startWorkflowRun(caseId, startedRun, correlationId));
+  async startWorkflowRun(
+    caseId: string,
+    startedRun: Parameters<MemoryCaseStore["startWorkflowRun"]>[1],
+    correlationId: Parameters<MemoryCaseStore["startWorkflowRun"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.startWorkflowRun(caseId, startedRun, correlationId),
+    );
   }
 
-  async completeWorkflowRun(caseId: string, completedRun: Parameters<MemoryCaseStore["completeWorkflowRun"]>[1], derivedArtifacts: Parameters<MemoryCaseStore["completeWorkflowRun"]>[2], correlationId: Parameters<MemoryCaseStore["completeWorkflowRun"]>[3]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.completeWorkflowRun(caseId, completedRun, derivedArtifacts, correlationId));
+  async completeWorkflowRun(
+    caseId: string,
+    completedRun: Parameters<MemoryCaseStore["completeWorkflowRun"]>[1],
+    derivedArtifacts: Parameters<MemoryCaseStore["completeWorkflowRun"]>[2],
+    correlationId: Parameters<MemoryCaseStore["completeWorkflowRun"]>[3],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.completeWorkflowRun(
+        caseId,
+        completedRun,
+        derivedArtifacts,
+        correlationId,
+      ),
+    );
   }
 
-  async cancelWorkflowRun(caseId: string, cancelledRun: Parameters<MemoryCaseStore["cancelWorkflowRun"]>[1], correlationId: Parameters<MemoryCaseStore["cancelWorkflowRun"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.cancelWorkflowRun(caseId, cancelledRun, correlationId));
+  async cancelWorkflowRun(
+    caseId: string,
+    cancelledRun: Parameters<MemoryCaseStore["cancelWorkflowRun"]>[1],
+    correlationId: Parameters<MemoryCaseStore["cancelWorkflowRun"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.cancelWorkflowRun(caseId, cancelledRun, correlationId),
+    );
   }
 
-  async failWorkflowRun(caseId: string, failedRun: Parameters<MemoryCaseStore["failWorkflowRun"]>[1], correlationId: Parameters<MemoryCaseStore["failWorkflowRun"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.failWorkflowRun(caseId, failedRun, correlationId));
+  async failWorkflowRun(
+    caseId: string,
+    failedRun: Parameters<MemoryCaseStore["failWorkflowRun"]>[1],
+    correlationId: Parameters<MemoryCaseStore["failWorkflowRun"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.failWorkflowRun(caseId, failedRun, correlationId),
+    );
   }
 
-  async recordHlaConsensus(caseId: string, record: Parameters<MemoryCaseStore["recordHlaConsensus"]>[1], correlationId: Parameters<MemoryCaseStore["recordHlaConsensus"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.recordHlaConsensus(caseId, record, correlationId));
+  async recordHlaConsensus(
+    caseId: string,
+    record: Parameters<MemoryCaseStore["recordHlaConsensus"]>[1],
+    correlationId: Parameters<MemoryCaseStore["recordHlaConsensus"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.recordHlaConsensus(caseId, record, correlationId),
+    );
   }
 
   async getHlaConsensus(caseId: string) {
@@ -437,8 +562,15 @@ export class PostgresCaseStore implements CaseStore {
     return store.getHlaConsensus(caseId);
   }
 
-  async recordQcGate(caseId: string, runId: string, gate: Parameters<MemoryCaseStore["recordQcGate"]>[2], correlationId: Parameters<MemoryCaseStore["recordQcGate"]>[3]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.recordQcGate(caseId, runId, gate, correlationId));
+  async recordQcGate(
+    caseId: string,
+    runId: string,
+    gate: Parameters<MemoryCaseStore["recordQcGate"]>[2],
+    correlationId: Parameters<MemoryCaseStore["recordQcGate"]>[3],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.recordQcGate(caseId, runId, gate, correlationId),
+    );
   }
 
   async getQcGate(caseId: string, runId: string) {
@@ -459,7 +591,10 @@ export class PostgresCaseStore implements CaseStore {
     return store.listWorkflowRuns(caseId);
   }
 
-  async generateBoardPacket(caseId: string, correlationId: Parameters<MemoryCaseStore["generateBoardPacket"]>[1]) {
+  async generateBoardPacket(
+    caseId: string,
+    correlationId: Parameters<MemoryCaseStore["generateBoardPacket"]>[1],
+  ) {
     await this.initialize();
     const client = await this.pool.connect();
     try {
@@ -489,13 +624,21 @@ export class PostgresCaseStore implements CaseStore {
     return store.getBoardPacket(caseId, packetId);
   }
 
-  async recordReviewOutcome(caseId: string, input: RecordReviewOutcomeInput, correlationId: Parameters<MemoryCaseStore["recordReviewOutcome"]>[2]): Promise<ReviewOutcomeResult> {
+  async recordReviewOutcome(
+    caseId: string,
+    input: RecordReviewOutcomeInput,
+    correlationId: Parameters<MemoryCaseStore["recordReviewOutcome"]>[2],
+  ): Promise<ReviewOutcomeResult> {
     await this.initialize();
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
       const store = await this.createMemoryStoreForCase(caseId, client, true);
-      const result = await store.recordReviewOutcome(caseId, input, correlationId);
+      const result = await store.recordReviewOutcome(
+        caseId,
+        input,
+        correlationId,
+      );
       await this.saveCaseRecord(client, result.case);
       await client.query("COMMIT");
       return result;
@@ -507,13 +650,21 @@ export class PostgresCaseStore implements CaseStore {
     }
   }
 
-  async authorizeFinalRelease(caseId: string, input: Parameters<MemoryCaseStore["authorizeFinalRelease"]>[1], correlationId: Parameters<MemoryCaseStore["authorizeFinalRelease"]>[2]) {
+  async authorizeFinalRelease(
+    caseId: string,
+    input: Parameters<MemoryCaseStore["authorizeFinalRelease"]>[1],
+    correlationId: Parameters<MemoryCaseStore["authorizeFinalRelease"]>[2],
+  ) {
     await this.initialize();
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
       const store = await this.createMemoryStoreForCase(caseId, client, true);
-      const result = await store.authorizeFinalRelease(caseId, input, correlationId);
+      const result = await store.authorizeFinalRelease(
+        caseId,
+        input,
+        correlationId,
+      );
       await this.saveCaseRecord(client, result.case);
       await client.query("COMMIT");
       return result;
@@ -537,13 +688,21 @@ export class PostgresCaseStore implements CaseStore {
     return store.getReviewOutcome(caseId, reviewId);
   }
 
-  async generateHandoffPacket(caseId: string, input: GenerateHandoffPacketInput, correlationId: Parameters<MemoryCaseStore["generateHandoffPacket"]>[2]): Promise<HandoffPacketGenerationResult> {
+  async generateHandoffPacket(
+    caseId: string,
+    input: GenerateHandoffPacketInput,
+    correlationId: Parameters<MemoryCaseStore["generateHandoffPacket"]>[2],
+  ): Promise<HandoffPacketGenerationResult> {
     await this.initialize();
     const client = await this.pool.connect();
     try {
       await client.query("BEGIN");
       const store = await this.createMemoryStoreForCase(caseId, client, true);
-      const result = await store.generateHandoffPacket(caseId, input, correlationId);
+      const result = await store.generateHandoffPacket(
+        caseId,
+        input,
+        correlationId,
+      );
       await this.saveCaseRecord(client, result.case);
       await client.query("COMMIT");
       return result;
@@ -567,8 +726,14 @@ export class PostgresCaseStore implements CaseStore {
     return store.getHandoffPacket(caseId, handoffId);
   }
 
-  async recordNeoantigenRanking(caseId: string, ranking: Parameters<MemoryCaseStore["recordNeoantigenRanking"]>[1], correlationId: Parameters<MemoryCaseStore["recordNeoantigenRanking"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.recordNeoantigenRanking(caseId, ranking, correlationId));
+  async recordNeoantigenRanking(
+    caseId: string,
+    ranking: Parameters<MemoryCaseStore["recordNeoantigenRanking"]>[1],
+    correlationId: Parameters<MemoryCaseStore["recordNeoantigenRanking"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.recordNeoantigenRanking(caseId, ranking, correlationId),
+    );
   }
 
   async getNeoantigenRanking(caseId: string) {
@@ -577,8 +742,14 @@ export class PostgresCaseStore implements CaseStore {
     return store.getNeoantigenRanking(caseId);
   }
 
-  async recordConstructDesign(caseId: string, constructDesign: ConstructDesignPackage, correlationId: Parameters<MemoryCaseStore["recordConstructDesign"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.recordConstructDesign(caseId, constructDesign, correlationId));
+  async recordConstructDesign(
+    caseId: string,
+    constructDesign: ConstructDesignPackage,
+    correlationId: Parameters<MemoryCaseStore["recordConstructDesign"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.recordConstructDesign(caseId, constructDesign, correlationId),
+    );
   }
 
   async getConstructDesign(caseId: string) {
@@ -587,16 +758,34 @@ export class PostgresCaseStore implements CaseStore {
     return store.getConstructDesign(caseId);
   }
 
-  async recordAdministration(caseId: string, administration: Parameters<MemoryCaseStore["recordAdministration"]>[1], correlationId: Parameters<MemoryCaseStore["recordAdministration"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.recordAdministration(caseId, administration, correlationId));
+  async recordAdministration(
+    caseId: string,
+    administration: Parameters<MemoryCaseStore["recordAdministration"]>[1],
+    correlationId: Parameters<MemoryCaseStore["recordAdministration"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.recordAdministration(caseId, administration, correlationId),
+    );
   }
 
-  async recordImmuneMonitoring(caseId: string, immuneMonitoring: Parameters<MemoryCaseStore["recordImmuneMonitoring"]>[1], correlationId: Parameters<MemoryCaseStore["recordImmuneMonitoring"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.recordImmuneMonitoring(caseId, immuneMonitoring, correlationId));
+  async recordImmuneMonitoring(
+    caseId: string,
+    immuneMonitoring: Parameters<MemoryCaseStore["recordImmuneMonitoring"]>[1],
+    correlationId: Parameters<MemoryCaseStore["recordImmuneMonitoring"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.recordImmuneMonitoring(caseId, immuneMonitoring, correlationId),
+    );
   }
 
-  async recordClinicalFollowUp(caseId: string, clinicalFollowUp: Parameters<MemoryCaseStore["recordClinicalFollowUp"]>[1], correlationId: Parameters<MemoryCaseStore["recordClinicalFollowUp"]>[2]): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.recordClinicalFollowUp(caseId, clinicalFollowUp, correlationId));
+  async recordClinicalFollowUp(
+    caseId: string,
+    clinicalFollowUp: Parameters<MemoryCaseStore["recordClinicalFollowUp"]>[1],
+    correlationId: Parameters<MemoryCaseStore["recordClinicalFollowUp"]>[2],
+  ): Promise<CaseRecord> {
+    return this.mutateCase(caseId, (store) =>
+      store.recordClinicalFollowUp(caseId, clinicalFollowUp, correlationId),
+    );
   }
 
   async getOutcomeTimeline(caseId: string) {
@@ -617,8 +806,15 @@ export class PostgresCaseStore implements CaseStore {
 
   // ── Private helpers ──────────────────────────────────────────────
 
-  private createMemoryStore(records: readonly CaseRecord[] = []): MemoryCaseStore {
-    return new MemoryCaseStore(this.clock, this.workflowDispatchSink, records, this.stateMachineGuard);
+  private createMemoryStore(
+    records: readonly CaseRecord[] = [],
+  ): MemoryCaseStore {
+    return new MemoryCaseStore(
+      this.clock,
+      this.workflowDispatchSink,
+      records,
+      this.stateMachineGuard,
+    );
   }
 
   private async createMemoryStoreForCase(
@@ -645,23 +841,72 @@ export class PostgresCaseStore implements CaseStore {
 
     // HD-003: Fan out all 13 child queries in parallel — they are independent given the parent case_id.
     const [
-      samplesR, artifactsR, requestsR, runsR, runArtsR,
-      auditsR, timelineR, outcomesR, hlaR, qcR,
-      packetsR, reviewOutcomesR, handoffPacketsR,
+      samplesR,
+      artifactsR,
+      requestsR,
+      runsR,
+      runArtsR,
+      auditsR,
+      timelineR,
+      outcomesR,
+      hlaR,
+      qcR,
+      packetsR,
+      reviewOutcomesR,
+      handoffPacketsR,
     ] = await Promise.all([
-      queryable.query<Record<string, unknown>>(`SELECT * FROM samples WHERE case_id = $1 ORDER BY registered_at`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM artifacts WHERE case_id = $1 ORDER BY registered_at`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM workflow_requests WHERE case_id = $1 ORDER BY requested_at`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM workflow_runs WHERE case_id = $1 ORDER BY started_at NULLS LAST`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM run_artifacts WHERE case_id = $1 ORDER BY registered_at`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM audit_events WHERE case_id = $1 ORDER BY occurred_at`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM timeline_events WHERE case_id = $1 ORDER BY at`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM outcome_timeline WHERE case_id = $1 ORDER BY occurred_at, entry_id`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM hla_consensus WHERE case_id = $1`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM qc_gates WHERE case_id = $1`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM board_packets WHERE case_id = $1 ORDER BY created_at`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM review_outcomes WHERE case_id = $1 ORDER BY reviewed_at`, [caseId]),
-      queryable.query<Record<string, unknown>>(`SELECT * FROM handoff_packets WHERE case_id = $1 ORDER BY created_at`, [caseId]),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM samples WHERE case_id = $1 ORDER BY registered_at`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM artifacts WHERE case_id = $1 ORDER BY registered_at`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM workflow_requests WHERE case_id = $1 ORDER BY requested_at`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM workflow_runs WHERE case_id = $1 ORDER BY started_at NULLS LAST`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM run_artifacts WHERE case_id = $1 ORDER BY registered_at`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM audit_events WHERE case_id = $1 ORDER BY occurred_at`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM timeline_events WHERE case_id = $1 ORDER BY at`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM outcome_timeline WHERE case_id = $1 ORDER BY occurred_at, entry_id`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM hla_consensus WHERE case_id = $1`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM qc_gates WHERE case_id = $1`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM board_packets WHERE case_id = $1 ORDER BY created_at`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM review_outcomes WHERE case_id = $1 ORDER BY reviewed_at`,
+        [caseId],
+      ),
+      queryable.query<Record<string, unknown>>(
+        `SELECT * FROM handoff_packets WHERE case_id = $1 ORDER BY created_at`,
+        [caseId],
+      ),
     ]);
 
     return {
@@ -682,26 +927,45 @@ export class PostgresCaseStore implements CaseStore {
       boardPackets: packetsR.rows.map(mapBoardPacketRow),
       reviewOutcomes: reviewOutcomesR.rows.map(mapReviewOutcomeRow),
       handoffPackets: handoffPacketsR.rows.map(mapHandoffPacketRow),
-      neoantigenRanking: c.neoantigen_ranking != null ? parseJsonb<RankingResult>(c.neoantigen_ranking) : undefined,
-      constructDesign: c.construct_design != null ? parseJsonb<ConstructDesignPackage>(c.construct_design) : undefined,
+      neoantigenRanking:
+        c.neoantigen_ranking != null
+          ? parseJsonb<RankingResult>(c.neoantigen_ranking)
+          : undefined,
+      constructDesign:
+        c.construct_design != null
+          ? parseJsonb<ConstructDesignPackage>(c.construct_design)
+          : undefined,
       outcomeTimeline: outcomesR.rows.map(mapOutcomeTimelineRow),
     };
   }
 
-  private async saveCaseRecord(queryable: PostgresCaseStoreQueryable, record: CaseRecord): Promise<void> {
+  private async saveCaseRecord(
+    queryable: PostgresCaseStoreQueryable,
+    record: CaseRecord,
+  ): Promise<void> {
     const id = record.caseId;
 
     // Delete children in FK-safe order (leaves first)
-    await queryable.query(`DELETE FROM handoff_packets WHERE case_id = $1`, [id]);
-    await queryable.query(`DELETE FROM review_outcomes WHERE case_id = $1`, [id]);
+    await queryable.query(`DELETE FROM handoff_packets WHERE case_id = $1`, [
+      id,
+    ]);
+    await queryable.query(`DELETE FROM review_outcomes WHERE case_id = $1`, [
+      id,
+    ]);
     await queryable.query(`DELETE FROM board_packets WHERE case_id = $1`, [id]);
-    await queryable.query(`DELETE FROM outcome_timeline WHERE case_id = $1`, [id]);
+    await queryable.query(`DELETE FROM outcome_timeline WHERE case_id = $1`, [
+      id,
+    ]);
     await queryable.query(`DELETE FROM qc_gates WHERE case_id = $1`, [id]);
     await queryable.query(`DELETE FROM run_artifacts WHERE case_id = $1`, [id]);
     await queryable.query(`DELETE FROM hla_consensus WHERE case_id = $1`, [id]);
     await queryable.query(`DELETE FROM workflow_runs WHERE case_id = $1`, [id]);
-    await queryable.query(`DELETE FROM workflow_requests WHERE case_id = $1`, [id]);
-    await queryable.query(`DELETE FROM timeline_events WHERE case_id = $1`, [id]);
+    await queryable.query(`DELETE FROM workflow_requests WHERE case_id = $1`, [
+      id,
+    ]);
+    await queryable.query(`DELETE FROM timeline_events WHERE case_id = $1`, [
+      id,
+    ]);
     await queryable.query(`DELETE FROM audit_events WHERE case_id = $1`, [id]);
     await queryable.query(`DELETE FROM artifacts WHERE case_id = $1`, [id]);
     await queryable.query(`DELETE FROM samples WHERE case_id = $1`, [id]);
@@ -732,7 +996,15 @@ export class PostgresCaseStore implements CaseStore {
       await queryable.query(
         `INSERT INTO samples (sample_id, case_id, sample_type, assay_type, accession_id, source_site, registered_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [s.sampleId, id, s.sampleType, s.assayType, s.accessionId, s.sourceSite, s.registeredAt],
+        [
+          s.sampleId,
+          id,
+          s.sampleType,
+          s.assayType,
+          s.accessionId,
+          s.sourceSite,
+          s.registeredAt,
+        ],
       );
     }
 
@@ -741,7 +1013,18 @@ export class PostgresCaseStore implements CaseStore {
       await queryable.query(
         `INSERT INTO artifacts (artifact_id, case_id, artifact_class, sample_id, semantic_type, schema_version, artifact_hash, storage_uri, media_type, registered_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-        [a.artifactId, id, a.artifactClass, a.sampleId, a.semanticType, a.schemaVersion, a.artifactHash, a.storageUri ?? null, a.mediaType ?? null, a.registeredAt],
+        [
+          a.artifactId,
+          id,
+          a.artifactClass,
+          a.sampleId,
+          a.semanticType,
+          a.schemaVersion,
+          a.artifactHash,
+          a.storageUri ?? null,
+          a.mediaType ?? null,
+          a.registeredAt,
+        ],
       );
     }
 
@@ -750,7 +1033,17 @@ export class PostgresCaseStore implements CaseStore {
       await queryable.query(
         `INSERT INTO workflow_requests (request_id, case_id, workflow_name, reference_bundle_id, execution_profile, requested_by, requested_at, idempotency_key, correlation_id)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [w.requestId, id, w.workflowName, w.referenceBundleId, w.executionProfile, w.requestedBy ?? null, w.requestedAt, w.idempotencyKey ?? null, w.correlationId ?? null],
+        [
+          w.requestId,
+          id,
+          w.workflowName,
+          w.referenceBundleId,
+          w.executionProfile,
+          w.requestedBy ?? null,
+          w.requestedAt,
+          w.idempotencyKey ?? null,
+          w.correlationId ?? null,
+        ],
       );
     }
 
@@ -759,11 +1052,23 @@ export class PostgresCaseStore implements CaseStore {
       await queryable.query(
         `INSERT INTO workflow_runs (run_id, case_id, request_id, status, workflow_name, reference_bundle_id, pinned_reference_bundle, execution_profile, accepted_at, started_at, completed_at, failure_reason, failure_category, terminal_metadata, manifest)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
-        [r.runId, id, r.requestId, r.status, r.workflowName, r.referenceBundleId,
-         jsonOrNull(r.pinnedReferenceBundle), r.executionProfile,
-         r.acceptedAt ?? null, r.startedAt ?? null, r.completedAt ?? null,
-         r.failureReason ?? null, r.failureCategory ?? null,
-         jsonOrNull(r.terminalMetadata), jsonOrNull(r.manifest)],
+        [
+          r.runId,
+          id,
+          r.requestId,
+          r.status,
+          r.workflowName,
+          r.referenceBundleId,
+          jsonOrNull(r.pinnedReferenceBundle),
+          r.executionProfile,
+          r.acceptedAt ?? null,
+          r.startedAt ?? null,
+          r.completedAt ?? null,
+          r.failureReason ?? null,
+          r.failureCategory ?? null,
+          jsonOrNull(r.terminalMetadata),
+          jsonOrNull(r.manifest),
+        ],
       );
     }
 
@@ -772,7 +1077,16 @@ export class PostgresCaseStore implements CaseStore {
       await queryable.query(
         `INSERT INTO run_artifacts (artifact_id, run_id, case_id, artifact_class, semantic_type, artifact_hash, producing_step, registered_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [a.artifactId, a.runId, id, a.artifactClass, a.semanticType, a.artifactHash, a.producingStep, a.registeredAt],
+        [
+          a.artifactId,
+          a.runId,
+          id,
+          a.artifactClass,
+          a.semanticType,
+          a.artifactHash,
+          a.producingStep,
+          a.registeredAt,
+        ],
       );
     }
 
@@ -781,7 +1095,16 @@ export class PostgresCaseStore implements CaseStore {
       await queryable.query(
         `INSERT INTO audit_events (event_id, case_id, event_type, detail, correlation_id, actor_id, auth_mechanism, occurred_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-        [e.eventId, id, e.type, e.detail, e.correlationId, e.actorId, e.authMechanism, e.occurredAt],
+        [
+          e.eventId,
+          id,
+          e.type,
+          e.detail,
+          e.correlationId,
+          e.actorId,
+          e.authMechanism,
+          e.occurredAt,
+        ],
       );
     }
 
@@ -825,7 +1148,9 @@ export class PostgresCaseStore implements CaseStore {
           h.referenceVersion,
           h.producedAt,
           h.disagreements ? JSON.stringify(h.disagreements) : null,
-          h.confidenceDecomposition ? JSON.stringify(h.confidenceDecomposition) : null,
+          h.confidenceDecomposition
+            ? JSON.stringify(h.confidenceDecomposition)
+            : null,
         ],
       );
     }
@@ -844,7 +1169,17 @@ export class PostgresCaseStore implements CaseStore {
       await queryable.query(
         `INSERT INTO board_packets (packet_id, case_id, artifact_class, board_route, version, schema_version, packet_hash, created_at, snapshot)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [p.packetId, id, p.artifactClass, p.boardRoute, p.version, p.schemaVersion, p.packetHash, p.createdAt, JSON.stringify(p.snapshot)],
+        [
+          p.packetId,
+          id,
+          p.artifactClass,
+          p.boardRoute,
+          p.version,
+          p.schemaVersion,
+          p.packetHash,
+          p.createdAt,
+          JSON.stringify(p.snapshot),
+        ],
       );
     }
 
@@ -895,11 +1230,12 @@ export class PostgresCaseStore implements CaseStore {
     }
 
     for (const outcome of record.outcomeTimeline) {
-      const payload = outcome.entryType === "administration"
-        ? outcome.administration
-        : outcome.entryType === "immune-monitoring"
-          ? outcome.immuneMonitoring
-          : outcome.clinicalFollowUp;
+      const payload =
+        outcome.entryType === "administration"
+          ? outcome.administration
+          : outcome.entryType === "immune-monitoring"
+            ? outcome.immuneMonitoring
+            : outcome.clinicalFollowUp;
 
       await queryable.query(
         `INSERT INTO outcome_timeline (entry_id, case_id, construct_id, construct_version, entry_type, occurred_at, payload)
@@ -943,14 +1279,18 @@ export class PostgresCaseStore implements CaseStore {
     consentStatus: Parameters<MemoryCaseStore["syncConsentStatus"]>[1],
     correlationId: Parameters<MemoryCaseStore["syncConsentStatus"]>[2],
   ): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.syncConsentStatus(caseId, consentStatus, correlationId));
+    return this.mutateCase(caseId, (store) =>
+      store.syncConsentStatus(caseId, consentStatus, correlationId),
+    );
   }
 
   async restartFromRevision(
     caseId: string,
     correlationId: Parameters<MemoryCaseStore["restartFromRevision"]>[1],
   ): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.restartFromRevision(caseId, correlationId));
+    return this.mutateCase(caseId, (store) =>
+      store.restartFromRevision(caseId, correlationId),
+    );
   }
 
   async resolveHlaReview(
@@ -958,6 +1298,8 @@ export class PostgresCaseStore implements CaseStore {
     resolution: Parameters<MemoryCaseStore["resolveHlaReview"]>[1],
     correlationId: Parameters<MemoryCaseStore["resolveHlaReview"]>[2],
   ): Promise<CaseRecord> {
-    return this.mutateCase(caseId, (store) => store.resolveHlaReview(caseId, resolution, correlationId));
+    return this.mutateCase(caseId, (store) =>
+      store.resolveHlaReview(caseId, resolution, correlationId),
+    );
   }
 }

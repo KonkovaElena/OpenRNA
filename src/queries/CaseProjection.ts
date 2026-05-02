@@ -20,7 +20,11 @@ import type {
   WorkflowRunRecord,
 } from "../types.js";
 
-function timelineEvent(at: string, type: string, detail: string): TimelineEvent {
+function timelineEvent(
+  at: string,
+  type: string,
+  detail: string,
+): TimelineEvent {
   return { at, type, detail };
 }
 
@@ -47,20 +51,32 @@ function sortOutcomeTimeline(entries: OutcomeTimelineEntry[]): void {
   });
 }
 
-function ensureCaseRecord(record: CaseRecord | undefined, event: CaseDomainEventRecord): CaseRecord {
+function ensureCaseRecord(
+  record: CaseRecord | undefined,
+  event: CaseDomainEventRecord,
+): CaseRecord {
   if (!record) {
-    throw new Error(`Case ${event.aggregateId} must be created before applying ${event.type}.`);
+    throw new Error(
+      `Case ${event.aggregateId} must be created before applying ${event.type}.`,
+    );
   }
 
   if (record.caseId !== event.aggregateId) {
-    throw new Error(`Aggregate mismatch: expected ${record.caseId}, got ${event.aggregateId}.`);
+    throw new Error(
+      `Aggregate mismatch: expected ${record.caseId}, got ${event.aggregateId}.`,
+    );
   }
 
   return record;
 }
 
-function replaceWorkflowRun(record: CaseRecord, nextRun: WorkflowRunRecord): void {
-  const index = record.workflowRuns.findIndex((run) => run.runId === nextRun.runId);
+function replaceWorkflowRun(
+  record: CaseRecord,
+  nextRun: WorkflowRunRecord,
+): void {
+  const index = record.workflowRuns.findIndex(
+    (run) => run.runId === nextRun.runId,
+  );
   if (index === -1) {
     record.workflowRuns.push(structuredClone(nextRun));
     return;
@@ -69,20 +85,34 @@ function replaceWorkflowRun(record: CaseRecord, nextRun: WorkflowRunRecord): voi
   record.workflowRuns[index] = structuredClone(nextRun);
 }
 
-function pushOutcomeEntry(record: CaseRecord, entry: OutcomeTimelineEntry): void {
+function pushOutcomeEntry(
+  record: CaseRecord,
+  entry: OutcomeTimelineEntry,
+): void {
   record.outcomeTimeline.push(structuredClone(entry));
   sortOutcomeTimeline(record.outcomeTimeline);
 }
 
-export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomainEventRecord): CaseRecord {
+export function applyCaseEvent(
+  current: CaseRecord | undefined,
+  event: CaseDomainEventRecord,
+): CaseRecord {
   if (event.type === "case.created") {
     const timeline: TimelineEvent[] = [
-      timelineEvent(event.occurredAt, "case_created", "Human oncology case was created."),
+      timelineEvent(
+        event.occurredAt,
+        "case_created",
+        "Human oncology case was created.",
+      ),
     ];
 
     if (event.payload.status === "AWAITING_CONSENT") {
       timeline.push(
-        timelineEvent(event.occurredAt, "consent_missing", "Case is waiting for required consent artifacts."),
+        timelineEvent(
+          event.occurredAt,
+          "consent_missing",
+          "Case is waiting for required consent artifacts.",
+        ),
       );
     }
 
@@ -115,10 +145,18 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
     case "sample.registered": {
       record.samples.push(structuredClone(event.payload.sample));
       record.timeline.push(
-        timelineEvent(event.occurredAt, "sample_registered", `${event.payload.sample.sampleType} provenance was registered.`),
+        timelineEvent(
+          event.occurredAt,
+          "sample_registered",
+          `${event.payload.sample.sampleType} provenance was registered.`,
+        ),
       );
       record.auditEvents.push(
-        auditEvent(event, "sample.registered", `${event.payload.sample.sampleType} provenance was registered.`),
+        auditEvent(
+          event,
+          "sample.registered",
+          `${event.payload.sample.sampleType} provenance was registered.`,
+        ),
       );
       if (event.payload.workflowGateOpened) {
         record.timeline.push(
@@ -175,7 +213,11 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
         ),
       );
       record.auditEvents.push(
-        auditEvent(event, "workflow.requested", `${event.payload.request.workflowName} workflow was requested.`),
+        auditEvent(
+          event,
+          "workflow.requested",
+          `${event.payload.request.workflowName} workflow was requested.`,
+        ),
       );
       record.updatedAt = event.updatedAt;
       return record;
@@ -185,10 +227,18 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
       replaceWorkflowRun(record, event.payload.run);
       record.status = event.payload.nextStatus;
       record.timeline.push(
-        timelineEvent(event.occurredAt, "workflow_started", `Workflow run ${event.payload.run.runId} started.`),
+        timelineEvent(
+          event.occurredAt,
+          "workflow_started",
+          `Workflow run ${event.payload.run.runId} started.`,
+        ),
       );
       record.auditEvents.push(
-        auditEvent(event, "workflow.started", `Workflow run ${event.payload.run.runId} started.`),
+        auditEvent(
+          event,
+          "workflow.started",
+          `Workflow run ${event.payload.run.runId} started.`,
+        ),
       );
       record.updatedAt = event.updatedAt;
       return record;
@@ -215,7 +265,11 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
         ),
       );
       record.auditEvents.push(
-        auditEvent(event, "workflow.completed", `Run ${event.payload.run.runId} completed.`),
+        auditEvent(
+          event,
+          "workflow.completed",
+          `Run ${event.payload.run.runId} completed.`,
+        ),
       );
       record.updatedAt = event.updatedAt;
       return record;
@@ -225,10 +279,18 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
       replaceWorkflowRun(record, event.payload.run);
       record.status = event.payload.nextStatus;
       record.timeline.push(
-        timelineEvent(event.occurredAt, "workflow_cancelled", `Run ${event.payload.run.runId} was cancelled.`),
+        timelineEvent(
+          event.occurredAt,
+          "workflow_cancelled",
+          `Run ${event.payload.run.runId} was cancelled.`,
+        ),
       );
       record.auditEvents.push(
-        auditEvent(event, "workflow.cancelled", `Workflow run ${event.payload.run.runId} was cancelled.`),
+        auditEvent(
+          event,
+          "workflow.cancelled",
+          `Workflow run ${event.payload.run.runId} was cancelled.`,
+        ),
       );
       record.updatedAt = event.updatedAt;
       return record;
@@ -265,7 +327,11 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
         ),
       );
       record.auditEvents.push(
-        auditEvent(event, "hla.consensus.produced", `HLA consensus produced for case ${record.caseId}.`),
+        auditEvent(
+          event,
+          "hla.consensus.produced",
+          `HLA consensus produced for case ${record.caseId}.`,
+        ),
       );
       record.updatedAt = event.updatedAt;
       return record;
@@ -335,11 +401,18 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
     }
 
     case "final.release.authorized": {
-      const index = record.reviewOutcomes.findIndex((candidate) => candidate.reviewId === event.payload.reviewOutcome.reviewId);
+      const index = record.reviewOutcomes.findIndex(
+        (candidate) =>
+          candidate.reviewId === event.payload.reviewOutcome.reviewId,
+      );
       if (index === -1) {
-        record.reviewOutcomes.push(structuredClone(event.payload.reviewOutcome));
+        record.reviewOutcomes.push(
+          structuredClone(event.payload.reviewOutcome),
+        );
       } else {
-        record.reviewOutcomes[index] = structuredClone(event.payload.reviewOutcome);
+        record.reviewOutcomes[index] = structuredClone(
+          event.payload.reviewOutcome,
+        );
       }
       record.status = event.payload.nextStatus;
       record.timeline.push(
@@ -483,17 +556,87 @@ export function applyCaseEvent(current: CaseRecord | undefined, event: CaseDomai
       record.updatedAt = event.updatedAt;
       return record;
     }
+
+    case "consent.updated": {
+      record.caseProfile = {
+        ...record.caseProfile,
+        consentStatus: event.payload.consentStatus,
+      };
+      record.status = event.payload.nextStatus;
+      record.timeline.push(
+        timelineEvent(
+          event.occurredAt,
+          "consent_updated",
+          `Consent status synchronized to '${event.payload.consentStatus}'.`,
+        ),
+      );
+      record.auditEvents.push(
+        auditEvent(
+          event,
+          "consent.updated",
+          `Consent status changed to '${event.payload.consentStatus}'.`,
+        ),
+      );
+      record.updatedAt = event.updatedAt;
+      return record;
+    }
+
+    case "revision.restarted": {
+      record.status = event.payload.nextStatus;
+      record.timeline.push(
+        timelineEvent(
+          event.occurredAt,
+          "revision_restarted",
+          "Case restarted from board revision for a new workflow cycle.",
+        ),
+      );
+      record.auditEvents.push(
+        auditEvent(
+          event,
+          "revision.restarted",
+          "Pipeline restarted after board revision request.",
+        ),
+      );
+      record.updatedAt = event.updatedAt;
+      return record;
+    }
+
+    case "hla.review.resolved": {
+      record.status = event.payload.nextStatus;
+      record.timeline.push(
+        timelineEvent(
+          event.occurredAt,
+          "hla_review_resolved",
+          `HLA review resolved: ${event.payload.rationale}`,
+        ),
+      );
+      record.auditEvents.push(
+        auditEvent(
+          event,
+          "hla.review.resolved",
+          `Operator resolved HLA review: ${event.payload.rationale}`,
+        ),
+      );
+      record.updatedAt = event.updatedAt;
+      return record;
+    }
   }
 }
 
-export function replayCaseEvents(events: readonly CaseDomainEventRecord[]): CaseRecord {
+export function replayCaseEvents(
+  events: readonly CaseDomainEventRecord[],
+): CaseRecord {
   const orderedEvents = [...events].sort((left, right) => {
     const byVersion = left.version - right.version;
-    return byVersion !== 0 ? byVersion : left.eventId.localeCompare(right.eventId);
+    return byVersion !== 0
+      ? byVersion
+      : left.eventId.localeCompare(right.eventId);
   });
 
   if (orderedEvents.length === 0) {
-    throw new Error("At least one case event is required to rebuild aggregate state.");
+    throw new Error(
+      "At least one case event is required to rebuild aggregate state.",
+    );
   }
 
   let record: CaseRecord | undefined;

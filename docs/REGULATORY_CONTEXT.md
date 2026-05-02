@@ -1,10 +1,10 @@
 ---
 title: "Regulatory Context for Personalized Neoantigen RNA Vaccines"
 status: active
-version: "1.2.0"
-last_updated: "2026-04-21"
+version: "1.3.0"
+last_updated: "2026-05-02"
 tags: [regulatory, fda, ema, part-11, atmp, oncology]
-evidence_cutoff: "2026-04-02"
+evidence_cutoff: "2026-05-02"
 ---
 
 # Regulatory Context
@@ -107,21 +107,21 @@ FDA's 2003 scope-and-application guidance explicitly says the Agency intends to 
 | **§11.10(b)** Ability to generate accurate and complete copies | Data export | ✅ JSON API responses, JSONB storage | Full backup/restore procedures needed |
 | **§11.10(c)** Protection of records for retention period | Record retention | ⚠️ PostgreSQL persistence available | Needs formal retention policy and archival strategy |
 | **§11.10(d)** Limiting system access to authorized individuals | Access control | ⚠️ API-key auth plus RBAC seam (`api-key-auth.ts`, `rbac-auth.ts`) | Not equivalent to per-user OIDC or JWT identity, Part 11 authority checks, or signer-bound attribution. |
-| **§11.10(e)** Secure, computer-generated, time-stamped audit trails | Audit trail | ⚠️ `store.ts` records audit events during mutations; `traceability.ts` builds read-side lineage views from stored state | NTP synchronization for timestamp accuracy needed |
+| **§11.10(e)** Secure, computer-generated, time-stamped audit trails | Audit trail | ⚠️ Append-only audit events. Migration 004 adds `record_hash` / `prev_hash` columns for SHA-256 hash-chain; application-layer write path is the next milestone. | NTP synchronization for timestamp accuracy needed |
 | **§11.10(h)** Input checks (device checks) | Input validation | ✅ Zod runtime schemas on all API inputs | Validation rules need formal specification document |
 | **§11.10(k)** Documentation and audit trail for system changes | Change control | ⚠️ Git version control | Needs formal change control procedure documentation |
-| **§11.50** Electronic signature manifestations | E-signatures | ⚠️ Review and final-release records now accept and persist signature manifestations, but signer identity is still caller-supplied | Needs stronger identity binding, signer verification, and operational controls beyond the current HMAC helper |
+| **§11.50** Electronic signature manifestations | E-signatures | ⚠️ Review and final-release records accept `signatureManifestation`; signer identity still caller-supplied (not IdP-bound) | Needs OIDC identity binding so `signedBy` is derived from verified `sub` claim, not request body |
 | **§11.70** Electronic signature/record linking | Signature binding | ⚠️ Review outcomes now carry both review and final-release manifestations in the stored record | Required for stronger non-repudiation and cryptographic record linking |
 
 ### ALCOA+ Data Integrity Principles
 
 | Principle | Implementation | Status |
 |-----------|---------------|--------|
-| **A**ttributable | API key plus optional role mapping identify caller class, not a unique signer or reviewer | ⚠️ Partial |
+| **A**ttributable | API key identifies caller class; JWT `sub` claim identifies a verified principal. Consent withdrawal, review, and release events carry `actorId` from the resolved principal. | ⚠️ Partial — caller-class auth, not per-user identity |
 | **L**egible | JSON structured data, human-readable audit events | ✅ |
 | **C**ontemporaneous | Timestamps at event creation time | ✅ |
 | **O**riginal | JSONB storage in PostgreSQL; in-memory store is volatile | ⚠️ PostgreSQL path only |
-| **A**ccurate | Zod validation on input; audit events are append-only by application convention (no database-level immutability constraint) | ⚠️ Partial |
+| **A**ccurate | Zod validation on input; audit events are append-only by application convention. Migration 004 adds `record_hash`/`prev_hash` columns for tamper-detection chain. DB-level `REVOKE UPDATE, DELETE` is documented in migration 004 commentary. | ⚠️ Partial — hash-chain write path and DB grant wiring are next milestones |
 | +**C**omplete | Full event history per case via audit trail | ✅ |
 | +**C**onsistent | Consistent timestamp format (ISO 8601) | ✅ |
 | +**E**nduring | PostgreSQL with configurable retention | ⚠️ No formal retention policy |
@@ -166,10 +166,10 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 | Qualified-person-grade release authority | **Critical** | EU QP release, cGMP release workflow | Moderate — current repo has a dual-authorization workflow step, but it still lacks site-integrated identity proofing, validated procedures, and stronger signer authentication |
 | System validation documentation | **High** | 21 CFR Part 11 §11.10(a) | Documentation-heavy — IQ/OQ/PQ package |
 | Formal change control | **High** | 21 CFR Part 11 §11.10(k) | Process documentation — Git history is necessary but not sufficient |
-| Consent-state management | **High** | ICH E6(R2) | Moderate — add consent port to case lifecycle FSM |
+| Consent-state management | **Closed (May 2026)** | ICH E6(R2) §4.8.2 | `CONSENT_WITHDRAWN` absorbing FSM state implemented; store guards block all mutations on withdrawn cases; governance route enforces new-case requirement for renewal |
 | Retention and archival policy | **Medium** | FDA Data Integrity Guidance | Documentation and infrastructure — backup/archival procedures |
 | NTP-synchronized timestamps | **Low** | 21 CFR Part 11 §11.10(e) | Deployment configuration — not a code change |
-| Cryptographic audit seal | **Low** | FDA Data Integrity Guidance | Moderate — SHA-256 hash chain on audit events |
+| Cryptographic audit seal | **Schema complete (May 2026)** | FDA Data Integrity Guidance 2018 | Migration 004 adds `record_hash` / `prev_hash` columns; application-layer write path is the next milestone |
 
 ## Claim Boundary For This Repository
 
@@ -188,7 +188,7 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 2. Implement RBAC with individual user authentication.
 3. Document system validation (IQ/OQ/PQ).
 4. Formalize change control procedures.
-5. Add consent-state handling to case lifecycle.
+5. ~~Add consent-state handling to case lifecycle.~~ ✅ Implemented May 2026 (`CONSENT_WITHDRAWN` absorbing state).
 
 ### IND-Enabling Phase
 6. Strengthen the current dual-authorization release workflow into a qualified-person-grade, identity-bound release process.

@@ -1,17 +1,18 @@
 import type { INeoantigenRankingEngine } from "../ports/INeoantigenRankingEngine.js";
 import type {
   NeoantigenCandidate,
+  RankingEngineMetadata,
   RankingResult,
   RankingRationale,
   ConfidenceInterval,
 } from "../types.js";
 
 const FEATURE_WEIGHTS = {
-  bindingAffinity: 0.30,
+  bindingAffinity: 0.3,
   expression: 0.25,
-  clonality: 0.20,
+  clonality: 0.2,
   manufacturability: 0.15,
-  tolerance: 0.10,
+  tolerance: 0.1,
 } as const;
 
 function scoreBinding(c: NeoantigenCandidate): number {
@@ -23,7 +24,10 @@ function scoreBinding(c: NeoantigenCandidate): number {
 function scoreExpression(c: NeoantigenCandidate): number {
   // Higher TPM + higher VAF = better. Normalize TPM [0,100]→[0,1], VAF already [0,1]
   const tpmNorm = Math.max(0, Math.min(c.expressionSupport.tpm / 100, 1));
-  const vafNorm = Math.max(0, Math.min(c.expressionSupport.variantAlleleFraction, 1));
+  const vafNorm = Math.max(
+    0,
+    Math.min(c.expressionSupport.variantAlleleFraction, 1),
+  );
   return (tpmNorm + vafNorm) / 2;
 }
 
@@ -37,22 +41,31 @@ function scoreClonality(c: NeoantigenCandidate): number {
 function scoreManufacturability(c: NeoantigenCandidate): number {
   // GC content near 0.5 is ideal; low folding risk preferred
   const gcScore = 1 - Math.abs(c.manufacturability.gcContent - 0.5) * 2;
-  const foldScore = c.manufacturability.selfFoldingRisk === "low" ? 1
-    : c.manufacturability.selfFoldingRisk === "medium" ? 0.5
-    : 0.2;
+  const foldScore =
+    c.manufacturability.selfFoldingRisk === "low"
+      ? 1
+      : c.manufacturability.selfFoldingRisk === "medium"
+        ? 0.5
+        : 0.2;
   return (gcScore + foldScore) / 2;
 }
 
 function scoreTolerance(c: NeoantigenCandidate): number {
   // Higher edit distance + lower tolerance risk = better
   const distScore = Math.min(c.selfSimilarity.editDistance / 5, 1);
-  const riskScore = c.selfSimilarity.toleranceRisk === "low" ? 1
-    : c.selfSimilarity.toleranceRisk === "medium" ? 0.5
-    : 0.1;
+  const riskScore =
+    c.selfSimilarity.toleranceRisk === "low"
+      ? 1
+      : c.selfSimilarity.toleranceRisk === "medium"
+        ? 0.5
+        : 0.1;
   return (distScore + riskScore) / 2;
 }
 
-function buildExplanation(featureScores: Record<string, number>, c: NeoantigenCandidate): string {
+function buildExplanation(
+  featureScores: Record<string, number>,
+  c: NeoantigenCandidate,
+): string {
   const parts: string[] = [];
   if (featureScores.bindingAffinity > 0.7) parts.push("strong binding");
   else if (featureScores.bindingAffinity < 0.3) parts.push("weak binding");
@@ -64,10 +77,34 @@ function buildExplanation(featureScores: Record<string, number>, c: NeoantigenCa
 }
 
 /**
- * @sota-stub Stub implementation of INeoantigenRankingEngine simulating external bioinformatics execution.
+ * @sota-stub Stub implementation of INeoantigenRankingEngine.
+ *
+ * This adapter simulates in-process ranking for development and test. It is
+ * explicitly tagged as a stub because real neoantigen prediction is delegated
+ * to an external engine (pVACtools, NetMHCpan, or equivalent). The
+ * {@link RankingEngineMetadata} it emits documents the stub status so
+ * downstream operations can guard against unintentional use of stub output in
+ * clinical or regulated contexts.
+ *
+ * If an operator activates a restricted-license external engine via an
+ * alternative adapter, {@link engineMetadata.licenseClass} will be
+ * "restricted", which downstream validation surfaces can use to require
+ * explicit operator acknowledgement before manufacturing handoff.
  */
 export class InMemoryNeoantigenRankingEngine implements INeoantigenRankingEngine {
-  async rank(caseId: string, candidates: NeoantigenCandidate[]): Promise<RankingResult> {
+  static readonly ENGINE_METADATA: RankingEngineMetadata = {
+    name: "openrna-weighted-sum-stub",
+    version: "1.0.0",
+    licenseClass: "open",
+    evidence:
+      "In-memory weighted-sum scorer intended for development and testing only. " +
+      "Not validated for clinical or regulatory use. Replace with a pVACtools " +
+      "or NetMHCpan adapter before any regulated workflow execution.",
+  };
+  async rank(
+    caseId: string,
+    candidates: NeoantigenCandidate[],
+  ): Promise<RankingResult> {
     if (candidates.length === 0) {
       return {
         caseId,
@@ -75,10 +112,16 @@ export class InMemoryNeoantigenRankingEngine implements INeoantigenRankingEngine
         ensembleMethod: "weighted-sum",
         confidenceInterval: { lower: 0, upper: 0 },
         rankedAt: new Date().toISOString(),
+        engineMetadata: InMemoryNeoantigenRankingEngine.ENGINE_METADATA,
       };
     }
 
-    const scored: Array<{ candidate: NeoantigenCandidate; featureScores: Record<string, number>; composite: number; uncContrib: number }> = [];
+    const scored: Array<{
+      candidate: NeoantigenCandidate;
+      featureScores: Record<string, number>;
+      composite: number;
+      uncContrib: number;
+    }> = [];
 
     for (const c of candidates) {
       const featureScores: Record<string, number> = {
@@ -116,7 +159,10 @@ export class InMemoryNeoantigenRankingEngine implements INeoantigenRankingEngine
       explanation: buildExplanation(s.featureScores, s.candidate),
     }));
 
-    const confidenceInterval = this.computeConfidenceInterval(scored.map(s => s.composite), candidates.length);
+    const confidenceInterval = this.computeConfidenceInterval(
+      scored.map((s) => s.composite),
+      candidates.length,
+    );
 
     return {
       caseId,
@@ -124,10 +170,14 @@ export class InMemoryNeoantigenRankingEngine implements INeoantigenRankingEngine
       ensembleMethod: "weighted-sum",
       confidenceInterval,
       rankedAt: new Date().toISOString(),
+      engineMetadata: InMemoryNeoantigenRankingEngine.ENGINE_METADATA,
     };
   }
 
-  private computeConfidenceInterval(scores: number[], n: number): ConfidenceInterval {
+  private computeConfidenceInterval(
+    scores: number[],
+    n: number,
+  ): ConfidenceInterval {
     if (n === 0) return { lower: 0, upper: 0 };
     const mean = scores.reduce((a, b) => a + b, 0) / n;
     // Simple uncertainty: halve spread with more candidates (1/sqrt(n) scaling)

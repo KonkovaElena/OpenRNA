@@ -16,15 +16,21 @@ export const caseStatuses = [
   "REVISION_REQUESTED",
   "REVIEW_REJECTED",
   "HANDOFF_PENDING",
+  "CONSENT_WITHDRAWN",
 ] as const;
 
 export type CaseStatus = (typeof caseStatuses)[number];
 
-export const consentStatuses = ["complete", "missing"] as const;
+export const consentStatuses = ["complete", "missing", "withdrawn"] as const;
 
 export type ConsentStatus = (typeof consentStatuses)[number];
 
-export const sampleTypes = ["TUMOR_DNA", "NORMAL_DNA", "TUMOR_RNA", "FOLLOW_UP"] as const;
+export const sampleTypes = [
+  "TUMOR_DNA",
+  "NORMAL_DNA",
+  "TUMOR_RNA",
+  "FOLLOW_UP",
+] as const;
 
 export type SampleType = (typeof sampleTypes)[number];
 
@@ -35,7 +41,8 @@ export const sourceArtifactSemanticTypes = [
   "follow-up-fastq",
 ] as const;
 
-export type SourceArtifactSemanticType = (typeof sourceArtifactSemanticTypes)[number];
+export type SourceArtifactSemanticType =
+  (typeof sourceArtifactSemanticTypes)[number];
 
 export const derivedArtifactSemanticTypes = [
   "somatic-vcf",
@@ -50,7 +57,8 @@ export const derivedArtifactSemanticTypes = [
   "board-evidence-bundle",
 ] as const;
 
-export type DerivedArtifactSemanticType = (typeof derivedArtifactSemanticTypes)[number];
+export type DerivedArtifactSemanticType =
+  (typeof derivedArtifactSemanticTypes)[number];
 
 export const workflowFailureCategories = [
   "executor_error",
@@ -60,9 +68,12 @@ export const workflowFailureCategories = [
   "unknown",
 ] as const;
 
-export type WorkflowFailureCategory = (typeof workflowFailureCategories)[number];
+export type WorkflowFailureCategory =
+  (typeof workflowFailureCategories)[number];
 
-export const sourceArtifactSemanticTypeBySampleType: Readonly<Record<SampleType, SourceArtifactSemanticType>> = {
+export const sourceArtifactSemanticTypeBySampleType: Readonly<
+  Record<SampleType, SourceArtifactSemanticType>
+> = {
   TUMOR_DNA: "tumor-dna-fastq",
   NORMAL_DNA: "normal-dna-fastq",
   TUMOR_RNA: "tumor-rna-fastq",
@@ -80,7 +91,13 @@ export const assayTypes = ["WES", "WGS", "RNA_SEQ", "PANEL", "OTHER"] as const;
 
 export type AssayType = (typeof assayTypes)[number];
 
-export const artifactClasses = ["SOURCE", "DERIVED", "BOARD_PACKET", "HANDOFF_PACKET", "PAYLOAD"] as const;
+export const artifactClasses = [
+  "SOURCE",
+  "DERIVED",
+  "BOARD_PACKET",
+  "HANDOFF_PACKET",
+  "PAYLOAD",
+] as const;
 
 export type ArtifactClass = (typeof artifactClasses)[number];
 
@@ -312,12 +329,14 @@ export interface NextflowPollResult {
   reportUri?: string;
 }
 
-export const nextflowExitCodeMapping: Readonly<Record<number, WorkflowFailureCategory>> = {
-  0: "unknown",         // should not be used for failures
-  1: "pipeline_error",  // general pipeline error
-  2: "pipeline_error",  // script error
-  137: "timeout",       // OOM kill / timeout
-  143: "timeout",       // SIGTERM
+export const nextflowExitCodeMapping: Readonly<
+  Record<number, WorkflowFailureCategory>
+> = {
+  0: "unknown", // should not be used for failures
+  1: "pipeline_error", // general pipeline error
+  2: "pipeline_error", // script error
+  137: "timeout", // OOM kill / timeout
+  143: "timeout", // SIGTERM
   255: "infrastructure_error", // infrastructure / env error
 };
 
@@ -395,7 +414,8 @@ export const hlaDisagreementResolutions = [
   "unresolved",
 ] as const;
 
-export type HlaDisagreementResolution = (typeof hlaDisagreementResolutions)[number];
+export type HlaDisagreementResolution =
+  (typeof hlaDisagreementResolutions)[number];
 
 export interface HlaDisagreementRecord {
   locus: string;
@@ -454,23 +474,27 @@ export const wellKnownWorkflowNames = [
 export type WellKnownWorkflowName = (typeof wellKnownWorkflowNames)[number];
 
 /** Maps each well-known workflow to the artifact semantic types it is expected to produce. */
-export const workflowArtifactContract: Readonly<Record<WellKnownWorkflowName, readonly DerivedArtifactSemanticType[]>> = {
-  "dna-qc":              ["alignment-bam", "qc-summary-json"],
-  "somatic-calling":     ["somatic-vcf", "filtered-maf"],
-  "annotation":          ["annotated-vcf"],
-  "expression-support":  ["expression-matrix"],
-  "hla-typing":          ["hla-calls", "hla-calls-raw"],
-  "combined-evidence":   ["board-evidence-bundle", "run-manifest-artifact"],
+export const workflowArtifactContract: Readonly<
+  Record<WellKnownWorkflowName, readonly DerivedArtifactSemanticType[]>
+> = {
+  "dna-qc": ["alignment-bam", "qc-summary-json"],
+  "somatic-calling": ["somatic-vcf", "filtered-maf"],
+  annotation: ["annotated-vcf"],
+  "expression-support": ["expression-matrix"],
+  "hla-typing": ["hla-calls", "hla-calls-raw"],
+  "combined-evidence": ["board-evidence-bundle", "run-manifest-artifact"],
 };
 
 /** Maps each well-known workflow to workflows that must complete first. */
-export const workflowDependencies: Readonly<Record<WellKnownWorkflowName, readonly WellKnownWorkflowName[]>> = {
-  "dna-qc":              [],
-  "somatic-calling":     ["dna-qc"],
-  "annotation":          ["somatic-calling"],
-  "expression-support":  [],
-  "hla-typing":          [],
-  "combined-evidence":   ["annotation", "expression-support", "hla-typing"],
+export const workflowDependencies: Readonly<
+  Record<WellKnownWorkflowName, readonly WellKnownWorkflowName[]>
+> = {
+  "dna-qc": [],
+  "somatic-calling": ["dna-qc"],
+  annotation: ["somatic-calling"],
+  "expression-support": [],
+  "hla-typing": [],
+  "combined-evidence": ["annotation", "expression-support", "hla-typing"],
 };
 
 // ─── Evidence Lineage (Wave 7) ──────────────────────────────────────
@@ -486,8 +510,8 @@ export interface EvidenceLineageEdge {
 
 export interface EvidenceLineageGraph {
   edges: EvidenceLineageEdge[];
-  roots: string[];          // runIds with no upstream dependencies
-  terminal: string[];       // runIds that are not consumed by any downstream
+  roots: string[]; // runIds with no upstream dependencies
+  terminal: string[]; // runIds that are not consumed by any downstream
 }
 
 // ─── Neoantigen Ranking (Wave 8) ────────────────────────────────────
@@ -551,26 +575,49 @@ export interface ConfidenceInterval {
   upper: number;
 }
 
+export const engineLicenseClasses = [
+  "open",
+  "restricted",
+  "commercial",
+] as const;
+export type EngineLicenseClass = (typeof engineLicenseClasses)[number];
+
+export interface RankingEngineMetadata {
+  name: string;
+  version: string;
+  licenseClass: EngineLicenseClass;
+  evidence?: string;
+}
+
 export interface RankingResult {
   caseId: string;
   rankedCandidates: RankingRationale[];
   ensembleMethod: string;
   confidenceInterval: ConfidenceInterval;
   rankedAt: string;
+  engineMetadata?: RankingEngineMetadata;
 }
 
 // ─── RNA Construct Design (Wave 9) ──────────────────────────────────
 
-export const deliveryModalities = ["conventional-mrna", "saRNA", "circRNA"] as const;
+export const deliveryModalities = [
+  "conventional-mrna",
+  "saRNA",
+  "circRNA",
+] as const;
 export type DeliveryModality = (typeof deliveryModalities)[number];
 
-export const epitopeLinkerStrategies = ["ggs-flexible", "aay-cleavage", "direct-fusion"] as const;
+export const epitopeLinkerStrategies = [
+  "ggs-flexible",
+  "aay-cleavage",
+  "direct-fusion",
+] as const;
 export type EpitopeLinkerStrategy = (typeof epitopeLinkerStrategies)[number];
 
 export interface CodonOptimizationMeta {
   algorithm: string;
   gcContentPercent: number;
-  caiScore: number;		// Codon Adaptation Index
+  caiScore: number; // Codon Adaptation Index
 }
 
 export interface ManufacturabilityCheck {
@@ -596,11 +643,22 @@ export interface ConstructDesignPackage {
 
 // ─── Outcomes & Learning Loop (Wave 10) ───────────────────────────
 
-export const administrationRoutes = ["intramuscular", "subcutaneous", "intravenous"] as const;
+export const administrationRoutes = [
+  "intramuscular",
+  "subcutaneous",
+  "intravenous",
+] as const;
 export type AdministrationRoute = (typeof administrationRoutes)[number];
 
-export const clinicalResponseCategories = ["CR", "PR", "SD", "PD", "NE"] as const;
-export type ClinicalResponseCategory = (typeof clinicalResponseCategories)[number];
+export const clinicalResponseCategories = [
+  "CR",
+  "PR",
+  "SD",
+  "PD",
+  "NE",
+] as const;
+export type ClinicalResponseCategory =
+  (typeof clinicalResponseCategories)[number];
 
 export interface AdministrationRecord {
   administrationId: string;
@@ -640,7 +698,11 @@ export interface ClinicalFollowUpRecord {
   notes?: string;
 }
 
-export const outcomeEntryTypes = ["administration", "immune-monitoring", "clinical-follow-up"] as const;
+export const outcomeEntryTypes = [
+  "administration",
+  "immune-monitoring",
+  "clinical-follow-up",
+] as const;
 export type OutcomeEntryType = (typeof outcomeEntryTypes)[number];
 
 export type OutcomeTimelineEntry =
@@ -728,7 +790,10 @@ export type DomainEventInput<TType extends string, TPayload> = {
   payload: TPayload;
 };
 
-export type DomainEventRecord<TType extends string, TPayload> = DomainEventInput<TType, TPayload> & {
+export type DomainEventRecord<
+  TType extends string,
+  TPayload,
+> = DomainEventInput<TType, TPayload> & {
   version: number;
 };
 
@@ -826,6 +891,20 @@ export interface ClinicalFollowUpRecordedEventPayload {
   entry: Extract<OutcomeTimelineEntry, { entryType: "clinical-follow-up" }>;
 }
 
+export interface ConsentUpdatedEventPayload {
+  consentStatus: ConsentStatus;
+  nextStatus: CaseStatus;
+}
+
+export interface RevisionRestartedEventPayload {
+  nextStatus: CaseStatus;
+}
+
+export interface HlaReviewResolvedEventPayload {
+  rationale: string;
+  nextStatus: CaseStatus;
+}
+
 export type CaseDomainEventInput =
   | DomainEventInput<"case.created", CaseCreatedEventPayload>
   | DomainEventInput<"sample.registered", SampleRegisteredEventPayload>
@@ -838,14 +917,41 @@ export type CaseDomainEventInput =
   | DomainEventInput<"hla.consensus.produced", HlaConsensusProducedEventPayload>
   | DomainEventInput<"qc.evaluated", QcEvaluatedEventPayload>
   | DomainEventInput<"board.packet.generated", BoardPacketGeneratedEventPayload>
-  | DomainEventInput<"review.outcome.recorded", ReviewOutcomeRecordedEventPayload>
-  | DomainEventInput<"final.release.authorized", FinalReleaseAuthorizedEventPayload>
-  | DomainEventInput<"handoff.packet.generated", HandoffPacketGeneratedEventPayload>
-  | DomainEventInput<"neoantigen.ranking.recorded", NeoantigenRankingRecordedEventPayload>
-  | DomainEventInput<"construct.design.recorded", ConstructDesignRecordedEventPayload>
-  | DomainEventInput<"administration.recorded", AdministrationRecordedEventPayload>
-  | DomainEventInput<"immune-monitoring.recorded", ImmuneMonitoringRecordedEventPayload>
-  | DomainEventInput<"clinical-follow-up.recorded", ClinicalFollowUpRecordedEventPayload>;
+  | DomainEventInput<
+      "review.outcome.recorded",
+      ReviewOutcomeRecordedEventPayload
+    >
+  | DomainEventInput<
+      "final.release.authorized",
+      FinalReleaseAuthorizedEventPayload
+    >
+  | DomainEventInput<
+      "handoff.packet.generated",
+      HandoffPacketGeneratedEventPayload
+    >
+  | DomainEventInput<
+      "neoantigen.ranking.recorded",
+      NeoantigenRankingRecordedEventPayload
+    >
+  | DomainEventInput<
+      "construct.design.recorded",
+      ConstructDesignRecordedEventPayload
+    >
+  | DomainEventInput<
+      "administration.recorded",
+      AdministrationRecordedEventPayload
+    >
+  | DomainEventInput<
+      "immune-monitoring.recorded",
+      ImmuneMonitoringRecordedEventPayload
+    >
+  | DomainEventInput<
+      "clinical-follow-up.recorded",
+      ClinicalFollowUpRecordedEventPayload
+    >
+  | DomainEventInput<"consent.updated", ConsentUpdatedEventPayload>
+  | DomainEventInput<"revision.restarted", RevisionRestartedEventPayload>
+  | DomainEventInput<"hla.review.resolved", HlaReviewResolvedEventPayload>;
 
 export type CaseDomainEventRecord =
   | DomainEventRecord<"case.created", CaseCreatedEventPayload>
@@ -856,21 +962,59 @@ export type CaseDomainEventRecord =
   | DomainEventRecord<"workflow.completed", WorkflowCompletedEventPayload>
   | DomainEventRecord<"workflow.cancelled", WorkflowCancelledEventPayload>
   | DomainEventRecord<"workflow.failed", WorkflowFailedEventPayload>
-  | DomainEventRecord<"hla.consensus.produced", HlaConsensusProducedEventPayload>
+  | DomainEventRecord<
+      "hla.consensus.produced",
+      HlaConsensusProducedEventPayload
+    >
   | DomainEventRecord<"qc.evaluated", QcEvaluatedEventPayload>
-  | DomainEventRecord<"board.packet.generated", BoardPacketGeneratedEventPayload>
-  | DomainEventRecord<"review.outcome.recorded", ReviewOutcomeRecordedEventPayload>
-  | DomainEventRecord<"final.release.authorized", FinalReleaseAuthorizedEventPayload>
-  | DomainEventRecord<"handoff.packet.generated", HandoffPacketGeneratedEventPayload>
-  | DomainEventRecord<"neoantigen.ranking.recorded", NeoantigenRankingRecordedEventPayload>
-  | DomainEventRecord<"construct.design.recorded", ConstructDesignRecordedEventPayload>
-  | DomainEventRecord<"administration.recorded", AdministrationRecordedEventPayload>
-  | DomainEventRecord<"immune-monitoring.recorded", ImmuneMonitoringRecordedEventPayload>
-  | DomainEventRecord<"clinical-follow-up.recorded", ClinicalFollowUpRecordedEventPayload>;
+  | DomainEventRecord<
+      "board.packet.generated",
+      BoardPacketGeneratedEventPayload
+    >
+  | DomainEventRecord<
+      "review.outcome.recorded",
+      ReviewOutcomeRecordedEventPayload
+    >
+  | DomainEventRecord<
+      "final.release.authorized",
+      FinalReleaseAuthorizedEventPayload
+    >
+  | DomainEventRecord<
+      "handoff.packet.generated",
+      HandoffPacketGeneratedEventPayload
+    >
+  | DomainEventRecord<
+      "neoantigen.ranking.recorded",
+      NeoantigenRankingRecordedEventPayload
+    >
+  | DomainEventRecord<
+      "construct.design.recorded",
+      ConstructDesignRecordedEventPayload
+    >
+  | DomainEventRecord<
+      "administration.recorded",
+      AdministrationRecordedEventPayload
+    >
+  | DomainEventRecord<
+      "immune-monitoring.recorded",
+      ImmuneMonitoringRecordedEventPayload
+    >
+  | DomainEventRecord<
+      "clinical-follow-up.recorded",
+      ClinicalFollowUpRecordedEventPayload
+    >
+  | DomainEventRecord<"consent.updated", ConsentUpdatedEventPayload>
+  | DomainEventRecord<"revision.restarted", RevisionRestartedEventPayload>
+  | DomainEventRecord<"hla.review.resolved", HlaReviewResolvedEventPayload>;
 
 // ─── Horizon Modality Gate (Wave 11) ───────────────────────────────
 
-export const modalityMaturityLevels = ["research", "preclinical", "clinical", "validated"] as const;
+export const modalityMaturityLevels = [
+  "research",
+  "preclinical",
+  "clinical",
+  "validated",
+] as const;
 export type ModalityMaturityLevel = (typeof modalityMaturityLevels)[number];
 
 export interface HorizonModality {
@@ -1008,7 +1152,11 @@ export interface BoardPacketGenerationResult {
 
 // ─── Wave 15: Review Outcome + Manufacturing Handoff ───────────────
 
-export const reviewDispositions = ["approved", "rejected", "revision-requested"] as const;
+export const reviewDispositions = [
+  "approved",
+  "rejected",
+  "revision-requested",
+] as const;
 export type ReviewDisposition = (typeof reviewDispositions)[number];
 
 export interface SignatureManifestation {

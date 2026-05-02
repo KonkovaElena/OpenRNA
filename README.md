@@ -8,8 +8,9 @@ A control plane for personalized neoantigen RNA vaccine workflows.
 
 ## At a glance
 
-- Re-verified on 2026-04-21: 504 tests (22 suites), 94.49% line coverage, 82.88% branch coverage, 94.11% function coverage, `npm audit --omit=dev --audit-level=high` clean, `npm run sbom:cyclonedx:file` refreshed.
-- Architecture baseline: 18 port interfaces, 23 adapters (18 in-memory + 5 integration), 17 case lifecycle states.
+- Re-verified on 2026-05-02: 505 tests (22 suites), all passing, `npm audit --omit=dev --audit-level=high` clean, `npm run sbom:cyclonedx:file` refreshed.
+- Architecture baseline: **19 port interfaces** (`ICaseStore` extracted as a canonical port), 23 adapters (18 in-memory + 5 integration), **18 case lifecycle states**.
+- Regulatory hardening pass (May 2026): `CONSENT_WITHDRAWN` absorbing state added to the FSM (ICH E6(R2) §4.8.2), audit hash-chain migration (004), `RankingEngineMetadata` on `RankingResult`, and `ICaseStore` promoted from inline interface to `src/ports/`.
 - The repository is ready for engineering diligence, but it does not claim clinical deployment readiness and does not claim full 21 CFR Part 11 completion.
 
 Formal baseline snapshot: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-21.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-21.md).
@@ -28,7 +29,7 @@ Clinical anchors used by this project include NCT05933577 (V940/INTerpath-001) a
 
 ## What OpenRNA does
 
-- Manages patient cases through a governed lifecycle (17 states).
+- Manages patient cases through a governed lifecycle (**18 states**, including the absorbing `CONSENT_WITHDRAWN` terminal state per ICH E6(R2) §4.8.2).
 - Records sample and derived artifact provenance.
 - Orchestrates workflow submission with idempotency (`x-idempotency-key`).
 - Supports multi-tool HLA consensus with configurable disagreement thresholds and an operator-review gate when unresolved disagreements exceed the configured threshold.
@@ -64,7 +65,11 @@ Architecture authority document: [`docs/design.md`](docs/design.md).
 | Technical control-plane implementation | Implemented and test-covered |
 | Repository engineering posture (CI/SAST/SBOM/provenance) | Implemented |
 | Clinical deployment | Not claimed |
+| Consent withdrawal as FSM-native absorbing state (ICH E6(R2) §4.8.2) | Implemented (May 2026) |
+| `ICaseStore` domain port extracted to `src/ports/` | Implemented (May 2026) |
+| Audit hash-chain columns in PostgreSQL schema (migration 004) | Schema ready; application-layer write wiring is next milestone |
 | Electronic signature manifestations and independent final release ceremony | Partially implemented, but not identity-bound or Part 11-complete |
+| Per-user OIDC identity (replaces shared API-key) | On hardening roadmap |
 | Resource-scoped authorization and part of regulatory controls | In active hardening roadmap |
 
 Hardening details: [`docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md).

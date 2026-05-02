@@ -1,5 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
-import { createAnonymousAuditContext, getCurrentAuditContext } from "./audit-context";
+import {
+  createAnonymousAuditContext,
+  getCurrentAuditContext,
+} from "./audit-context";
 import { ApiError } from "./errors";
 import type {
   AuthorizeFinalReleaseInput,
@@ -18,7 +21,10 @@ import type {
   TimelineEvent,
   WorkflowRunRecord,
 } from "./types";
-import { isCompatibleSourceArtifactSemanticType, workflowDependencies } from "./types";
+import {
+  isCompatibleSourceArtifactSemanticType,
+  workflowDependencies,
+} from "./types";
 
 export type AuditContextInput = string | AuditContext;
 
@@ -37,7 +43,9 @@ export function timelineEvent(
   return { at, type, detail };
 }
 
-export function normalizeAuditContext(context: AuditContextInput): AuditContext {
+export function normalizeAuditContext(
+  context: AuditContextInput,
+): AuditContext {
   if (typeof context !== "string") {
     return context;
   }
@@ -92,6 +100,7 @@ export function emptyStatusCounts(): Record<CaseStatus, number> {
     REVISION_REQUESTED: 0,
     REVIEW_REJECTED: 0,
     HANDOFF_PENDING: 0,
+    CONSENT_WITHDRAWN: 0,
   };
 }
 
@@ -106,9 +115,14 @@ export function hasRequiredSamples(samples: SampleRecord[]): boolean {
   return true;
 }
 
-export function hasRequiredSourceArtifacts(samples: SampleRecord[], artifacts: ArtifactRecord[]): boolean {
+export function hasRequiredSourceArtifacts(
+  samples: SampleRecord[],
+  artifacts: ArtifactRecord[],
+): boolean {
   for (const sampleType of requiredSampleTypes) {
-    const sample = samples.find((candidate) => candidate.sampleType === sampleType);
+    const sample = samples.find(
+      (candidate) => candidate.sampleType === sampleType,
+    );
     if (!sample) {
       return false;
     }
@@ -117,7 +131,10 @@ export function hasRequiredSourceArtifacts(samples: SampleRecord[], artifacts: A
       (artifact) =>
         artifact.artifactClass === "SOURCE" &&
         artifact.sampleId === sample.sampleId &&
-        isCompatibleSourceArtifactSemanticType(sample.sampleType, artifact.semanticType),
+        isCompatibleSourceArtifactSemanticType(
+          sample.sampleType,
+          artifact.semanticType,
+        ),
     );
 
     if (!hasCompatibleSourceArtifact) {
@@ -134,6 +151,10 @@ export function deriveCaseStatus(
   artifacts: ArtifactRecord[],
   hasWorkflowRequest: boolean,
 ): CaseStatus {
+  if (consentStatus === "withdrawn") {
+    return "CONSENT_WITHDRAWN";
+  }
+
   if (hasWorkflowRequest) {
     return "WORKFLOW_REQUESTED";
   }
@@ -142,7 +163,10 @@ export function deriveCaseStatus(
     return "AWAITING_CONSENT";
   }
 
-  if (hasRequiredSamples(samples) && hasRequiredSourceArtifacts(samples, artifacts)) {
+  if (
+    hasRequiredSamples(samples) &&
+    hasRequiredSourceArtifacts(samples, artifacts)
+  ) {
     return "READY_FOR_WORKFLOW";
   }
 
@@ -166,7 +190,9 @@ export function sortOutcomeTimeline(
   });
 }
 
-export function stableReviewOutcomeSignature(value: RecordReviewOutcomeInput): string {
+export function stableReviewOutcomeSignature(
+  value: RecordReviewOutcomeInput,
+): string {
   return JSON.stringify({
     packetId: value.packetId,
     reviewerId: value.reviewerId,
@@ -177,7 +203,9 @@ export function stableReviewOutcomeSignature(value: RecordReviewOutcomeInput): s
   });
 }
 
-export function stableHandoffPacketSignature(value: GenerateHandoffPacketInput): string {
+export function stableHandoffPacketSignature(
+  value: GenerateHandoffPacketInput,
+): string {
   return JSON.stringify({
     reviewId: value.reviewId,
     handoffTarget: value.handoffTarget,
@@ -187,7 +215,9 @@ export function stableHandoffPacketSignature(value: GenerateHandoffPacketInput):
   });
 }
 
-export function stableFinalReleaseSignature(value: AuthorizeFinalReleaseInput): string {
+export function stableFinalReleaseSignature(
+  value: AuthorizeFinalReleaseInput,
+): string {
   return JSON.stringify({
     reviewId: value.reviewId,
     releaserId: value.releaserId,
@@ -204,8 +234,10 @@ export function normalizeTraceabilityError(error: unknown): never {
 
   if (error instanceof Error) {
     if (
-      error.message === "Neoantigen ranking is required to build full traceability." ||
-      error.message === "Construct design is required to build full traceability."
+      error.message ===
+        "Neoantigen ranking is required to build full traceability." ||
+      error.message ===
+        "Construct design is required to build full traceability."
     ) {
       throw new ApiError(
         409,
@@ -231,7 +263,10 @@ export function normalizeTraceabilityError(error: unknown): never {
   );
 }
 
-export function hasSameRunReplayIdentity(existingRun: WorkflowRunRecord, nextRun: WorkflowRunRecord): boolean {
+export function hasSameRunReplayIdentity(
+  existingRun: WorkflowRunRecord,
+  nextRun: WorkflowRunRecord,
+): boolean {
   return (
     existingRun.runId === nextRun.runId &&
     existingRun.caseId === nextRun.caseId &&
@@ -239,24 +274,35 @@ export function hasSameRunReplayIdentity(existingRun: WorkflowRunRecord, nextRun
     existingRun.workflowName === nextRun.workflowName &&
     existingRun.referenceBundleId === nextRun.referenceBundleId &&
     existingRun.executionProfile === nextRun.executionProfile &&
-    JSON.stringify(existingRun.manifest ?? null) === JSON.stringify(nextRun.manifest ?? null)
+    JSON.stringify(existingRun.manifest ?? null) ===
+      JSON.stringify(nextRun.manifest ?? null)
   );
 }
 
 export function stableDerivedArtifactSignature(
-  artifact: Pick<RunArtifact, "semanticType" | "artifactHash" | "producingStep">,
+  artifact: Pick<
+    RunArtifact,
+    "semanticType" | "artifactHash" | "producingStep"
+  >,
 ): string {
   return `${artifact.semanticType}::${artifact.artifactHash}::${artifact.producingStep}`;
 }
 
-export function hasSameDerivedArtifactsForRun(existingArtifacts: RunArtifact[], nextArtifacts: RunArtifact[]): boolean {
+export function hasSameDerivedArtifactsForRun(
+  existingArtifacts: RunArtifact[],
+  nextArtifacts: RunArtifact[],
+): boolean {
   if (existingArtifacts.length !== nextArtifacts.length) {
     return false;
   }
 
   return existingArtifacts.every((artifact, index) => {
     const nextArtifact = nextArtifacts[index];
-    return Boolean(nextArtifact) && stableDerivedArtifactSignature(artifact) === stableDerivedArtifactSignature(nextArtifact);
+    return (
+      Boolean(nextArtifact) &&
+      stableDerivedArtifactSignature(artifact) ===
+        stableDerivedArtifactSignature(nextArtifact)
+    );
   });
 }
 
@@ -278,7 +324,9 @@ export function buildEvidenceLineage(
   }
 
   for (const run of completedRuns) {
-    const workflowDeps = (workflowDependencies as Record<string, readonly string[]>)[run.workflowName];
+    const workflowDeps = (
+      workflowDependencies as Record<string, readonly string[]>
+    )[run.workflowName];
     if (!workflowDeps) {
       continue;
     }
