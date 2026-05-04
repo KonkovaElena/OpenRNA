@@ -41,12 +41,12 @@ jobs:
         run: npm ci
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@ee09113642cdd89dfd282ecd8d96340380bbee26 # v4
+        uses: github/codeql-action/init@a723e99345b89ee0bbcbd68ee4e63f9a56b42a25 # v4
         with:
           languages: ${{ matrix.language }}
           build-mode: none
 
       - name: Analyze
-        uses: github/codeql-action/analyze@ee09113642cdd89dfd282ecd8d96340380bbee26 # v4
+        uses: github/codeql-action/analyze@a723e99345b89ee0bbcbd68ee4e63f9a56b42a25 # v4
         with:
           category: /language:${{ matrix.language }}
