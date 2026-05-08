@@ -155,7 +155,8 @@ These codes appear repeatedly across route handlers, stores, and adapters.
 | `missing_credentials` | No usable API key or bearer token was supplied |
 | `invalid_api_key` | API key failed constant-time comparison |
 | `invalid_token` | JWT could not be parsed, verified, or validated |
-| `forbidden` | Authenticated principal lacks the required RBAC permission or case-level access grant |
+| `forbidden` | Authenticated principal lacks the required route-level RBAC permission |
+| `resource_access_denied` | Authenticated principal has route-level RBAC permission but lacks access to the specific `caseId` resource |
 | `consent_required` | Case-scoped write operation or consent-gated lifecycle/disclosure read attempted without active consent |
 | `not_found` | Resource type exists conceptually, but no record exists for this case or run |
 | `case_not_found` | `caseId` does not resolve to a stored case |

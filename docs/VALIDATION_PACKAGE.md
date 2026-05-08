@@ -61,7 +61,7 @@ corresponding test evidence.
 | URS-010 | The system shall export audit lineage as a machine-readable graph | FS-010 | `tests/outcomes.test.ts` — "Full Traceability" |
 | URS-011 | The system shall provide a FHIR R4 Genomics Reporting export surface | FS-011 | `tests/fhir-exporter.test.ts` |
 | URS-012 | The system shall enforce role-based access control with deny-by-default | FS-012 | `tests/rbac.test.ts`, `tests/rbac-coverage.test.ts` |
-| URS-013 | The system shall limit access to case records based on per-case authorization grants | FS-013 | `tests/resource-authz-owner.test.ts` |
+| URS-013 | The system shall limit access to case records based on per-case authorization grants | FS-013 | `tests/resource-authz-owner.test.ts`, `tests/resource-scoped-rbac.test.ts` |
 | URS-014 | The system shall compute a hash-chain over audit events to enable tamper detection | FS-014 | `tests/audit-chain.test.ts` — chain verification |
 | URS-015 | When configured, the system shall derive signer identity from the verified IdP principal | FS-015 | `tests/signature-integrity.test.ts` — identity-bound tests |
 | URS-016 | The system shall support OIDC JWKS URI for RS256 key discovery without manual PEM rotation | FS-016 | `tests/signature-integrity.test.ts` — `hasAuthenticationConfig` / `jwt.jwksUri` config |
@@ -112,6 +112,11 @@ specified requirements.
 All IQ-xxx items must achieve status ✅ Pass before OQ execution. Any deviation must be documented
 in a Deviation Report with a root-cause analysis and corrective action.
 
+IQ execution evidence must be recorded from the target environment by copying
+`docs/archive/IQ_EXECUTION_RECORD_TEMPLATE.md` to
+`docs/archive/IQ_EXECUTION_RECORD_YYYY-MM-DD.md`, completing all observed values, and obtaining
+executor/reviewer signatures. The template is not itself execution evidence.
+
 ---
 
 ## 5. Operational Qualification (OQ)
@@ -126,7 +131,7 @@ maps to one or more URS requirements.
 
 | OQ-ID | Test Suite | URS | Description | Current Status |
 |-------|-----------|-----|-------------|----------------|
-| OQ-001 | `tests/api.test.ts` | URS-001, URS-007 | Full case lifecycle HTTP round-trip including input validation | 539 tests pass (2026-05-02) |
+| OQ-001 | `tests/api.test.ts` | URS-001, URS-007 | Full case lifecycle HTTP round-trip including input validation | 546 tests pass (2026-05-08) |
 | OQ-002 | `tests/state-machine-guard.test.ts` | URS-004 | FSM transition validation including `CONSENT_WITHDRAWN` terminal state | ✅ |
 | OQ-003 | `tests/consent-gate.test.ts` | URS-002 | Consent gate middleware — grant, withdraw, terminal withdrawal, new-case pattern | ✅ |
 | OQ-004 | `tests/lifecycle-controls.test.ts` | URS-002, URS-004 | Consent status synchronization with CONSENT_WITHDRAWN; restart-from-revision | ✅ |
@@ -135,7 +140,7 @@ maps to one or more URS requirements.
 | OQ-007 | `tests/signature-integrity.test.ts` | URS-006, URS-015, URS-016 | Identity-bound signatures, HMAC server seals, JWKS config | ✅ |
 | OQ-008 | `tests/event-journal-foundation.test.ts` | URS-001, URS-008 | Domain event replay idempotency and audit metadata preservation | ✅ |
 | OQ-009 | `tests/rbac.test.ts`, `tests/rbac-coverage.test.ts` | URS-012 | Role-based access control, deny-by-default, role-action matrix | ✅ |
-| OQ-010 | `tests/resource-authz-owner.test.ts` | URS-013 | Per-case OWNER/REVIEWER/MANUFACTURING grants | ✅ |
+| OQ-010 | `tests/resource-authz-owner.test.ts`, `tests/resource-scoped-rbac.test.ts` | URS-013 | Per-case OWNER/REVIEWER/MANUFACTURING grants and cross-case mutation denial | ✅ |
 | OQ-011 | `tests/consent-tracker.test.ts`, `tests/postgres-consent-tracker.test.ts` | URS-002 | Consent event log persistence, active/withdrawn state derivation | ✅ |
 | OQ-012 | `tests/fhir-exporter.test.ts` | URS-011 | FHIR R4 Genomics Reporting export surface | ✅ |
 | OQ-013 | `tests/wave6-bundle-hla.test.ts` | URS-009 | HLA consensus with per-tool evidence and disagreement thresholds | ✅ |
@@ -147,14 +152,17 @@ maps to one or more URS requirements.
 ### 5.2 OQ Execution Protocol
 
 1. Execute `npm run ci` in a clean checkout on a validated test environment.
-2. Record the full test output, including pass/fail counts, duration, and timestamp.
-3. Any failure causes the OQ to fail; the failure must be documented with a Deviation Report before
+2. Execute `npm run test:oq-evidence` on the same environment to capture the full OQ test output as
+   `docs/archive/OQ_TEST_REPORT_YYYY-MM-DD.txt`.
+3. Record the full test output, including pass/fail counts, duration, and timestamp.
+4. Any failure causes the OQ to fail; the failure must be documented with a Deviation Report before
    re-execution.
-4. The recorded output is the OQ evidence artifact.
+5. The recorded output is the OQ evidence artifact and must be committed as part of the validation
+   evidence package.
 
 ### 5.3 OQ Acceptance Criteria
 
-- All 539+ tests pass with exit code 0.
+- All 546+ tests pass with exit code 0.
 - `npm audit --omit=dev --audit-level=high` reports zero vulnerabilities.
 - Code coverage (line ≥ 90%, branch ≥ 80%, function ≥ 90%) reported by `npm run test:coverage`.
 - No `[SKIP]` or `[TODO]` test markers introduced without a documented rationale.
@@ -187,6 +195,8 @@ representative workload. It is executed after IQ and OQ in the target deployment
   applied.
 - Results must be recorded in a PQ Execution Report signed by the test executor and reviewed by the
   validation engineer.
+- Use `docs/archive/PQ_EXECUTION_REPORT_TEMPLATE.md` as the required report skeleton, then rename the
+  completed evidence artifact to `docs/archive/PQ_EXECUTION_REPORT_YYYY-MM-DD.md`.
 
 ---
 
@@ -235,8 +245,8 @@ procedure.
 
 | Gap ID | Description | Regulatory Driver | Target Version |
 |--------|-------------|-------------------|---------------|
-| GAP-VAL-001 | IQ checklist items IQ-001–IQ-012 not formally executed and signed | 21 CFR Part 11 §11.10(a) | v0.2.0 |
-| GAP-VAL-002 | PQ scenarios not yet executed in a production-representative environment | 21 CFR Part 11 §11.10(a) | v0.2.0 |
+| GAP-VAL-001 | IQ checklist items IQ-001–IQ-012 not formally executed and signed; execution template now available in `docs/archive/IQ_EXECUTION_RECORD_TEMPLATE.md` | 21 CFR Part 11 §11.10(a) | v0.2.0 |
+| GAP-VAL-002 | PQ scenarios not yet executed in a production-representative environment; execution template now available in `docs/archive/PQ_EXECUTION_REPORT_TEMPLATE.md` | 21 CFR Part 11 §11.10(a) | v0.2.0 |
 | GAP-VAL-003 | Audit hash-chain write path implemented (migration 004); PostgresCaseStore.saveCaseRecord() populates record_hash/prev_hash — full verification endpoint at `GET /audit-chain/verify` operational | ✅ Closed (v0.1.3) | — |
 | GAP-VAL-004 | Identity-bound signatures via OIDC JWKS URI implemented; SIGNATURE_SEAL_KEY server seals computed on review/release records | ✅ Closed (v0.1.3) | — |
 | GAP-VAL-005 | Formal IQ/OQ/PQ sign-off by qualified validation engineer | 21 CFR Part 11 §11.10(a) | Pre-IND |

@@ -91,7 +91,7 @@ The correct question is therefore not "is OpenRNA globally Part 11 compliant?" T
 
 FDA's `General Principles of Software Validation` guidance remains a stable reference for this repository's validation posture. The key operational principle is that validation depth should be justified by intended use and by the software's effect on accuracy, reliability, record integrity, and, where relevant, product quality or patient safety.
 
-For OpenRNA, this means engineering verification is necessary but not sufficient. Current tests, typed schemas, and CI gates are useful software evidence, but they are not a replacement for a documented intended-use statement, user requirements, risk assessment, traceability matrix, and IQ/OQ/PQ-style qualification package on the durable deployment path.
+For OpenRNA, this means engineering verification is necessary but not sufficient. Current tests, typed schemas, CI gates, and `docs/VALIDATION_PACKAGE.md` are useful software evidence, but they are not a replacement for completed, signed IQ/OQ/PQ execution records on the durable deployment path.
 
 This pass deliberately anchors validation language on rechecked eCFR text and stable FDA guidance pages. A newer CSA framing may still be useful internally, but it is not promoted here until its official page path is re-confirmed.
 
@@ -103,25 +103,25 @@ FDA's 2003 scope-and-application guidance explicitly says the Agency intends to 
 
 | Part 11 Requirement | Section | Current State | Gap |
 |---------------------|---------|--------------|-----|
-| **§11.10(a)** Validation of systems | System validation | ❌ No IQ/OQ/PQ documentation | Requires validation package before clinical use |
+| **§11.10(a)** Validation of systems | System validation | ⚠️ Validation package and IQ/PQ templates authored; OQ evidence script available | Requires signed IQ/OQ/PQ execution on a target environment before clinical or IND-supporting use |
 | **§11.10(b)** Ability to generate accurate and complete copies | Data export | ✅ JSON API responses, JSONB storage | Full backup/restore procedures needed |
 | **§11.10(c)** Protection of records for retention period | Record retention | ⚠️ PostgreSQL persistence available | Needs formal retention policy and archival strategy |
-| **§11.10(d)** Limiting system access to authorized individuals | Access control | ⚠️ API-key auth plus RBAC seam (`api-key-auth.ts`, `rbac-auth.ts`) | Not equivalent to per-user OIDC or JWT identity, Part 11 authority checks, or signer-bound attribution. |
-| **§11.10(e)** Secure, computer-generated, time-stamped audit trails | Audit trail | ⚠️ Append-only audit events. Migration 004 adds `record_hash` / `prev_hash` columns for SHA-256 hash-chain; application-layer write path is the next milestone. | NTP synchronization for timestamp accuracy needed |
+| **§11.10(d)** Limiting system access to authorized individuals | Access control | ✅ JWT/OIDC JWKS support, deny-by-default RBAC, and resource-scoped `caseId` authorization are implemented | Site-specific IdP configuration, role assignment SOP, and access review procedure still required |
+| **§11.10(e)** Secure, computer-generated, time-stamped audit trails | Audit trail | ✅ Append-only audit events with PostgreSQL SHA-256 hash-chain write path and verification endpoint | NTP synchronization and signed IQ/OQ/PQ evidence still required for regulated deployment |
 | **§11.10(h)** Input checks (device checks) | Input validation | ✅ Zod runtime schemas on all API inputs | Validation rules need formal specification document |
 | **§11.10(k)** Documentation and audit trail for system changes | Change control | ⚠️ Git version control | Needs formal change control procedure documentation |
-| **§11.50** Electronic signature manifestations | E-signatures | ⚠️ Review and final-release records accept `signatureManifestation`; signer identity still caller-supplied (not IdP-bound) | Needs OIDC identity binding so `signedBy` is derived from verified `sub` claim, not request body |
-| **§11.70** Electronic signature/record linking | Signature binding | ⚠️ Review outcomes now carry both review and final-release manifestations in the stored record | Required for stronger non-repudiation and cryptographic record linking |
+| **§11.50** Electronic signature manifestations | E-signatures | ✅ When configured, review/release signer identity is derived from verified principal (`sub`) rather than caller-supplied body fields | Site-specific IdP identity proofing and signature SOP still required |
+| **§11.70** Electronic signature/record linking | Signature binding | ✅ Server-side HMAC-SHA256 seals link signature manifestations to case/review records when `SIGNATURE_SEAL_KEY` is configured | Production key management and rotation SOP still required |
 
 ### ALCOA+ Data Integrity Principles
 
 | Principle | Implementation | Status |
 |-----------|---------------|--------|
-| **A**ttributable | API key identifies caller class; JWT `sub` claim identifies a verified principal. Consent withdrawal, review, and release events carry `actorId` from the resolved principal. | ⚠️ Partial — caller-class auth, not per-user identity |
+| **A**ttributable | API key identifies caller class; JWT `sub` claim identifies a verified principal. Consent withdrawal, review, and release events carry `actorId` from the resolved principal; identity-bound signature mode derives signer from the verified principal. | ✅ Implemented in software; site IdP configuration required |
 | **L**egible | JSON structured data, human-readable audit events | ✅ |
 | **C**ontemporaneous | Timestamps at event creation time | ✅ |
 | **O**riginal | JSONB storage in PostgreSQL; in-memory store is volatile | ⚠️ PostgreSQL path only |
-| **A**ccurate | Zod validation on input; audit events are append-only by application convention. Migration 004 adds `record_hash`/`prev_hash` columns for tamper-detection chain. DB-level `REVOKE UPDATE, DELETE` is documented in migration 004 commentary. | ⚠️ Partial — hash-chain write path and DB grant wiring are next milestones |
+| **A**ccurate | Zod validation on input; audit events are append-only by application convention. Migration 004 adds `record_hash`/`prev_hash` columns for tamper-detection chain. DB-level `REVOKE UPDATE, DELETE` is documented in migration 004 commentary. Hash-chain write path and verification endpoint are implemented. | ✅ Implemented in software; operational DB grants and IQ/OQ/PQ evidence required |
 | +**C**omplete | Full event history per case via audit trail | ✅ |
 | +**C**onsistent | Consistent timestamp format (ISO 8601) | ✅ |
 | +**E**nduring | PostgreSQL with configurable retention | ⚠️ No formal retention policy |
@@ -161,15 +161,15 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 
 | Gap | Priority | Regulatory Driver | Effort Estimate |
 |-----|----------|-------------------|-----------------|
-| Electronic signatures | **Critical** | 21 CFR Part 11 §11.50/11.70 and Subpart C | Significant — current signature manifestations must evolve into signer-bound electronic records |
-| Individual user authentication | **Critical** | 21 CFR Part 11 §11.10(d)/(g), §11.100, cGMP | Moderate — replace API-key baseline with RBAC + identity provider |
-| Qualified-person-grade release authority | **Critical** | EU QP release, cGMP release workflow | Moderate — current repo has a dual-authorization workflow step, but it still lacks site-integrated identity proofing, validated procedures, and stronger signer authentication |
+| Electronic signatures | **Software control implemented; procedural gap remains** | 21 CFR Part 11 §11.50/11.70 and Subpart C | Identity-bound signer derivation and HMAC record linking are implemented; site-specific identity proofing, SOPs, and key-management procedure remain |
+| Individual user authentication | **Software control implemented; configuration gap remains** | 21 CFR Part 11 §11.10(d)/(g), §11.100, cGMP | JWT/OIDC JWKS support exists; validated IdP onboarding, role assignment, and access review procedures remain |
+| Qualified-person-grade release authority | **Critical procedural gap** | EU QP release, cGMP release workflow | Current repo has a dual-authorization workflow step, but still lacks site-integrated QP procedure, validated release SOP, and regulated personnel training evidence |
 | System validation documentation | **IQ/OQ/PQ template available (v0.1.3)** | 21 CFR Part 11 §11.10(a) | Draft validation package at [`docs/VALIDATION_PACKAGE.md`](VALIDATION_PACKAGE.md). Formal sign-off by validation engineer required before clinical deployment. |
 | Formal change control | **High** | 21 CFR Part 11 §11.10(k) | Process documentation — Git history is necessary but not sufficient |
 | Consent-state management | **Closed (May 2026)** | ICH E6(R2) §4.8.2 | `CONSENT_WITHDRAWN` absorbing FSM state implemented; store guards block all mutations on withdrawn cases; governance route enforces new-case requirement for renewal |
 | Retention and archival policy | **Medium** | FDA Data Integrity Guidance | Documentation and infrastructure — backup/archival procedures |
 | NTP-synchronized timestamps | **Low** | 21 CFR Part 11 §11.10(e) | Deployment configuration — not a code change |
-| Cryptographic audit seal | **Schema complete (May 2026)** | FDA Data Integrity Guidance 2018 | Migration 004 adds `record_hash` / `prev_hash` columns; application-layer write path is the next milestone |
+| Cryptographic audit seal | **Software control implemented (v0.1.3)** | FDA Data Integrity Guidance 2018 | Migration 004 plus PostgreSQL write path populate `record_hash` / `prev_hash`; verify endpoint operational. Operational DB privilege controls and validation execution remain |
 
 ## Claim Boundary For This Repository
 
@@ -177,7 +177,7 @@ Personalized neoantigen vaccines present unique cGMP challenges:
 |--------------------|-------------------|
 | OpenRNA has Part 11-oriented seams for audit, access control, and signature handling | OpenRNA is Part 11 compliant |
 | The PostgreSQL path can support durable regulated records | Record retention, archival, and recovery controls are formally validated |
-| OpenRNA now records an independent final release authorization before handoff | This alone does not constitute full qualified-person release or Part 11-complete signer identity |
+| OpenRNA now records an independent final release authorization before handoff and can derive signer identity from verified JWT principal | This alone does not constitute full qualified-person release, site identity proofing, or completed Part 11 validation |
 | FHIR export is a first-class interoperability seam | Clinical profile conformance and site-to-site interoperability are formally qualified |
 | The repository has engineering verification evidence | The repository is a validated computerized system for regulated use |
 

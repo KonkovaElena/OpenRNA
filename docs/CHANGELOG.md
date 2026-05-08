@@ -2,7 +2,7 @@
 title: "OpenRNA Changelog"
 status: "active"
 version: "1.1.0"
-last_updated: "2026-04-21"
+last_updated: "2026-05-08"
 tags: [changelog, releases, public-export]
 ---
 
@@ -11,6 +11,38 @@ tags: [changelog, releases, public-export]
 This changelog tracks public repository changes that matter to release consumers and technical-diligence readers.
 
 It is intentionally scoped to the standalone OpenRNA repository and excludes private investor annex material.
+
+## [0.1.4] - 2026-05-08
+
+Regulatory readiness and authorization hardening pass: README/validation drift closure, explicit
+resource-scoped RBAC contract, and execution-evidence rails for IQ/OQ/PQ.
+
+### Added
+
+- **`IRbacProvider.canAccessCase()`** with `CasePermission` vocabulary (`VIEW_CASE`,
+  `MUTATE_CASE`, `REVIEW_CASE`, `RELEASE_CASE`).
+- **In-memory case-scope RBAC model** (`setCaseOwner`, `grantCaseAccess`) with admin/system bypass.
+- **`caseAccessAuth` resource gate** now checks both canonical `ICaseAccessStore` grants and
+  `IRbacProvider.canAccessCase()` before case-scoped handlers run.
+- **Dedicated `resource_access_denied` error code** for principals that pass route-level RBAC but
+  lack access to the specific `caseId`.
+- **`tests/resource-scoped-rbac.test.ts`**: cross-case mutation denial, review-outcome denial for a
+  foreign case, explicit grant allow path, and admin bypass coverage.
+- **`test:oq-evidence`** npm script: captures full OQ output to
+  `docs/archive/OQ_TEST_REPORT_YYYY-MM-DD.txt` when run on a validated target environment.
+- **Execution templates**:
+  - `docs/archive/IQ_EXECUTION_RECORD_TEMPLATE.md`
+  - `docs/archive/PQ_EXECUTION_REPORT_TEMPLATE.md`
+
+### Changed
+
+- README, Russian README, API reference, operations guide, regulatory context, design docs, and
+  validation package synchronized to the v0.1.3/v0.1.4 software state.
+- `.gitignore` now allows validation evidence records/templates in `docs/archive/` to be tracked.
+
+### Tests
+
+- Total: **546 tests (22 suites), 0 failures**.
 
 ## [0.1.3] - 2026-05-02
 

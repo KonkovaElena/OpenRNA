@@ -1,6 +1,6 @@
 {
   "name": "openrna",
-  "version": "0.1.0",
+  "version": "0.1.4",
   "description": "OpenRNA control plane for personalized neoantigen RNA vaccine workflows",
   "license": "Apache-2.0",
   "repository": {
@@ -24,6 +24,7 @@
     "sbom:cyclonedx:file": "node scripts/write-cyclonedx-sbom.mjs openrna-runtime-sbom.cdx.json",
     "test": "node --import tsx --test tests/**/*.test.ts",
     "test:coverage": "node --experimental-test-coverage --import tsx --test tests/**/*.test.ts",
+    "test:oq-evidence": "npm test 2>&1 | tee docs/archive/OQ_TEST_REPORT_$(date +%F).txt",
     "ci": "npm run build && npm test && npm audit --omit=dev --audit-level=high"
   },
   "keywords": [

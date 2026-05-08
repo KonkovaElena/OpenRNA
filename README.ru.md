@@ -8,9 +8,10 @@
 
 ## Кратко
 
-- Повторно проверено 2026-04-21: 504 теста, 22 набора тестов, 94.49% покрытия по строкам, 82.88% по ветвлениям и 94.11% по функциям; `npm audit --omit=dev --audit-level=high` проходит без high-уязвимостей; `npm run sbom:cyclonedx:file` обновлён.
-- Архитектурный базис: 18 портов, 23 адаптера, 17 состояний жизненного цикла кейса.
-- Репозиторий готов к инженерной и исследовательской проверке, но не заявляет клиническую эксплуатацию и не заявляет полное соответствие 21 CFR Part 11.
+- Повторно проверено 2026-05-08: 546 тестов, 22 набора тестов, все проходят; `npm audit --omit=dev --audit-level=high` проходит без high-уязвимостей; `npm run sbom:cyclonedx:file` обновлён.
+- Архитектурный базис: 19 портов (`ICaseStore` вынесен в `src/ports/`), 23 адаптера, 18 состояний жизненного цикла кейса.
+- v0.1.3 hardening: запись и проверка audit hash-chain, identity-bound signatures через JWT `sub` и HMAC seal, поддержка OIDC JWKS URI, пакет IQ/OQ/PQ validation (`docs/VALIDATION_PACKAGE.md`).
+- Репозиторий готов к инженерной и исследовательской проверке, но не заявляет клиническую эксплуатацию и не заявляет завершённое IQ/OQ/PQ execution на целевой регулируемой среде.
 
 Формальный срез доказательной базы: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-21.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-21.md).
 
@@ -28,7 +29,7 @@
 
 ## Что делает OpenRNA
 
-- ведёт кейс пациента через управляемый жизненный цикл из 17 состояний;
+- ведёт кейс пациента через управляемый жизненный цикл из 18 состояний, включая терминальное `CONSENT_WITHDRAWN`;
 - фиксирует происхождение образцов и производных артефактов;
 - оркестрирует запуск вычислительных процессов с идемпотентностью через `x-idempotency-key`;
 - поддерживает консенсус HLA из нескольких инструментов с операторским разбором конфликтов;
@@ -64,8 +65,11 @@
 | Техническая реализация контура управления | Реализована и покрыта тестами |
 | Инженерный контур репозитория (CI, SAST, SBOM, provenance) | Реализован |
 | Клиническая эксплуатация | Не заявляется |
-| Электронные подписи и независимая финальная release-процедура | Реализованы частично, но не доведены до уровня identity-bound Part 11 |
-| Ресурсно-ограниченная авторизация и часть регуляторных ограничений | Находятся в активном плане усиления |
+| Audit hash-chain (schema + write wiring + verify endpoint) | ✅ Реализован (v0.1.3) |
+| Электронные подписи — identity-bound через JWT `sub` + HMAC seal | ✅ Реализованы (v0.1.3) |
+| Per-user OIDC / JWKS URI | ✅ Поддерживается (v0.1.3); требуется настройка IdP |
+| Ресурсно-ограниченная авторизация | ✅ Реализована для case-scoped routes; legacy records без ACL остаются переходным режимом |
+| IQ/OQ/PQ validation package | ✅ Документ создан; исполнение протокола pending |
 
 Детали по ограничениям и плану усиления: [docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md](docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md).
 
@@ -102,10 +106,12 @@ npm run ci
 | `RBAC_ALLOW_ALL` | `false` | Аварийный разрешающий режим, не для production |
 | `JWT_SHARED_SECRET` | unset | JWT HS256, минимум 32 байта |
 | `JWT_PUBLIC_KEY_PEM` | unset | JWT RS256 public key |
+| `JWT_JWKS_URI` | unset | OIDC JWKS endpoint для удалённой проверки ключей |
 | `JWT_EXPECTED_ISSUER` | unset | Ограничение по `iss` |
 | `JWT_EXPECTED_AUDIENCE` | unset | Ограничение по `aud` |
 | `JWT_PRINCIPAL_CLAIM` | `sub` | Имя claim с идентификатором субъекта |
 | `JWT_ROLE_CLAIM` | `roles` | Имя claim с ролями |
+| `SIGNATURE_SEAL_KEY` | unset | HMAC-SHA256 seal key ≥32 байта для identity-bound signature flows |
 
 ## Качество и безопасность цепочки поставок
 

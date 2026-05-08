@@ -1,0 +1,30 @@
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Allow deterministic OpenRNA test placeholders in bounded test files."
+condition = "AND"
+paths = [
+  '''(^|.*/)tests/compliance-controls\.test\.ts$''',
+  '''(^|.*/)tests/modality\.test\.ts$''',
+  '''(^|.*/)tests/prob-regression\.test\.ts$''',
+  '''(^|.*/)tests/security-middleware\.test\.ts$''',
+]
+regexTarget = "line"
+regexes = [
+  '''patientKey:\s+"pt-(compliance|modality)-001"''',
+  '''API_KEY:\s+"my-secret"''',
+  '''API_KEY:\s+"secret-key-42"''',
+  '''\.set\("x-api-key",\s+"secret-key-42"\)''',
+  '''(JWT_SHARED_SECRET|jwtSecret|sharedSecret):?\s*=*\s*"0123456789abcdef0123456789abcdef"''',
+  '''jwt\?\.sharedSecret,\s+"0123456789abcdef0123456789abcdef"''',
+]
+
+[allowlist]
+description = "Ignore generated build output; scan source fixtures instead."
+paths = [
+  '''(^|.*/)dist/''',
+]

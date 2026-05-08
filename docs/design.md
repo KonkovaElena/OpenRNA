@@ -97,13 +97,10 @@ Full API surface documented in [README.md](README.md).
 
 ### Not yet implemented
 
-- Neoantigen prediction (external pipeline output consumed, not performed).
-- Rank aggregation algorithms (ranking port accepts external results).
-- Cross-resource transactional outbox coordination.
-- Electronic signatures (21 CFR Part 11 requirement; `signatureManifestation` field present but not identity-bound).
-- Per-user OIDC identity (API-key auth is caller-level, not user-level).
-- Validated-system qualification documentation (IQ/OQ/PQ package).
-- Application-layer audit hash-chain write (migration `004_audit_hardening.sql` adds the columns; the write path is the next milestone).
+- Production-grade neoantigen prediction (external pipeline output is consumed, not generated internally).
+- Production-executed IQ/OQ/PQ evidence on a target PostgreSQL environment.
+- Site-specific IdP onboarding, role-assignment SOPs, retention policy, backup/restore SOP, and signature key-rotation SOP.
+- Cross-resource transactional outbox coordination beyond the current case/workflow persistence seams.
 
 ## External Evidence Base (March 2026)
 

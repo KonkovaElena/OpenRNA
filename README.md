@@ -8,10 +8,10 @@ A control plane for personalized neoantigen RNA vaccine workflows.
 
 ## At a glance
 
-- Re-verified on 2026-05-02: 505 tests (22 suites), all passing, `npm audit --omit=dev --audit-level=high` clean, `npm run sbom:cyclonedx:file` refreshed.
+- Re-verified on 2026-05-08: 546 tests (22 suites), all passing, `npm audit --omit=dev --audit-level=high` clean, `npm run sbom:cyclonedx:file` refreshed.
 - Architecture baseline: **19 port interfaces** (`ICaseStore` extracted as a canonical port), 23 adapters (18 in-memory + 5 integration), **18 case lifecycle states**.
-- Regulatory hardening pass (May 2026): `CONSENT_WITHDRAWN` absorbing state added to the FSM (ICH E6(R2) §4.8.2), audit hash-chain migration (004), `RankingEngineMetadata` on `RankingResult`, and `ICaseStore` promoted from inline interface to `src/ports/`.
-- The repository is ready for engineering diligence, but it does not claim clinical deployment readiness and does not claim full 21 CFR Part 11 completion.
+- v0.1.3 hardening: audit hash-chain write wiring and verify endpoint, identity-bound signatures (HMAC-SHA256 seal, JWT `sub`), OIDC JWKS URI support, and IQ/OQ/PQ validation package (`docs/VALIDATION_PACKAGE.md`).
+- The repository is ready for engineering diligence, but it does not claim clinical deployment readiness and does not claim completed IQ/OQ/PQ execution on a target regulated environment.
 
 Formal baseline snapshot: [docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-21.md](docs/archive/FORMAL_EVIDENCE_REGISTER_2026-04-21.md).
 
@@ -67,10 +67,11 @@ Architecture authority document: [`docs/design.md`](docs/design.md).
 | Clinical deployment | Not claimed |
 | Consent withdrawal as FSM-native absorbing state (ICH E6(R2) §4.8.2) | Implemented (May 2026) |
 | `ICaseStore` domain port extracted to `src/ports/` | Implemented (May 2026) |
-| Audit hash-chain columns in PostgreSQL schema (migration 004) | Schema ready; application-layer write wiring is next milestone |
-| Electronic signature manifestations and independent final release ceremony | Partially implemented, but not identity-bound or Part 11-complete |
-| Per-user OIDC identity (replaces shared API-key) | On hardening roadmap |
-| Resource-scoped authorization and part of regulatory controls | In active hardening roadmap |
+| Audit hash-chain (schema + write wiring + verify endpoint) | ✅ Implemented (v0.1.3) |
+| Electronic signatures — identity-bound via JWT `sub` + HMAC seal | ✅ Implemented (v0.1.3) |
+| Per-user OIDC / JWKS URI | ✅ Supported (v0.1.3); IdP configuration required |
+| Resource-scoped authorization and part of regulatory controls | ✅ Implemented for case-scoped routes; legacy records without ACL rows remain transitional |
+| IQ/OQ/PQ validation package | ✅ Document authored; execution pending |
 
 Hardening details: [`docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md`](docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md).
 
@@ -107,10 +108,12 @@ Source of truth: [`src/config.ts`](src/config.ts).
 | `RBAC_ALLOW_ALL` | `false` | Emergency permissive mode (not for production) |
 | `JWT_SHARED_SECRET` | unset | JWT HS256 (minimum 32 bytes) |
 | `JWT_PUBLIC_KEY_PEM` | unset | JWT RS256 public key |
+| `JWT_JWKS_URI` | unset | OIDC JWKS endpoint for remote key verification |
 | `JWT_EXPECTED_ISSUER` | unset | Optional `iss` validation |
 | `JWT_EXPECTED_AUDIENCE` | unset | Optional `aud` validation |
 | `JWT_PRINCIPAL_CLAIM` | `sub` | Claim containing principal id |
 | `JWT_ROLE_CLAIM` | `roles` | Claim containing roles |
+| `SIGNATURE_SEAL_KEY` | unset | HMAC-SHA256 seal key ≥32 bytes (required in production identity-bound signature flows) |
 
 ## Quality and supply-chain security
 

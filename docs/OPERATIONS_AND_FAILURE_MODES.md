@@ -2,7 +2,7 @@
 title: "OpenRNA Operations And Failure Modes"
 status: "active"
 version: "1.0.0"
-last_updated: "2026-04-05"
+last_updated: "2026-05-08"
 tags: [operations, runtime, health, troubleshooting]
 ---
 
@@ -33,8 +33,13 @@ Key environment variables are validated by [src/config.ts](../src/config.ts).
 | `RBAC_ALLOW_ALL` | `false` | Boolean compatibility switch for permissive RBAC behavior |
 | `JWT_SHARED_SECRET` | unset | Must be at least 32 bytes when supplied |
 | `JWT_PUBLIC_KEY_PEM` | unset | Enables RSA bearer-token verification |
+| `JWT_JWKS_URI` | unset | Enables OIDC JWKS-based RS256 key discovery |
+| `JWT_JWKS_CACHE_TTL_SEC` | `300` | JWKS key cache TTL; minimum 60 seconds |
 | `JWT_EXPECTED_ISSUER` | unset | Optional bearer-token claim validation |
 | `JWT_EXPECTED_AUDIENCE` | unset | Optional bearer-token claim validation |
+| `JWT_PRINCIPAL_CLAIM` | `sub` | JWT claim used as principal id |
+| `JWT_ROLE_CLAIM` | `roles` | JWT claim used as role source |
+| `SIGNATURE_SEAL_KEY` | unset | HMAC-SHA256 key for server-side signature seals; minimum 32 bytes when supplied |
 
 ## Basic Verification Path
 
@@ -86,10 +91,11 @@ Those values are built from `store.getOperationsSummary()` in [src/routes/system
 | Layer | Current behavior |
 |-------|------------------|
 | Authentication | `x-api-key` or bearer token when configured; anonymous or unsigned principal path otherwise |
-| RBAC | Route-scoped checks when an RBAC provider is present; pass-through compatibility when absent |
+| RBAC | Deny-by-default route-scoped checks plus case-scoped `canAccessCase` permissions for `caseId` routes |
+| Resource authorization | `ICaseAccessStore` grants and `IRbacProvider.canAccessCase` are evaluated before case-scoped handlers run; failures return `resource_access_denied` |
 | Consent | Case-scoped write routes can be blocked by `consent_required` |
 
-Important limitation: these controls improve operator discipline, but they do not make the repository a Part 11-grade identity or electronic-signature system.
+Important limitation: these controls improve operator discipline, but clinical/regulated use still requires site-specific IQ/OQ/PQ execution, SOPs, retention policy, and IdP configuration.
 
 ## Common Failure Modes
 
@@ -99,7 +105,8 @@ Important limitation: these controls improve operator discipline, but they do no
 | `401` with `missing_credentials` | Protected route called without `x-api-key` or bearer token | `{ error, code }` | Supply credentials or disable auth for local bootstrap work |
 | `403` with `invalid_api_key` | API key does not match | `{ error, code }` | Re-check the configured key and caller header |
 | `403` with `invalid_token` | Bearer token parsing, signature, audience, issuer, or time claims failed | `{ error, code }` | Re-issue token or correct JWT settings |
-| `403 Forbidden` with `detail` | RBAC provider rejected the action | `{ error, detail }` | Use a principal with the required action grant |
+| `403` with `forbidden` | RBAC provider rejected the route-level action | `ApiError` envelope | Use a principal with the required action grant |
+| `403` with `resource_access_denied` | Principal has route-level role but lacks access to the specific `caseId` | `ApiError` envelope | Grant case access or use the case owner / admin principal |
 | `403` with `consent_required` | Case-scoped write attempted without active consent | `ApiError` envelope | Record or renew consent before retrying |
 | `404` with `case_not_found`, `run_not_found`, or `reference_bundle_not_found` | Caller referenced an unknown resource | `ApiError` envelope | Retrieve a valid identifier from the corresponding list endpoint |
 | `409` with `invalid_transition` | Case or workflow run is in the wrong lifecycle state | `ApiError` envelope | Read current status, then retry the allowed transition |

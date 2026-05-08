@@ -21,7 +21,11 @@ function buildCaseInput() {
 test("resource-scoped authorization", async (t) => {
   const rbacProvider = new InMemoryRbacProvider({ allowAll: false });
   const caseAccessStore = new InMemoryCaseAccessStore();
-  const app = createApp({ rbacProvider, caseAccessStore, consentGateEnabled: false });
+  const app = createApp({
+    rbacProvider,
+    caseAccessStore,
+    consentGateEnabled: false,
+  });
 
   await rbacProvider.assignRole("alice", "OPERATOR");
   await rbacProvider.assignRole("bob", "OPERATOR");
@@ -46,8 +50,8 @@ test("resource-scoped authorization", async (t) => {
       .get(`/api/cases/${caseId}`)
       .set("x-principal-id", "bob");
     assert.equal(res.status, 403);
-    assert.equal(res.body.code, "forbidden");
-    assert.equal(res.body.message, "Forbidden.");
+    assert.equal(res.body.code, "resource_access_denied");
+    assert.equal(res.body.message, "Resource access denied.");
     assert.equal(typeof res.body.nextStep, "string");
     assert.equal(typeof res.body.correlationId, "string");
   });
@@ -59,33 +63,36 @@ test("resource-scoped authorization", async (t) => {
     assert.equal(res.status, 200);
   });
 
-  await t.test("GET /api/cases only returns owned cases for non-admin principal", async () => {
-    const bobCase = await request(app)
-      .post("/api/cases")
-      .set("x-principal-id", "bob")
-      .send({
-        caseProfile: {
-          patientKey: "pt-authz-002",
-          indication: "melanoma",
-          siteId: "site-001",
-          protocolVersion: "2026.1",
-          consentStatus: "complete",
-          boardRoute: "solid-tumor-board",
-        },
-      });
-    assert.equal(bobCase.status, 201);
+  await t.test(
+    "GET /api/cases only returns owned cases for non-admin principal",
+    async () => {
+      const bobCase = await request(app)
+        .post("/api/cases")
+        .set("x-principal-id", "bob")
+        .send({
+          caseProfile: {
+            patientKey: "pt-authz-002",
+            indication: "melanoma",
+            siteId: "site-001",
+            protocolVersion: "2026.1",
+            consentStatus: "complete",
+            boardRoute: "solid-tumor-board",
+          },
+        });
+      assert.equal(bobCase.status, 201);
 
-    const aliceList = await request(app)
-      .get("/api/cases")
-      .set("x-principal-id", "alice");
-    assert.equal(aliceList.status, 200);
-    assert.equal(aliceList.body.cases.length, 1);
-    assert.equal(String(aliceList.body.cases[0].caseId), caseId);
+      const aliceList = await request(app)
+        .get("/api/cases")
+        .set("x-principal-id", "alice");
+      assert.equal(aliceList.status, 200);
+      assert.equal(aliceList.body.cases.length, 1);
+      assert.equal(String(aliceList.body.cases[0].caseId), caseId);
 
-    const adminList = await request(app)
-      .get("/api/cases")
-      .set("x-principal-id", "admin");
-    assert.equal(adminList.status, 200);
-    assert.ok(adminList.body.cases.length >= 2);
-  });
+      const adminList = await request(app)
+        .get("/api/cases")
+        .set("x-principal-id", "admin");
+      assert.equal(adminList.status, 200);
+      assert.ok(adminList.body.cases.length >= 2);
+    },
+  );
 });

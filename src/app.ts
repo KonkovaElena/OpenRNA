@@ -28,6 +28,21 @@ import { registerGovernanceRoutes } from "./routes/governance";
 import { registerOutcomeRoutes } from "./routes/outcomes";
 import { registerWorkflowRoutes } from "./routes/workflow";
 
+interface CaseOwnershipAwareRbacProvider {
+  setCaseOwner(caseId: string, principalId: string): Promise<void>;
+}
+
+function hasCaseOwnershipRbacProvider(
+  value: unknown,
+): value is CaseOwnershipAwareRbacProvider {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "setCaseOwner" in value &&
+    typeof (value as { setCaseOwner?: unknown }).setCaseOwner === "function"
+  );
+}
+
 function getRequiredRouteParam(req: Request, name: string): string {
   const value = req.params[name];
 
@@ -183,6 +198,9 @@ export function createApp(dependencies: AppDependencies = {}) {
           res.locals.principalId ?? "system:anonymous",
         );
         await caseAccessStore.setOwner(createdCase.caseId, principalId);
+        if (hasCaseOwnershipRbacProvider(rbacProvider)) {
+          await rbacProvider.setCaseOwner(createdCase.caseId, principalId);
+        }
         res.status(201).json({ case: createdCase });
       } catch (error) {
         next(error);

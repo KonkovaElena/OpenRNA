@@ -3,22 +3,37 @@ import assert from "node:assert/strict";
 import { InMemoryRbacProvider } from "../src/adapters/InMemoryRbacProvider";
 
 test("RBAC Provider", async (t) => {
-  await t.test("default mode denies unassigned principals (deny-by-default)", async () => {
-    const provider = new InMemoryRbacProvider();
-    const result = await provider.checkPermission("unknown-principal", "CREATE_CASE");
-    assert.strictEqual(result.allowed, false);
-    assert.ok(result.reason);
-  });
+  await t.test(
+    "default mode denies unassigned principals (deny-by-default)",
+    async () => {
+      const provider = new InMemoryRbacProvider();
+      const result = await provider.checkPermission(
+        "unknown-principal",
+        "CREATE_CASE",
+      );
+      assert.strictEqual(result.allowed, false);
+      assert.ok(result.reason);
+    },
+  );
 
-  await t.test("allowAll mode permits any action (explicit opt-in)", async () => {
-    const provider = new InMemoryRbacProvider({ allowAll: true });
-    const result = await provider.checkPermission("unknown-principal", "CREATE_CASE");
-    assert.strictEqual(result.allowed, true);
-  });
+  await t.test(
+    "allowAll mode permits any action (explicit opt-in)",
+    async () => {
+      const provider = new InMemoryRbacProvider({ allowAll: true });
+      const result = await provider.checkPermission(
+        "unknown-principal",
+        "CREATE_CASE",
+      );
+      assert.strictEqual(result.allowed, true);
+    },
+  );
 
   await t.test("strict mode denies unassigned principals", async () => {
     const provider = new InMemoryRbacProvider({ allowAll: false });
-    const result = await provider.checkPermission("unknown-principal", "CREATE_CASE");
+    const result = await provider.checkPermission(
+      "unknown-principal",
+      "CREATE_CASE",
+    );
     assert.strictEqual(result.allowed, false);
     assert.ok(result.reason);
   });
@@ -49,7 +64,14 @@ test("RBAC Provider", async (t) => {
   await t.test("ADMIN has all permissions", async () => {
     const provider = new InMemoryRbacProvider({ allowAll: false });
     await provider.assignRole("admin-1", "ADMIN");
-    for (const action of ["CREATE_CASE", "REGISTER_SAMPLE", "REQUEST_WORKFLOW", "APPROVE_REVIEW", "VIEW_CASE", "ADMIN_OPERATIONS"] as const) {
+    for (const action of [
+      "CREATE_CASE",
+      "REGISTER_SAMPLE",
+      "REQUEST_WORKFLOW",
+      "APPROVE_REVIEW",
+      "VIEW_CASE",
+      "ADMIN_OPERATIONS",
+    ] as const) {
       const result = await provider.checkPermission("admin-1", action);
       assert.strictEqual(result.allowed, true, `ADMIN should have ${action}`);
     }
@@ -84,4 +106,42 @@ test("RBAC Provider", async (t) => {
     assert.strictEqual(create.allowed, true);
     assert.strictEqual(approve.allowed, true);
   });
+
+  await t.test(
+    "canAccessCase enforces explicit case grants and admin bypass",
+    async () => {
+      const provider = new InMemoryRbacProvider({ allowAll: false });
+      await provider.assignRole("owner-1", "OPERATOR");
+      await provider.assignRole("reviewer-1", "REVIEWER");
+      await provider.assignRole("admin-1", "ADMIN");
+
+      assert.equal(
+        await provider.canAccessCase("owner-1", "case-1", "MUTATE_CASE"),
+        false,
+      );
+
+      await provider.setCaseOwner("case-1", "owner-1");
+      await provider.grantCaseAccess("case-1", "reviewer-1", [
+        "VIEW_CASE",
+        "REVIEW_CASE",
+      ]);
+
+      assert.equal(
+        await provider.canAccessCase("owner-1", "case-1", "MUTATE_CASE"),
+        true,
+      );
+      assert.equal(
+        await provider.canAccessCase("reviewer-1", "case-1", "REVIEW_CASE"),
+        true,
+      );
+      assert.equal(
+        await provider.canAccessCase("reviewer-1", "case-1", "RELEASE_CASE"),
+        false,
+      );
+      assert.equal(
+        await provider.canAccessCase("admin-1", "case-1", "RELEASE_CASE"),
+        true,
+      );
+    },
+  );
 });
