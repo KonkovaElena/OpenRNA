@@ -30,6 +30,13 @@ import {
   generateHandoffPacketForCase,
   recordReviewOutcomeForCase,
 } from "../store-review";
+import {
+  cancelWorkflowRunForCase,
+  completeWorkflowRunForCase,
+  failWorkflowRunForCase,
+  requestWorkflowForCase,
+  startWorkflowRunForCase,
+} from "../store-workflow-lifecycle";
 import type {
   AdministrationRecord,
   ArtifactRecord,
@@ -233,6 +240,17 @@ export class MemoryCaseStore implements ICaseStore {
       createCaseEvent: this.createCaseEvent.bind(this),
       appendCaseEvent: this.appendCaseEvent.bind(this),
       rebuildCaseProjection: this.rebuildCaseProjection.bind(this),
+    };
+  }
+
+  private getWorkflowMutationContext() {
+    return {
+      clock: this.clock,
+      applyTransition: this.applyTransition.bind(this),
+      createCaseEvent: this.createCaseEvent.bind(this),
+      appendCaseEvent: this.appendCaseEvent.bind(this),
+      workflowDispatchSink: this.workflowDispatchSink,
+      stateMachineGuard: this.stateMachineGuard,
     };
   }
 
@@ -510,69 +528,18 @@ export class MemoryCaseStore implements ICaseStore {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
     const input = parseRequestWorkflowInput(rawInput);
-    const auditContext = normalizeAuditContext(correlationId);
-
-    if (input.idempotencyKey) {
-      const existingRequest = record.workflowRequests.find(
-        (workflowRequest) => workflowRequest.idempotencyKey === input.idempotencyKey,
-      );
-
-      if (existingRequest) {
-        if (
-          existingRequest.workflowName !== input.workflowName ||
-          existingRequest.referenceBundleId !== input.referenceBundleId ||
-          existingRequest.executionProfile !== input.executionProfile
-        ) {
-          throw new ApiError(
-            409,
-            "idempotency_mismatch",
-            "Idempotency key was already used with a different payload.",
-            "Use a new idempotency key for a different workflow request.",
-          );
-        }
-
-        return structuredClone(record);
-      }
-    }
-
-    if (record.status !== "READY_FOR_WORKFLOW") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Case is not ready for workflow request.",
-        "Complete consent and register tumor DNA, normal DNA, tumor RNA, and their source artifacts before requesting a workflow.",
-      );
-    }
-
     const requestedAt = this.clock.nowIso();
-    const workflowRequest: WorkflowRequestRecord = {
-      requestId: `run_${randomUUID()}`,
-      workflowName: input.workflowName,
-      referenceBundleId: input.referenceBundleId,
-      executionProfile: input.executionProfile,
-      requestedBy: input.requestedBy,
-      requestedAt,
-      idempotencyKey: input.idempotencyKey,
-      correlationId: auditContext.correlationId,
-    };
+    const { workflowRequest, nextStatus, isDuplicate } = await requestWorkflowForCase(
+      this.getWorkflowMutationContext(),
+      record,
+      input,
+      correlationId,
+    );
 
-    // Dispatch to sink BEFORE mutating aggregate — if sink throws,
-    // case state stays clean and the same idempotency key can be retried.
-    await this.workflowDispatchSink.recordWorkflowRequested({
-      dispatchId: `dispatch_${randomUUID()}`,
-      caseId: record.caseId,
-      requestId: workflowRequest.requestId,
-      workflowName: workflowRequest.workflowName,
-      referenceBundleId: workflowRequest.referenceBundleId,
-      executionProfile: workflowRequest.executionProfile,
-      requestedBy: workflowRequest.requestedBy,
-      requestedAt: workflowRequest.requestedAt,
-      idempotencyKey: workflowRequest.idempotencyKey,
-      correlationId: auditContext.correlationId,
-      status: "PENDING",
-    });
-    const nextStatus = deriveCaseStatus(record.caseProfile.consentStatus, record.samples, record.artifacts, true);
-    record.workflowRequests.push(workflowRequest);
+    if (isDuplicate) {
+      return structuredClone(record);
+    }
+
     await this.applyTransition(record, nextStatus, correlationId);
     record.timeline.push(
       timelineEvent(
@@ -640,78 +607,19 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-    const request = record.workflowRequests[record.workflowRequests.length - 1];
-    if (!request) {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Case must have a workflow request before starting a run.",
-        "Request a workflow before starting a run.",
-      );
-    }
-    if (startedRun.caseId !== caseId) {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Workflow run caseId does not match the target case.",
-        "Use a run created for this case.",
-      );
-    }
-    if (startedRun.status !== "RUNNING") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Started workflow run must be in RUNNING status.",
-        "Start the workflow run before persisting it.",
-      );
+
+    const { run, isReplay } = await startWorkflowRunForCase(
+      this.getWorkflowMutationContext(),
+      record,
+      startedRun,
+      correlationId,
+    );
+
+    if (isReplay) {
+      return structuredClone(record);
     }
 
-    const existingRun = record.workflowRuns.find((candidate) => candidate.runId === startedRun.runId);
-    if (existingRun) {
-      if (!hasSameRunReplayIdentity(existingRun, startedRun)) {
-        throw new ApiError(
-          409,
-          "invalid_transition",
-          "Workflow run replay payload does not match the persisted run.",
-          "Replay start only with the original run identity fields.",
-        );
-      }
-
-      if (existingRun.status === "RUNNING") {
-        return structuredClone(record);
-      }
-
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Terminal workflow runs cannot be started again.",
-        "Create a new workflow request instead of replaying start on a terminal run.",
-      );
-    }
-
-    if (record.status !== "WORKFLOW_REQUESTED") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Case must be in WORKFLOW_REQUESTED status to start a run.",
-        "Request a workflow before starting a run.",
-      );
-    }
-
-    const nowIso = this.clock.nowIso();
-    const run = cloneWorkflowRun({
-      ...startedRun,
-      requestId: startedRun.requestId || request.requestId,
-      workflowName: startedRun.workflowName || request.workflowName,
-      referenceBundleId: startedRun.referenceBundleId || request.referenceBundleId,
-      executionProfile: startedRun.executionProfile || request.executionProfile,
-      acceptedAt: startedRun.acceptedAt ?? nowIso,
-      startedAt: startedRun.startedAt ?? nowIso,
-    });
-    const startedAt = run.startedAt ?? nowIso;
-    run.startedAt = startedAt;
-
-    record.workflowRuns.push(run);
+    const startedAt = run.startedAt ?? this.clock.nowIso();
     await this.applyTransition(record, "WORKFLOW_RUNNING", correlationId);
     record.timeline.push(
       timelineEvent(this.clock, "workflow_started", `Workflow run ${run.runId} started.`, startedAt),
@@ -745,46 +653,23 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-    const run = this.getMutableWorkflowRun(record, completedRun.runId);
-    if (completedRun.status !== "COMPLETED") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Completed workflow run must be in COMPLETED status.",
-        "Complete the workflow run before persisting terminal state.",
-      );
-    }
 
-    if (run.status === "COMPLETED") {
-      const existingDerivedArtifacts = record.derivedArtifacts.filter(
-        (artifact) => artifact.runId === completedRun.runId,
-      );
-      if (!hasSameDerivedArtifactsForRun(existingDerivedArtifacts, derivedArtifacts)) {
-        throw new ApiError(
-          409,
-          "invalid_transition",
-          "Workflow completion replay emitted a different derived artifact set.",
-          "Replay completion only with the original derived artifact payload.",
-        );
-      }
+    const { run, isReplay } = await completeWorkflowRunForCase(
+      this.getWorkflowMutationContext(),
+      record,
+      completedRun,
+      derivedArtifacts,
+      correlationId,
+    );
 
+    if (isReplay) {
       return structuredClone(record);
     }
 
-    if (run.status !== "RUNNING") {
-      throw new ApiError(409, "invalid_transition", "Only running workflows can be completed.", "Check run status.");
-    }
-
-    const completedAt = completedRun.completedAt ?? this.clock.nowIso();
-    this.replaceWorkflowRun(run, {
-      ...completedRun,
-      caseId,
-      completedAt,
-    });
+    const completedAt = run.completedAt ?? this.clock.nowIso();
     await this.applyTransition(record, "WORKFLOW_COMPLETED", correlationId);
 
     for (const artifact of derivedArtifacts) {
-      record.derivedArtifacts.push(artifact);
       record.auditEvents.push(
         auditEvent(
           this.clock,
@@ -833,35 +718,19 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-    const run = this.getMutableWorkflowRun(record, cancelledRun.runId);
-    if (cancelledRun.status !== "CANCELLED") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Cancelled workflow run must be in CANCELLED status.",
-        "Cancel the workflow run before persisting terminal state.",
-      );
-    }
 
-    if (run.status === "CANCELLED") {
+    const { run, isReplay } = await cancelWorkflowRunForCase(
+      this.getWorkflowMutationContext(),
+      record,
+      cancelledRun,
+      correlationId,
+    );
+
+    if (isReplay) {
       return structuredClone(record);
     }
 
-    if (run.status !== "RUNNING" && run.status !== "PENDING") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Only running or pending workflows can be cancelled.",
-        "Check run status.",
-      );
-    }
-
-    const completedAt = cancelledRun.completedAt ?? this.clock.nowIso();
-    this.replaceWorkflowRun(run, {
-      ...cancelledRun,
-      caseId,
-      completedAt,
-    });
+    const completedAt = run.completedAt ?? this.clock.nowIso();
     await this.applyTransition(record, "WORKFLOW_CANCELLED", correlationId);
     record.timeline.push(
       timelineEvent(this.clock, "workflow_cancelled", `Run ${cancelledRun.runId} was cancelled.`, completedAt),
@@ -900,49 +769,19 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-    const run = this.getMutableWorkflowRun(record, failedRun.runId);
-    if (failedRun.status !== "FAILED") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Failed workflow run must be in FAILED status.",
-        "Fail the workflow run before persisting terminal state.",
-      );
-    }
 
-    if (run.status === "FAILED") {
-      if ((run.failureReason ?? failedRun.failureReason ?? "") !== (failedRun.failureReason ?? "")) {
-        throw new ApiError(
-          409,
-          "invalid_transition",
-          "Workflow failure replay reason does not match the persisted terminal failure.",
-          "Replay failure only with the original failure reason.",
-        );
-      }
-      if (
-        (run.failureCategory ?? failedRun.failureCategory ?? "unknown") !== (failedRun.failureCategory ?? "unknown")
-      ) {
-        throw new ApiError(
-          409,
-          "invalid_transition",
-          "Workflow failure replay category does not match the persisted terminal failure.",
-          "Replay failure only with the original failure category.",
-        );
-      }
+    const { run, isReplay } = await failWorkflowRunForCase(
+      this.getWorkflowMutationContext(),
+      record,
+      failedRun,
+      correlationId,
+    );
 
+    if (isReplay) {
       return structuredClone(record);
     }
 
-    if (run.status !== "RUNNING") {
-      throw new ApiError(409, "invalid_transition", "Only running workflows can be failed.", "Check run status.");
-    }
-
-    const completedAt = failedRun.completedAt ?? this.clock.nowIso();
-    this.replaceWorkflowRun(run, {
-      ...failedRun,
-      caseId,
-      completedAt,
-    });
+    const completedAt = run.completedAt ?? this.clock.nowIso();
     await this.applyTransition(record, "WORKFLOW_FAILED", correlationId);
     record.timeline.push(
       timelineEvent(
