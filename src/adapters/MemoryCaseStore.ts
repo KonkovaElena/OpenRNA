@@ -32,6 +32,7 @@ import {
   recordReviewOutcomeForCase,
 } from "../store-review";
 import { registerArtifactForCase, registerSampleForCase } from "../store-sample-artifact";
+import { recordConstructDesignForCase, recordNeoantigenRankingForCase } from "../store-scientific";
 import {
   cancelWorkflowRunForCase,
   completeWorkflowRunForCase,
@@ -266,6 +267,14 @@ export class MemoryCaseStore implements ICaseStore {
   }
 
   private getHlaQcMutationContext() {
+    return {
+      clock: this.clock,
+      createCaseEvent: this.createCaseEvent.bind(this),
+      appendCaseEvent: this.appendCaseEvent.bind(this),
+    };
+  }
+
+  private getScientificMutationContext() {
     return {
       clock: this.clock,
       createCaseEvent: this.createCaseEvent.bind(this),
@@ -904,36 +913,7 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-    record.neoantigenRanking = structuredClone(ranking);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "candidate_rank_generated",
-        `Generated neoantigen ranking with ${ranking.rankedCandidates.length} ranked candidates using ${ranking.ensembleMethod}.`,
-        ranking.rankedAt,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "candidate.rank-generated",
-        `Generated neoantigen ranking with ${ranking.rankedCandidates.length} ranked candidates using ${ranking.ensembleMethod}.`,
-        correlationId,
-        ranking.rankedAt,
-      ),
-    );
-    record.updatedAt = this.clock.nowIso();
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "neoantigen.ranking.recorded",
-        { ranking: structuredClone(ranking) },
-        correlationId,
-        ranking.rankedAt,
-        record.updatedAt,
-      ),
-    );
-
+    await recordNeoantigenRankingForCase(this.getScientificMutationContext(), record, caseId, ranking, correlationId);
     return this.rebuildCaseProjection(caseId);
   }
 
@@ -949,36 +929,13 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-    record.constructDesign = structuredClone(constructDesign);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "payload_generated",
-        `Generated construct ${constructDesign.constructId} for ${constructDesign.deliveryModality} with ${constructDesign.candidateIds.length} candidate epitopes.`,
-        constructDesign.designedAt,
-      ),
+    await recordConstructDesignForCase(
+      this.getScientificMutationContext(),
+      record,
+      caseId,
+      constructDesign,
+      correlationId,
     );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "payload.generated",
-        `Generated construct ${constructDesign.constructId} for ${constructDesign.deliveryModality} with ${constructDesign.candidateIds.length} candidate epitopes.`,
-        correlationId,
-        constructDesign.designedAt,
-      ),
-    );
-    record.updatedAt = this.clock.nowIso();
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "construct.design.recorded",
-        { constructDesign: structuredClone(constructDesign) },
-        correlationId,
-        constructDesign.designedAt,
-        record.updatedAt,
-      ),
-    );
-
     return this.rebuildCaseProjection(caseId);
   }
 
