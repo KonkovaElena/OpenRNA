@@ -30,6 +30,7 @@ import {
   generateHandoffPacketForCase,
   recordReviewOutcomeForCase,
 } from "../store-review";
+import { registerArtifactForCase, registerSampleForCase } from "../store-sample-artifact";
 import {
   cancelWorkflowRunForCase,
   completeWorkflowRunForCase,
@@ -254,6 +255,15 @@ export class MemoryCaseStore implements ICaseStore {
     };
   }
 
+  private getSampleArtifactMutationContext() {
+    return {
+      clock: this.clock,
+      applyTransition: this.applyTransition.bind(this),
+      createCaseEvent: this.createCaseEvent.bind(this),
+      appendCaseEvent: this.appendCaseEvent.bind(this),
+    };
+  }
+
   async createCase(rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord> {
     const input = parseCreateCaseInput(rawInput);
     const createdAt = this.clock.nowIso();
@@ -350,55 +360,13 @@ export class MemoryCaseStore implements ICaseStore {
     this.assertConsentMutable(record);
     const input = parseRegisterSampleInput(rawInput);
 
-    if (record.workflowRequests.length > 0) {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Samples cannot be changed after workflow request.",
-        "Create a new case version before changing sample provenance.",
-      );
-    }
-
-    if (record.samples.some((sample) => sample.sampleType === input.sampleType)) {
-      throw new ApiError(
-        409,
-        "duplicate_sample_type",
-        "Sample type already registered.",
-        "Submit each required sample type only once in this bootstrap slice.",
-      );
-    }
-
-    const registeredAt = this.clock.nowIso();
-    const sampleRecord: SampleRecord = {
-      sampleId: input.sampleId,
-      sampleType: input.sampleType,
-      assayType: input.assayType,
-      accessionId: input.accessionId,
-      sourceSite: input.sourceSite,
-      registeredAt,
-    };
-    record.samples.push(sampleRecord);
-    record.timeline.push(
-      timelineEvent(this.clock, "sample_registered", `${input.sampleType} provenance was registered.`),
+    const { sampleRecord, nextStatus } = await registerSampleForCase(
+      this.getSampleArtifactMutationContext(),
+      record,
+      input,
+      correlationId,
     );
-    record.auditEvents.push(
-      auditEvent(this.clock, "sample.registered", `${input.sampleType} provenance was registered.`, correlationId),
-    );
-
-    const nextStatus = deriveCaseStatus(record.caseProfile.consentStatus, record.samples, record.artifacts, false);
     const workflowGateOpened = nextStatus === "READY_FOR_WORKFLOW" && record.status !== "READY_FOR_WORKFLOW";
-    if (workflowGateOpened) {
-      record.timeline.push(
-        timelineEvent(
-          this.clock,
-          "workflow_gate_opened",
-          "Required sample trio, source artifacts, and consent gate are complete.",
-        ),
-      );
-    }
-
-    await this.applyTransition(record, nextStatus, correlationId);
-    record.updatedAt = registeredAt;
     await this.appendCaseEvent(
       this.createCaseEvent(
         caseId,
@@ -409,8 +377,8 @@ export class MemoryCaseStore implements ICaseStore {
           workflowGateOpened,
         },
         correlationId,
-        registeredAt,
-        registeredAt,
+        sampleRecord.registeredAt,
+        sampleRecord.registeredAt,
       ),
     );
 
@@ -422,90 +390,13 @@ export class MemoryCaseStore implements ICaseStore {
     this.assertConsentMutable(record);
     const input = parseRegisterArtifactInput(rawInput);
 
-    if (record.workflowRequests.length > 0) {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Artifacts cannot be changed after workflow request.",
-        "Create a new case version before changing artifact provenance.",
-      );
-    }
-
-    const sample = record.samples.find((candidate) => candidate.sampleId === input.sampleId);
-
-    if (!sample) {
-      throw new ApiError(
-        409,
-        "missing_sample_provenance",
-        "Artifact references an unknown sample.",
-        "Register the sample provenance before attaching a source artifact.",
-      );
-    }
-
-    if (!isCompatibleSourceArtifactSemanticType(sample.sampleType, input.semanticType)) {
-      throw new ApiError(
-        409,
-        "artifact_semantic_type_mismatch",
-        "Source artifact semantic type is incompatible with the referenced sample type.",
-        "Use the canonical source artifact semantic type for the referenced sample.",
-      );
-    }
-
-    if (
-      record.artifacts.some(
-        (artifact) =>
-          artifact.sampleId === input.sampleId &&
-          artifact.semanticType === input.semanticType &&
-          artifact.artifactHash === input.artifactHash,
-      )
-    ) {
-      throw new ApiError(
-        409,
-        "duplicate_artifact",
-        "Artifact is already registered for this sample.",
-        "Submit each source artifact only once per sample and semantic type in this bootstrap slice.",
-      );
-    }
-
-    const registeredAt = this.clock.nowIso();
-    const artifact: ArtifactRecord = {
-      artifactId: `artifact_${randomUUID()}`,
-      artifactClass: "SOURCE",
-      sampleId: input.sampleId,
-      semanticType: input.semanticType,
-      schemaVersion: input.schemaVersion,
-      artifactHash: input.artifactHash,
-      storageUri: input.storageUri,
-      mediaType: input.mediaType,
-      registeredAt,
-    };
-
-    record.artifacts.push(artifact);
-    record.timeline.push(
-      timelineEvent(this.clock, "artifact_registered", `${input.semanticType} source artifact was cataloged.`),
+    const { artifact, nextStatus } = await registerArtifactForCase(
+      this.getSampleArtifactMutationContext(),
+      record,
+      input,
+      correlationId,
     );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "artifact.registered",
-        `${input.semanticType} source artifact was cataloged.`,
-        correlationId,
-      ),
-    );
-    const nextStatus = deriveCaseStatus(record.caseProfile.consentStatus, record.samples, record.artifacts, false);
     const workflowGateOpened = nextStatus === "READY_FOR_WORKFLOW" && record.status !== "READY_FOR_WORKFLOW";
-    if (workflowGateOpened) {
-      record.timeline.push(
-        timelineEvent(
-          this.clock,
-          "workflow_gate_opened",
-          "Required sample trio, source artifacts, and consent gate are complete.",
-        ),
-      );
-    }
-
-    await this.applyTransition(record, nextStatus, correlationId);
-    record.updatedAt = registeredAt;
     await this.appendCaseEvent(
       this.createCaseEvent(
         caseId,
@@ -516,8 +407,8 @@ export class MemoryCaseStore implements ICaseStore {
           workflowGateOpened,
         },
         correlationId,
-        registeredAt,
-        registeredAt,
+        artifact.registeredAt,
+        artifact.registeredAt,
       ),
     );
 
