@@ -70,7 +70,6 @@ export interface WorkflowRunRecord {
   failedAt?: string;
   failureReason?: string;
   failureCategory?: import("./types-core").WorkflowFailureCategory;
-  derivedArtifacts?: import("./types-core").RunArtifact[];
   terminalMetadata?: WorkflowTerminalMetadata;
   manifest?: WorkflowRunManifest;
 }

@@ -13,7 +13,7 @@ import type {
   CaseAuditEventRecord,
   CaseProfile,
   CaseStatus,
-  ConsentStatus,
+  RunArtifact,
   SampleRecord,
   TimelineEvent,
   WorkflowRequestRecord,
@@ -28,7 +28,6 @@ export interface CaseRecord {
   createdAt: string;
   updatedAt: string;
   caseProfile: CaseProfile;
-  consentStatus: ConsentStatus;
   samples: SampleRecord[];
   artifacts: ArtifactRecord[];
   workflowRequests: WorkflowRequestRecord[];

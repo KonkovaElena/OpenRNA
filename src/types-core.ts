@@ -185,7 +185,6 @@ export interface WorkflowDispatchRecord {
   requestedAt: string;
   idempotencyKey?: string;
   correlationId?: string;
-  runId: string;
   status: "PENDING";
 }
 
@@ -203,6 +202,7 @@ export interface CaseAuditEventRecord {
   authMechanism: AuthMechanism;
   correlationId: string;
   occurredAt: string;
+  recordHash?: string; // SHA-256 of canonical record fields
   prevHash?: string; // SHA-256 of previous event in chain; undefined = genesis
 }
 
