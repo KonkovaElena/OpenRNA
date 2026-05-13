@@ -13,14 +13,10 @@ import {
 import { createCaseRecord } from "../store-create-case";
 import type { AuditContextInput } from "../store-helpers";
 import {
-  auditEvent,
   cloneWorkflowRun,
   deriveCaseStatus,
   emptyStatusCounts,
-  hasSameDerivedArtifactsForRun,
-  hasSameRunReplayIdentity,
   normalizeAuditContext,
-  timelineEvent,
   verifyAuditChainIntegrity,
 } from "../store-helpers";
 import { recordHlaConsensusForCase, recordQcGateForCase } from "../store-hla-qc";
@@ -78,12 +74,9 @@ import type {
   ReviewOutcomeResult,
   RunArtifact,
   SampleRecord,
-  TimelineEvent,
-  WorkflowRequestRecord,
   WorkflowRunManifest,
   WorkflowRunRecord,
 } from "../types";
-import { isCompatibleSourceArtifactSemanticType } from "../types";
 import {
   parseCreateCaseInput,
   parseRegisterArtifactInput,
