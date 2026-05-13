@@ -17,6 +17,7 @@ import {
   timelineEvent,
   verifyAuditChainIntegrity,
 } from "../store-helpers";
+import { recordHlaConsensusForCase, recordQcGateForCase } from "../store-hla-qc";
 import {
   getFullTraceabilityForCase,
   getOutcomeTimelineForCase,
@@ -259,6 +260,14 @@ export class MemoryCaseStore implements ICaseStore {
     return {
       clock: this.clock,
       applyTransition: this.applyTransition.bind(this),
+      createCaseEvent: this.createCaseEvent.bind(this),
+      appendCaseEvent: this.appendCaseEvent.bind(this),
+    };
+  }
+
+  private getHlaQcMutationContext() {
+    return {
+      clock: this.clock,
       createCaseEvent: this.createCaseEvent.bind(this),
       appendCaseEvent: this.appendCaseEvent.bind(this),
     };
@@ -718,36 +727,7 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-    record.hlaConsensus = structuredClone(consensus);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "hla_consensus_produced",
-        `HLA consensus with ${consensus.alleles.length} alleles at confidence ${consensus.confidenceScore}.`,
-        consensus.producedAt,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "hla.consensus.produced",
-        `HLA consensus produced with ${consensus.alleles.length} alleles.`,
-        correlationId,
-        consensus.producedAt,
-      ),
-    );
-    record.updatedAt = this.clock.nowIso();
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "hla.consensus.produced",
-        { consensus: structuredClone(consensus) },
-        correlationId,
-        consensus.producedAt,
-        record.updatedAt,
-      ),
-    );
-
+    await recordHlaConsensusForCase(this.getHlaQcMutationContext(), record, caseId, consensus, correlationId);
     return this.rebuildCaseProjection(caseId);
   }
 
@@ -779,26 +759,9 @@ export class MemoryCaseStore implements ICaseStore {
       );
     }
 
-    record.qcGates.push(structuredClone(gate));
     const nextStatus = gate.outcome === "FAILED" ? "QC_FAILED" : "QC_PASSED";
+    await recordQcGateForCase(this.getHlaQcMutationContext(), record, caseId, runId, gate, correlationId);
     await this.applyTransition(record, nextStatus, correlationId);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "qc_gate_evaluated",
-        `QC gate ${gate.outcome} for run ${runId}: ${gate.results.map((r) => `${r.metric}=${r.value}`).join(", ")}.`,
-        gate.evaluatedAt,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "qc.evaluated",
-        `QC gate ${gate.outcome} for run ${runId}.`,
-        correlationId,
-        gate.evaluatedAt,
-      ),
-    );
     record.updatedAt = this.clock.nowIso();
     await this.appendCaseEvent(
       this.createCaseEvent(
