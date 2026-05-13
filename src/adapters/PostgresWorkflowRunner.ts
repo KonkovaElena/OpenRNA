@@ -1,4 +1,4 @@
-import type { Pool, PoolClient } from "pg";
+import type { Pool } from "pg";
 import { ApiError } from "../errors";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../ports/IWorkflowRunner";
 import type { DerivedArtifactSemanticType, WorkflowFailureCategory, WorkflowRunRecord } from "../types";
@@ -122,7 +122,7 @@ export class PostgresWorkflowRunner implements IWorkflowRunner {
 
   async completeRun(
     runId: string,
-    derivedArtifacts?: Array<{
+    _derivedArtifacts?: Array<{
       semanticType: DerivedArtifactSemanticType;
       artifactHash: string;
       producingStep: string;

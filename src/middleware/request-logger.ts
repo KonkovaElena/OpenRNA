@@ -28,7 +28,7 @@ export function requestLogger(write: RequestLogWriter = defaultRequestLogWriter)
         principalId: res.locals.principalId ?? undefined,
         authMechanism: res.locals.authMechanism ?? undefined,
       };
-      write(JSON.stringify(entry) + "\n");
+      write(`${JSON.stringify(entry)}\n`);
     });
 
     next();

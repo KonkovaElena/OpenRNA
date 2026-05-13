@@ -1,22 +1,9 @@
 import type {
-  AdministrationRecord,
   CaseAuditEventRecord,
   CaseDomainEventRecord,
   CaseRecord,
-  CaseStatus,
-  ClinicalFollowUpRecord,
-  ConstructDesignPackage,
-  HandoffPacketRecord,
-  HlaConsensusRecord,
-  ImmuneMonitoringRecord,
   OutcomeTimelineEntry,
-  QcGateRecord,
-  RankingResult,
-  ReviewOutcomeRecord,
-  RunArtifact,
-  SampleRecord,
   TimelineEvent,
-  WorkflowRequestRecord,
   WorkflowRunRecord,
 } from "../types.js";
 

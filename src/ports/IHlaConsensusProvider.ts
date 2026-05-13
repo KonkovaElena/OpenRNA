@@ -1,4 +1,4 @@
-import type { HlaConsensusRecord, HlaToolEvidence } from "../types";
+import type { HlaConsensusRecord } from "../types";
 
 export interface HlaTypingInput {
   toolName: string;

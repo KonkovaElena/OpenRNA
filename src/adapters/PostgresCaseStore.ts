@@ -1,7 +1,7 @@
 import { DEFAULT_ANONYMOUS_ACTOR_ID } from "../audit-context";
 import type { IStateMachineGuard } from "../ports/IStateMachineGuard";
 import type { IWorkflowDispatchSink } from "../ports/IWorkflowDispatchSink";
-import { type AuditContextInput, type CaseStore, type Clock, MemoryCaseStore, SystemClock } from "../store";
+import { type CaseStore, type Clock, MemoryCaseStore, SystemClock } from "../store";
 import { computeAuditEventRecordHash, verifyAuditChainIntegrity } from "../store-helpers";
 import type {
   AdministrationRecord,

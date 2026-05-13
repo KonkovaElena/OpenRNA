@@ -21,7 +21,7 @@ interface GovernanceRouteDependencies {
   getRequiredRouteParam: RouteParamResolver;
 }
 
-const CONSENT_TYPES = ["granted", "withdrawn", "renewed"] as const;
+const _CONSENT_TYPES = ["granted", "withdrawn", "renewed"] as const;
 
 export function registerGovernanceRoutes(
   app: Express,

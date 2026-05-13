@@ -8,7 +8,7 @@ import { InMemoryOutcomeRegistry } from "../src/adapters/InMemoryOutcomeRegistry
 import { PostgresCaseStore } from "../src/adapters/PostgresCaseStore.js";
 import { createApp } from "../src/app.js";
 import type { IOutcomeRegistry } from "../src/ports/IOutcomeRegistry.js";
-import { type CaseStore, MemoryCaseStore } from "../src/store.js";
+import { MemoryCaseStore } from "../src/store.js";
 import { buildFullTraceability } from "../src/traceability.js";
 import type {
   AdministrationRecord,

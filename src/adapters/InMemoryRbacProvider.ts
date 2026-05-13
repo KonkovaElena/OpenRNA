@@ -64,7 +64,7 @@ export class InMemoryRbacProvider implements IRbacProvider {
 
     for (const role of roles) {
       const permissions = this.rolePermissions[role];
-      if (permissions && permissions.includes(action)) {
+      if (permissions?.includes(action)) {
         return { allowed: true };
       }
     }

@@ -80,7 +80,7 @@ export class InMemoryFhirExporter implements IFhirExporter {
   }
 
   private buildHlaObservations(
-    caseId: string,
+    _caseId: string,
     consensus: HlaConsensusRecord,
     patientReference?: string,
   ): FhirObservation[] {

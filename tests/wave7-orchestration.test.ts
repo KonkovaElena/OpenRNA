@@ -4,8 +4,8 @@ import request from "supertest";
 import { InMemoryWorkflowOrchestrator } from "../src/adapters/InMemoryWorkflowOrchestrator";
 import { createApp } from "../src/app";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
-import { buildEvidenceLineage, MemoryCaseStore } from "../src/store";
-import type { DerivedArtifactSemanticType, RunArtifact, WellKnownWorkflowName, WorkflowRunRecord } from "../src/types";
+import { buildEvidenceLineage } from "../src/store";
+import type { DerivedArtifactSemanticType, RunArtifact, WorkflowRunRecord } from "../src/types";
 import { wellKnownWorkflowNames, workflowArtifactContract, workflowDependencies } from "../src/types";
 
 // в”Ђв”Ђв”Ђ FakeWorkflowRunner в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
@@ -42,7 +42,7 @@ class FakeWorkflowRunner implements IWorkflowRunner {
 
   completeRun(
     runId: string,
-    derivedArtifacts?: Array<{
+    _derivedArtifacts?: Array<{
       semanticType: DerivedArtifactSemanticType;
       artifactHash: string;
       producingStep: string;
@@ -55,7 +55,7 @@ class FakeWorkflowRunner implements IWorkflowRunner {
     return Promise.resolve(r);
   }
 
-  failRun(runId: string, reason: string): Promise<WorkflowRunRecord> {
+  failRun(runId: string, _reason: string): Promise<WorkflowRunRecord> {
     const r = this.runs.get(runId);
     if (!r) throw new Error(`Run ${runId} not found`);
     r.status = "FAILED";

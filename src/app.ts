@@ -6,7 +6,7 @@ import { authenticationContext } from "./middleware/auth-context";
 import { caseAccessAuth } from "./middleware/case-access-auth";
 import { rateLimiter } from "./middleware/rate-limiter";
 import { rbacAuth } from "./middleware/rbac-auth";
-import { type RequestLogWriter, requestLogger } from "./middleware/request-logger";
+import { requestLogger } from "./middleware/request-logger";
 import { securityHeaders } from "./middleware/security-headers";
 import { registerAuditRoutes } from "./routes/audit";
 import { registerDesignRoutes } from "./routes/design";

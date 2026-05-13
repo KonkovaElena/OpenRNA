@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import { beforeEach, describe, it, mock } from "node:test";
+import { beforeEach, describe, it } from "node:test";
 import { mapExitCodeToCategory, NextflowWorkflowRunner } from "../src/adapters/NextflowWorkflowRunner";
-import type { INextflowClient, NextflowSubmitResult } from "../src/ports/INextflowClient";
+import type { INextflowClient } from "../src/ports/INextflowClient";
 import type { WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
 import type { NextflowPollResult, NextflowTerminalMetadata, WorkflowRunManifest } from "../src/types";
 

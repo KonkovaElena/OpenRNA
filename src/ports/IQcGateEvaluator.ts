@@ -1,4 +1,4 @@
-import type { QcGateOutcome, QcGateRecord, QcResult } from "../types";
+import type { QcGateRecord, QcResult } from "../types";
 
 export interface QcMetricSet {
   results: QcResult[];

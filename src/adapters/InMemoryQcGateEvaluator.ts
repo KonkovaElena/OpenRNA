@@ -1,5 +1,5 @@
 import type { IQcGateEvaluator, QcMetricSet } from "../ports/IQcGateEvaluator";
-import type { QcGateOutcome, QcGateRecord, QcResult } from "../types";
+import type { QcGateOutcome, QcGateRecord } from "../types";
 
 export class InMemoryQcGateEvaluator implements IQcGateEvaluator {
   private readonly records = new Map<string, QcGateRecord>();

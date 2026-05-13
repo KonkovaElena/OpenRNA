@@ -4,9 +4,12 @@
  * without modification.
  */
 
-export { MemoryCaseStore, SystemClock, reconstructRunFromManifest } from "./adapters/MemoryCaseStore";
+export { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatchSink";
 export type { Clock, ReconstructedRun } from "./adapters/MemoryCaseStore";
-
+export { MemoryCaseStore, reconstructRunFromManifest, SystemClock } from "./adapters/MemoryCaseStore";
+export type { IWorkflowDispatchSink as WorkflowDispatchSink } from "./ports/IWorkflowDispatchSink";
+export type { AuditContextInput } from "./store-helpers";
+export { buildEvidenceLineage } from "./store-helpers";
 export {
   parseActivateModalityInput,
   parseAuthorizeFinalReleaseInput,
@@ -30,10 +33,6 @@ export {
   parseWorkflowOutputManifest,
   parseWorkflowRunManifest,
 } from "./validation";
-export { buildEvidenceLineage } from "./store-helpers";
-export type { AuditContextInput } from "./store-helpers";
-export { InMemoryWorkflowDispatchSink } from "./adapters/InMemoryWorkflowDispatchSink";
-export type { IWorkflowDispatchSink as WorkflowDispatchSink } from "./ports/IWorkflowDispatchSink";
 
 import type { ICaseStore } from "./ports/ICaseStore";
 export type CaseStore = ICaseStore;

@@ -5,13 +5,8 @@ import { InMemoryHlaConsensusProvider } from "../src/adapters/InMemoryHlaConsens
 import { InMemoryReferenceBundleRegistry } from "../src/adapters/InMemoryReferenceBundleRegistry";
 import { createApp } from "../src/app";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
-import { MemoryCaseStore, parseRegisterBundleInput } from "../src/store";
-import type {
-  DerivedArtifactSemanticType,
-  HlaDisagreementRecord,
-  ReferenceBundleManifest,
-  WorkflowRunRecord,
-} from "../src/types";
+import { parseRegisterBundleInput } from "../src/store";
+import type { DerivedArtifactSemanticType, ReferenceBundleManifest, WorkflowRunRecord } from "../src/types";
 
 // в”Ђв”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
@@ -82,7 +77,7 @@ class FakeWorkflowRunner implements IWorkflowRunner {
   }
   completeRun(
     runId: string,
-    derivedArtifacts?: Array<{
+    _derivedArtifacts?: Array<{
       semanticType: DerivedArtifactSemanticType;
       artifactHash: string;
       producingStep: string;
@@ -94,7 +89,7 @@ class FakeWorkflowRunner implements IWorkflowRunner {
     r.completedAt = new Date().toISOString();
     return Promise.resolve(r);
   }
-  failRun(runId: string, reason: string): Promise<WorkflowRunRecord> {
+  failRun(runId: string, _reason: string): Promise<WorkflowRunRecord> {
     const r = this.runs.get(runId);
     if (!r) throw new Error(`Run ${runId} not found`);
     r.status = "FAILED";
@@ -110,7 +105,7 @@ class FakeWorkflowRunner implements IWorkflowRunner {
   }
 }
 
-async function createReviewReadyCase(app: ReturnType<typeof createApp>, caseId?: string): Promise<string> {
+async function createReviewReadyCase(app: ReturnType<typeof createApp>, _caseId?: string): Promise<string> {
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   assert.equal(createRes.status, 201);
   const id = String(createRes.body.case.caseId);
@@ -134,7 +129,7 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>, caseId?:
   });
 
   const caseAfterReq = await request(app).get(`/api/cases/${id}`);
-  const latestRequest = caseAfterReq.body.case.workflowRequests.at(-1);
+  const _latestRequest = caseAfterReq.body.case.workflowRequests.at(-1);
   const runId = `run-wave6-${Date.now()}`;
 
   await request(app).post(`/api/cases/${id}/runs/${runId}/start`).send({ runId, manifest: undefined });
@@ -641,7 +636,7 @@ async function createCaseWithHighDisagreement(app: ReturnType<typeof createApp>)
     executionProfile: "standard",
   });
 
-  const caseAfterReq = await request(app).get(`/api/cases/${id}`);
+  const _caseAfterReq = await request(app).get(`/api/cases/${id}`);
   const runId = `run-hla-gate-${Date.now()}`;
 
   await request(app).post(`/api/cases/${id}/runs/${runId}/start`).send({ runId });

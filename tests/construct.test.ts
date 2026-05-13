@@ -4,13 +4,7 @@ import { InMemoryConstructDesigner } from "../src/adapters/InMemoryConstructDesi
 import { InMemoryModalityRegistry } from "../src/adapters/InMemoryModalityRegistry";
 import { ApiError } from "../src/errors";
 import type { ConstructDesignRequest, IConstructDesigner } from "../src/ports/IConstructDesigner";
-import type {
-  CodonOptimizationMeta,
-  ConstructDesignPackage,
-  DeliveryModality,
-  ManufacturabilityCheck,
-  RankingRationale,
-} from "../src/types";
+import type { ConstructDesignPackage, DeliveryModality, RankingRationale } from "../src/types";
 
 // ─── Wave 9.A — Construct design types ──────────────────────────────
 
