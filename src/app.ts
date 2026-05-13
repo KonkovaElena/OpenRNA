@@ -74,6 +74,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     auditSignatureProvider,
     fhirExporter,
     readinessCheck,
+    metricsCollector,
   } = resolveAppDependencies(dependencies);
 
   app.disable("x-powered-by");
@@ -88,7 +89,21 @@ export function createApp(dependencies: AppDependencies = {}) {
   app.use((req, res, next) => {
     const correlationId = req.header("x-correlation-id") ?? `corr_${randomUUID()}`;
     res.locals.correlationId = correlationId;
+    res.locals.startTime = performance.now();
     res.setHeader("x-correlation-id", correlationId);
+    next();
+  });
+
+  app.use((req, res, next) => {
+    res.on("finish", () => {
+      const start = res.locals.startTime as number | undefined;
+      if (start !== undefined) {
+        const durationSeconds = (performance.now() - start) / 1000;
+        const route = req.route?.path ?? req.path;
+        metricsCollector.incrementHttpRequest(req.method, route, res.statusCode);
+        metricsCollector.observeHttpRequestDuration(req.method, route, durationSeconds);
+      }
+    });
     next();
   });
 
@@ -103,7 +118,7 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   app.use("/api/cases/:caseId", caseAccessAuth(caseAccessStore, rbacProvider));
 
-  registerSystemRoutes(app, store, readinessCheck, rbacProvider);
+  registerSystemRoutes(app, store, readinessCheck, rbacProvider, metricsCollector);
   registerModalityRoutes(app, modalityRegistry);
   registerFhirRoutes(app, {
     store,

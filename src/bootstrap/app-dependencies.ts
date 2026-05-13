@@ -13,6 +13,7 @@ import { InMemoryReferenceBundleRegistry } from "../adapters/InMemoryReferenceBu
 import { InMemoryStateMachineGuard } from "../adapters/InMemoryStateMachineGuard";
 import { InMemoryWorkflowRunner } from "../adapters/InMemoryWorkflowRunner";
 import type { JwtAuthOptions } from "../auth";
+import { PrometheusMetricsCollector } from "../infrastructure/monitoring/PrometheusMetricsCollector";
 import { requireActiveConsent } from "../middleware/consent-gate";
 import type { RateLimiterOptions } from "../middleware/rate-limiter";
 import type { RequestLogWriter } from "../middleware/request-logger";
@@ -22,6 +23,7 @@ import type { IConsentTracker } from "../ports/IConsentTracker";
 import type { IConstructDesigner } from "../ports/IConstructDesigner";
 import type { IFhirExporter } from "../ports/IFhirExporter";
 import type { IHlaConsensusProvider } from "../ports/IHlaConsensusProvider";
+import type { IMetricsCollector } from "../ports/IMetricsCollector";
 import type { IModalityRegistry } from "../ports/IModalityRegistry";
 import type { INeoantigenRankingEngine } from "../ports/INeoantigenRankingEngine";
 import type { IQcGateEvaluator } from "../ports/IQcGateEvaluator";
@@ -46,6 +48,7 @@ export interface AppDependencies {
   auditSignatureProvider?: IAuditSignatureProvider;
   fhirExporter?: IFhirExporter;
   caseAccessStore?: ICaseAccessStore;
+  metricsCollector?: IMetricsCollector;
   apiKey?: string;
   apiKeyPrincipalId?: string;
   jwtAuthOptions?: JwtAuthOptions;
@@ -82,6 +85,7 @@ export interface AppDependencies {
 
 export interface ResolvedAppDependencies {
   store: CaseStore;
+  metricsCollector: IMetricsCollector;
   constructDesigner: IConstructDesigner;
   modalityRegistry: IModalityRegistry;
   referenceBundleRegistry: IReferenceBundleRegistry;
@@ -120,6 +124,7 @@ export function resolveAppDependencies(dependencies: AppDependencies = {}): Reso
   const auditSignatureProvider = dependencies.auditSignatureProvider ?? new InMemoryAuditSignatureProvider();
   const fhirExporter = dependencies.fhirExporter ?? new InMemoryFhirExporter();
   const caseAccessStore = dependencies.caseAccessStore ?? new InMemoryCaseAccessStore();
+  const metricsCollector = dependencies.metricsCollector ?? new PrometheusMetricsCollector();
 
   return {
     store,
@@ -137,6 +142,7 @@ export function resolveAppDependencies(dependencies: AppDependencies = {}): Reso
     auditSignatureProvider,
     fhirExporter,
     caseAccessStore,
+    metricsCollector,
     readinessCheck: dependencies.readinessCheck ?? (async () => true),
   };
 }

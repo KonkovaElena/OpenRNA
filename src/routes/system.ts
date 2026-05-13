@@ -1,5 +1,6 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import { rbacAuth } from "../middleware/rbac-auth";
+import type { IMetricsCollector } from "../ports/IMetricsCollector";
 import type { IRbacProvider } from "../ports/IRbacProvider";
 import type { CaseStore } from "../store";
 
@@ -67,6 +68,7 @@ export function registerSystemRoutes(
   store: CaseStore,
   readinessCheck: () => Promise<boolean>,
   rbacProvider?: IRbacProvider,
+  metricsCollector?: IMetricsCollector,
 ): void {
   app.get("/", (_req, res) => {
     res.json({
@@ -96,6 +98,18 @@ export function registerSystemRoutes(
     rbacAuth(rbacProvider, "ADMIN_OPERATIONS"),
     async (_req: Request, res: Response, next: NextFunction) => {
       try {
+        if (metricsCollector) {
+          const summary = await store.getOperationsSummary();
+          metricsCollector.recordCaseTotal(summary.totalCases);
+          for (const [status, count] of Object.entries(summary.statusCounts)) {
+            metricsCollector.recordCasesByStatus(status, count);
+          }
+          const payload = await metricsCollector.exportMetrics();
+          res.type("text/plain").send(payload);
+          return;
+        }
+
+        // Fallback: static Prometheus text when no collector is wired.
         const summary = await store.getOperationsSummary();
         const lines = [
           "# HELP openrna_cases_total Total cases in the workflow store",
