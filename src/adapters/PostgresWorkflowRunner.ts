@@ -196,15 +196,15 @@ function toIso(val: unknown): string | undefined {
   return String(val);
 }
 
-function mapRow(row: any): WorkflowRunRecord {
+function mapRow(row: Record<string, unknown>): WorkflowRunRecord {
   const rec: WorkflowRunRecord = {
-    runId: row.run_id,
-    caseId: row.case_id,
-    requestId: row.request_id,
-    status: row.status,
-    workflowName: row.workflow_name,
-    referenceBundleId: row.reference_bundle_id,
-    executionProfile: row.execution_profile,
+    runId: String(row.run_id),
+    caseId: String(row.case_id),
+    requestId: String(row.request_id),
+    status: String(row.status) as WorkflowRunRecord["status"],
+    workflowName: String(row.workflow_name),
+    referenceBundleId: String(row.reference_bundle_id),
+    executionProfile: String(row.execution_profile),
   };
   if (row.pinned_reference_bundle != null) {
     rec.pinnedReferenceBundle = parseJsonb(row.pinned_reference_bundle);
@@ -212,8 +212,9 @@ function mapRow(row: any): WorkflowRunRecord {
   if (row.accepted_at != null) rec.acceptedAt = toIso(row.accepted_at);
   if (row.started_at != null) rec.startedAt = toIso(row.started_at);
   if (row.completed_at != null) rec.completedAt = toIso(row.completed_at);
-  if (row.failure_reason != null) rec.failureReason = row.failure_reason;
-  if (row.failure_category != null) rec.failureCategory = row.failure_category;
+  if (row.failure_reason != null) rec.failureReason = String(row.failure_reason);
+  if (row.failure_category != null)
+    rec.failureCategory = String(row.failure_category) as WorkflowRunRecord["failureCategory"];
   if (row.terminal_metadata != null) {
     rec.terminalMetadata = parseJsonb(row.terminal_metadata);
   }

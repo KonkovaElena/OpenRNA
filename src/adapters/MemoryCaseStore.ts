@@ -44,7 +44,6 @@ import {
 } from "../store-workflow-lifecycle";
 import type {
   AdministrationRecord,
-  ArtifactRecord,
   AuditChainVerificationResult,
   AuthorizeFinalReleaseInput,
   BoardPacketGenerationResult,

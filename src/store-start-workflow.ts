@@ -1,12 +1,6 @@
 import { ApiError } from "./errors";
 import type { AuditContextInput } from "./store-helpers";
-import {
-  auditEvent,
-  cloneWorkflowRun,
-  hasSameRunReplayIdentity,
-  normalizeAuditContext,
-  timelineEvent,
-} from "./store-helpers";
+import { auditEvent, cloneWorkflowRun, hasSameRunReplayIdentity, timelineEvent } from "./store-helpers";
 import type { WorkflowStoreMutationContext } from "./store-request-workflow";
 import type { CaseRecord, WorkflowRunRecord } from "./types";
 

@@ -1,5 +1,5 @@
 import type { AuditContextInput } from "./store-helpers";
-import { auditEvent, deriveCaseStatus, timelineEvent } from "./store-helpers";
+import { auditEvent, timelineEvent } from "./store-helpers";
 import type {
   ArtifactRecord,
   CaseDomainEventInput,
