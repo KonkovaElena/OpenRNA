@@ -14,9 +14,14 @@ type ClockLike = { nowIso(): string };
 
 export interface HlaQcStoreMutationContext {
   clock: ClockLike;
+  applyTransition: (
+    record: CaseRecord,
+    nextStatus: CaseRecord["status"],
+    correlationId?: AuditContextInput,
+  ) => Promise<void>;
   createCaseEvent: (
     caseId: string,
-    type: CaseDomainEventType,
+    type: string,
     payload: unknown,
     correlationId: AuditContextInput,
     occurredAt?: string,
@@ -72,10 +77,18 @@ export async function recordQcGateForCase(
   runId: string,
   gate: QcGateRecord,
   correlationId: AuditContextInput,
-): Promise<{ record: CaseRecord; run: WorkflowRunRecord }> {
+): Promise<CaseRecord> {
   const run = record.workflowRuns.find((candidate) => candidate.runId === runId);
   if (!run) {
     throw new ApiError(404, "run_not_found", "Workflow run was not found on this case.", "Use a valid runId.");
+  }
+  if (run.status !== "COMPLETED") {
+    throw new ApiError(
+      409,
+      "invalid_transition",
+      "QC gate can only be evaluated after workflow run completes.",
+      "Complete the workflow run before evaluating QC.",
+    );
   }
 
   record.qcGates.push(gate);
@@ -93,5 +106,19 @@ export async function recordQcGateForCase(
     ),
   );
 
-  return { record, run };
+  const nextStatus = gate.outcome === "FAILED" ? "QC_FAILED" : "QC_PASSED";
+  await context.applyTransition(record, nextStatus, correlationId);
+  record.updatedAt = context.clock.nowIso();
+  await context.appendCaseEvent(
+    context.createCaseEvent(
+      caseId,
+      "qc.evaluated",
+      { runId, gate: structuredClone(gate), nextStatus },
+      correlationId,
+      evaluatedAt,
+      record.updatedAt,
+    ),
+  );
+
+  return record;
 }

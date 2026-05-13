@@ -159,7 +159,7 @@ export class MemoryCaseStore implements ICaseStore {
 
   private createCaseEvent(
     caseId: string,
-    type: CaseDomainEventType,
+    type: string,
     payload: unknown,
     correlationId: AuditContextInput,
     occurredAt: string = this.clock.nowIso(),
@@ -275,6 +275,7 @@ export class MemoryCaseStore implements ICaseStore {
   private getHlaQcMutationContext() {
     return {
       clock: this.clock,
+      applyTransition: this.applyTransition.bind(this),
       createCaseEvent: this.createCaseEvent.bind(this),
       appendCaseEvent: this.appendCaseEvent.bind(this),
     };
@@ -417,44 +418,7 @@ export class MemoryCaseStore implements ICaseStore {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
     const input = parseRequestWorkflowInput(rawInput);
-    const requestedAt = this.clock.nowIso();
-    const { workflowRequest, nextStatus, isDuplicate } = await requestWorkflowForCase(
-      this.getWorkflowMutationContext(),
-      record,
-      input,
-      correlationId,
-    );
-
-    if (isDuplicate) {
-      return structuredClone(record);
-    }
-
-    await this.applyTransition(record, nextStatus, correlationId);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "workflow_requested",
-        `${input.workflowName} requested with reference bundle ${input.referenceBundleId}.`,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(this.clock, "workflow.requested", `${input.workflowName} workflow was requested.`, correlationId),
-    );
-    record.updatedAt = requestedAt;
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "workflow.requested",
-        {
-          request: structuredClone(workflowRequest),
-          nextStatus,
-        },
-        correlationId,
-        requestedAt,
-        requestedAt,
-      ),
-    );
-
+    await requestWorkflowForCase(this.getWorkflowMutationContext(), record, input, correlationId);
     return this.rebuildCaseProjection(caseId);
   }
 
@@ -496,41 +460,7 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-
-    const { run, isReplay } = await startWorkflowRunForCase(
-      this.getWorkflowMutationContext(),
-      record,
-      startedRun,
-      correlationId,
-    );
-
-    if (isReplay) {
-      return structuredClone(record);
-    }
-
-    const startedAt = run.startedAt ?? this.clock.nowIso();
-    await this.applyTransition(record, "WORKFLOW_RUNNING", correlationId);
-    record.timeline.push(
-      timelineEvent(this.clock, "workflow_started", `Workflow run ${run.runId} started.`, startedAt),
-    );
-    record.auditEvents.push(
-      auditEvent(this.clock, "workflow.started", `Workflow run ${run.runId} started.`, correlationId, startedAt),
-    );
-    record.updatedAt = startedAt;
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "workflow.started",
-        {
-          run: cloneWorkflowRun(run),
-          nextStatus: record.status,
-        },
-        correlationId,
-        startedAt,
-        startedAt,
-      ),
-    );
-
+    await startWorkflowRunForCase(this.getWorkflowMutationContext(), record, startedRun, correlationId);
     return this.rebuildCaseProjection(caseId);
   }
 
@@ -542,61 +472,13 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-
-    const { run, isReplay } = await completeWorkflowRunForCase(
+    await completeWorkflowRunForCase(
       this.getWorkflowMutationContext(),
       record,
       completedRun,
       derivedArtifacts,
       correlationId,
     );
-
-    if (isReplay) {
-      return structuredClone(record);
-    }
-
-    const completedAt = run.completedAt ?? this.clock.nowIso();
-    await this.applyTransition(record, "WORKFLOW_COMPLETED", correlationId);
-
-    for (const artifact of derivedArtifacts) {
-      record.auditEvents.push(
-        auditEvent(
-          this.clock,
-          "artifact.derived",
-          `Derived artifact ${artifact.semanticType} from run ${completedRun.runId}.`,
-          correlationId,
-          completedAt,
-        ),
-      );
-    }
-
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "workflow_completed",
-        `Run ${completedRun.runId} completed with ${derivedArtifacts.length} derived artifacts.`,
-        completedAt,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(this.clock, "workflow.completed", `Run ${completedRun.runId} completed.`, correlationId, completedAt),
-    );
-    record.updatedAt = completedAt;
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "workflow.completed",
-        {
-          run: cloneWorkflowRun(run),
-          derivedArtifacts: structuredClone(derivedArtifacts),
-          nextStatus: record.status,
-        },
-        correlationId,
-        completedAt,
-        completedAt,
-      ),
-    );
-
     return this.rebuildCaseProjection(caseId);
   }
 
@@ -607,47 +489,7 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-
-    const { run, isReplay } = await cancelWorkflowRunForCase(
-      this.getWorkflowMutationContext(),
-      record,
-      cancelledRun,
-      correlationId,
-    );
-
-    if (isReplay) {
-      return structuredClone(record);
-    }
-
-    const completedAt = run.completedAt ?? this.clock.nowIso();
-    await this.applyTransition(record, "WORKFLOW_CANCELLED", correlationId);
-    record.timeline.push(
-      timelineEvent(this.clock, "workflow_cancelled", `Run ${cancelledRun.runId} was cancelled.`, completedAt),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "workflow.cancelled",
-        `Workflow run ${cancelledRun.runId} was cancelled.`,
-        correlationId,
-        completedAt,
-      ),
-    );
-    record.updatedAt = completedAt;
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "workflow.cancelled",
-        {
-          run: cloneWorkflowRun(run),
-          nextStatus: record.status,
-        },
-        correlationId,
-        completedAt,
-        completedAt,
-      ),
-    );
-
+    await cancelWorkflowRunForCase(this.getWorkflowMutationContext(), record, cancelledRun, correlationId);
     return this.rebuildCaseProjection(caseId);
   }
 
@@ -658,52 +500,7 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-
-    const { run, isReplay } = await failWorkflowRunForCase(
-      this.getWorkflowMutationContext(),
-      record,
-      failedRun,
-      correlationId,
-    );
-
-    if (isReplay) {
-      return structuredClone(record);
-    }
-
-    const completedAt = run.completedAt ?? this.clock.nowIso();
-    await this.applyTransition(record, "WORKFLOW_FAILED", correlationId);
-    record.timeline.push(
-      timelineEvent(
-        this.clock,
-        "workflow_failed",
-        `Run ${failedRun.runId} failed: ${failedRun.failureReason ?? "unknown failure"}`,
-        completedAt,
-      ),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "workflow.failed",
-        `Run ${failedRun.runId} failed: ${failedRun.failureReason ?? "unknown failure"}`,
-        correlationId,
-        completedAt,
-      ),
-    );
-    record.updatedAt = completedAt;
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "workflow.failed",
-        {
-          run: cloneWorkflowRun(run),
-          nextStatus: record.status,
-        },
-        correlationId,
-        completedAt,
-        completedAt,
-      ),
-    );
-
+    await failWorkflowRunForCase(this.getWorkflowMutationContext(), record, failedRun, correlationId);
     return this.rebuildCaseProjection(caseId);
   }
 
@@ -735,34 +532,7 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-    const run = record.workflowRuns.find((candidate) => candidate.runId === runId);
-    if (!run) {
-      throw new ApiError(404, "run_not_found", "Workflow run was not found on this case.", "Use a valid runId.");
-    }
-    if (run.status !== "COMPLETED") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "QC gate can only be evaluated after workflow run completes.",
-        "Complete the workflow run before evaluating QC.",
-      );
-    }
-
-    const nextStatus = gate.outcome === "FAILED" ? "QC_FAILED" : "QC_PASSED";
     await recordQcGateForCase(this.getHlaQcMutationContext(), record, caseId, runId, gate, correlationId);
-    await this.applyTransition(record, nextStatus, correlationId);
-    record.updatedAt = this.clock.nowIso();
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "qc.evaluated",
-        { runId, gate: structuredClone(gate), nextStatus },
-        correlationId,
-        gate.evaluatedAt,
-        record.updatedAt,
-      ),
-    );
-
     return this.rebuildCaseProjection(caseId);
   }
 

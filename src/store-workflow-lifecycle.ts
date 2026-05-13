@@ -30,7 +30,7 @@ export interface WorkflowStoreMutationContext {
   applyTransition: (record: CaseRecord, nextStatus: CaseStatus, correlationId?: AuditContextInput) => Promise<void>;
   createCaseEvent: (
     caseId: string,
-    type: Parameters<WorkflowStoreMutationContext["applyTransition"]>[1] extends CaseStatus ? never : string,
+    type: string,
     payload: unknown,
     correlationId: AuditContextInput,
     occurredAt?: string,
@@ -46,12 +46,7 @@ export async function requestWorkflowForCase(
   record: CaseRecord,
   input: RequestWorkflowInput,
   correlationId: AuditContextInput,
-): Promise<{
-  record: CaseRecord;
-  workflowRequest: WorkflowRequestRecord;
-  nextStatus: CaseStatus;
-  isDuplicate: boolean;
-}> {
+): Promise<CaseRecord> {
   const auditContext = normalizeAuditContext(correlationId);
   const requestedAt = context.clock.nowIso();
 
@@ -72,7 +67,7 @@ export async function requestWorkflowForCase(
           "Use a new idempotency key for a different workflow request.",
         );
       }
-      return { record, workflowRequest: existingRequest, nextStatus: record.status, isDuplicate: true };
+      return record;
     }
   }
 
@@ -116,7 +111,30 @@ export async function requestWorkflowForCase(
   const nextStatus = deriveCaseStatus(record.caseProfile.consentStatus, record.samples, record.artifacts, true);
   record.workflowRequests.push(workflowRequest);
 
-  return { record, workflowRequest, nextStatus, isDuplicate: false };
+  await context.applyTransition(record, nextStatus, correlationId);
+  record.timeline.push(
+    timelineEvent(
+      context.clock,
+      "workflow_requested",
+      `${input.workflowName} requested with reference bundle ${input.referenceBundleId}.`,
+    ),
+  );
+  record.auditEvents.push(
+    auditEvent(context.clock, "workflow.requested", `${input.workflowName} workflow was requested.`, correlationId),
+  );
+  record.updatedAt = requestedAt;
+  await context.appendCaseEvent(
+    context.createCaseEvent(
+      record.caseId,
+      "workflow.requested",
+      { request: structuredClone(workflowRequest), nextStatus },
+      correlationId,
+      requestedAt,
+      requestedAt,
+    ),
+  );
+
+  return record;
 }
 
 export async function buildWorkflowStartedEventPayload(
@@ -131,7 +149,7 @@ export async function startWorkflowRunForCase(
   record: CaseRecord,
   startedRun: WorkflowRunRecord,
   correlationId: AuditContextInput,
-): Promise<{ record: CaseRecord; run: WorkflowRunRecord; isReplay: boolean }> {
+): Promise<CaseRecord> {
   const request = record.workflowRequests[record.workflowRequests.length - 1];
   if (!request) {
     throw new ApiError(
@@ -169,7 +187,7 @@ export async function startWorkflowRunForCase(
       );
     }
     if (existingRun.status === "RUNNING") {
-      return { record, run: existingRun, isReplay: true };
+      return record;
     }
     throw new ApiError(
       409,
@@ -202,7 +220,26 @@ export async function startWorkflowRunForCase(
   run.startedAt = startedAt;
   record.workflowRuns.push(run);
 
-  return { record, run, isReplay: false };
+  await context.applyTransition(record, "WORKFLOW_RUNNING", correlationId);
+  record.timeline.push(
+    timelineEvent(context.clock, "workflow_started", `Workflow run ${run.runId} started.`, startedAt),
+  );
+  record.auditEvents.push(
+    auditEvent(context.clock, "workflow.started", `Workflow run ${run.runId} started.`, correlationId, startedAt),
+  );
+  record.updatedAt = startedAt;
+  await context.appendCaseEvent(
+    context.createCaseEvent(
+      record.caseId,
+      "workflow.started",
+      { run: cloneWorkflowRun(run), nextStatus: record.status },
+      correlationId,
+      startedAt,
+      startedAt,
+    ),
+  );
+
+  return record;
 }
 
 export async function completeWorkflowRunForCase(
@@ -211,7 +248,7 @@ export async function completeWorkflowRunForCase(
   completedRun: WorkflowRunRecord,
   derivedArtifacts: import("./types").RunArtifact[],
   correlationId: AuditContextInput,
-): Promise<{ record: CaseRecord; run: WorkflowRunRecord; isReplay: boolean }> {
+): Promise<CaseRecord> {
   const run = record.workflowRuns.find((candidate) => candidate.runId === completedRun.runId);
   if (!run) {
     throw new ApiError(404, "run_not_found", "Workflow run was not found on this case.", "Use a valid runId.");
@@ -237,7 +274,7 @@ export async function completeWorkflowRunForCase(
         "Replay completion only with the original derived artifact payload.",
       );
     }
-    return { record, run, isReplay: true };
+    return record;
   }
 
   if (run.status !== "RUNNING") {
@@ -253,7 +290,46 @@ export async function completeWorkflowRunForCase(
     }
   }
 
-  return { record, run, isReplay: false };
+  await context.applyTransition(record, "WORKFLOW_COMPLETED", correlationId);
+  for (const artifact of derivedArtifacts ?? []) {
+    record.auditEvents.push(
+      auditEvent(
+        context.clock,
+        "artifact.derived",
+        `Derived artifact ${artifact.semanticType} from run ${completedRun.runId}.`,
+        correlationId,
+        completedAt,
+      ),
+    );
+  }
+  record.timeline.push(
+    timelineEvent(
+      context.clock,
+      "workflow_completed",
+      `Run ${completedRun.runId} completed with ${(derivedArtifacts ?? []).length} derived artifacts.`,
+      completedAt,
+    ),
+  );
+  record.auditEvents.push(
+    auditEvent(context.clock, "workflow.completed", `Run ${completedRun.runId} completed.`, correlationId, completedAt),
+  );
+  record.updatedAt = completedAt;
+  await context.appendCaseEvent(
+    context.createCaseEvent(
+      record.caseId,
+      "workflow.completed",
+      {
+        run: cloneWorkflowRun(run),
+        derivedArtifacts: structuredClone(derivedArtifacts ?? []),
+        nextStatus: record.status,
+      },
+      correlationId,
+      completedAt,
+      completedAt,
+    ),
+  );
+
+  return record;
 }
 
 export async function cancelWorkflowRunForCase(
@@ -261,7 +337,7 @@ export async function cancelWorkflowRunForCase(
   record: CaseRecord,
   cancelledRun: WorkflowRunRecord,
   correlationId: AuditContextInput,
-): Promise<{ record: CaseRecord; run: WorkflowRunRecord; isReplay: boolean }> {
+): Promise<CaseRecord> {
   const run = record.workflowRuns.find((candidate) => candidate.runId === cancelledRun.runId);
   if (!run) {
     throw new ApiError(404, "run_not_found", "Workflow run was not found on this case.", "Use a valid runId.");
@@ -276,7 +352,7 @@ export async function cancelWorkflowRunForCase(
   }
 
   if (run.status === "CANCELLED") {
-    return { record, run, isReplay: true };
+    return record;
   }
 
   if (run.status !== "RUNNING" && run.status !== "PENDING") {
@@ -291,7 +367,32 @@ export async function cancelWorkflowRunForCase(
   const completedAt = cancelledRun.completedAt ?? context.clock.nowIso();
   Object.assign(run, cloneWorkflowRun({ ...cancelledRun, caseId: record.caseId, completedAt }));
 
-  return { record, run, isReplay: false };
+  await context.applyTransition(record, "WORKFLOW_CANCELLED", correlationId);
+  record.timeline.push(
+    timelineEvent(context.clock, "workflow_cancelled", `Run ${cancelledRun.runId} was cancelled.`, completedAt),
+  );
+  record.auditEvents.push(
+    auditEvent(
+      context.clock,
+      "workflow.cancelled",
+      `Workflow run ${cancelledRun.runId} was cancelled.`,
+      correlationId,
+      completedAt,
+    ),
+  );
+  record.updatedAt = completedAt;
+  await context.appendCaseEvent(
+    context.createCaseEvent(
+      record.caseId,
+      "workflow.cancelled",
+      { run: cloneWorkflowRun(run), nextStatus: record.status },
+      correlationId,
+      completedAt,
+      completedAt,
+    ),
+  );
+
+  return record;
 }
 
 export async function failWorkflowRunForCase(
@@ -299,7 +400,7 @@ export async function failWorkflowRunForCase(
   record: CaseRecord,
   failedRun: WorkflowRunRecord,
   correlationId: AuditContextInput,
-): Promise<{ record: CaseRecord; run: WorkflowRunRecord; isReplay: boolean }> {
+): Promise<CaseRecord> {
   const run = record.workflowRuns.find((candidate) => candidate.runId === failedRun.runId);
   if (!run) {
     throw new ApiError(404, "run_not_found", "Workflow run was not found on this case.", "Use a valid runId.");
@@ -330,7 +431,7 @@ export async function failWorkflowRunForCase(
         "Replay failure only with the original failure category.",
       );
     }
-    return { record, run, isReplay: true };
+    return record;
   }
 
   if (run.status !== "RUNNING") {
@@ -340,5 +441,35 @@ export async function failWorkflowRunForCase(
   const completedAt = failedRun.completedAt ?? context.clock.nowIso();
   Object.assign(run, cloneWorkflowRun({ ...failedRun, caseId: record.caseId, completedAt }));
 
-  return { record, run, isReplay: false };
+  await context.applyTransition(record, "WORKFLOW_FAILED", correlationId);
+  record.timeline.push(
+    timelineEvent(
+      context.clock,
+      "workflow_failed",
+      `Run ${failedRun.runId} failed: ${failedRun.failureReason ?? "unknown failure"}`,
+      completedAt,
+    ),
+  );
+  record.auditEvents.push(
+    auditEvent(
+      context.clock,
+      "workflow.failed",
+      `Run ${failedRun.runId} failed: ${failedRun.failureReason ?? "unknown failure"}`,
+      correlationId,
+      completedAt,
+    ),
+  );
+  record.updatedAt = completedAt;
+  await context.appendCaseEvent(
+    context.createCaseEvent(
+      record.caseId,
+      "workflow.failed",
+      { run: cloneWorkflowRun(run), nextStatus: record.status },
+      correlationId,
+      completedAt,
+      completedAt,
+    ),
+  );
+
+  return record;
 }
