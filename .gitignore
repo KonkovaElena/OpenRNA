@@ -12,3 +12,6 @@ docs/archive/*
 !docs/archive/**/
 !docs/archive/**/*.md
 !docs/archive/OQ_TEST_REPORT_*.txt
+
+# Keep audit reports and generated root markdown local-only
+/AUDIT_REPORT_*.md

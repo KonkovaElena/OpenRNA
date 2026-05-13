@@ -1,9 +1,9 @@
 ---
 title: "OpenRNA API Reference"
 status: "active"
-version: "1.1.0"
-last_updated: "2026-04-21"
-tags: [api, reference, http, public-export]
+version: "1.2.0"
+last_updated: "2026-05-13"
+tags: [api, reference, http, public-export, openapi]
 ---
 
 # OpenRNA API Reference
@@ -11,6 +11,15 @@ tags: [api, reference, http, public-export]
 This page is the public HTTP route reference for the standalone OpenRNA control-plane slice.
 
 Route registration lives in [src/app.ts](../src/app.ts). The canonical route inventory is also exposed by `GET /` from [src/routes/system.ts](../src/routes/system.ts).
+
+## Machine-readable OpenAPI 3.1 spec
+
+A complete OpenAPI 3.1 specification is generated from route definitions and is available at:
+
+- **File**: [`docs/openapi.json`](../docs/openapi.json) (46 paths, 14 tag groups)
+- **Generator**: `npm run openapi` → runs `scripts/generate-openapi.ts`
+
+This can be imported into Swagger UI, Stoplight, Postman, or any OpenAPI-compatible tool.
 
 ## Request Conventions
 
