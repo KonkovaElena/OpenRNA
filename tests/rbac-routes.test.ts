@@ -1,8 +1,8 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import request from "supertest";
-import { createApp } from "../src/app";
 import { InMemoryRbacProvider } from "../src/adapters/InMemoryRbacProvider";
+import { createApp } from "../src/app";
 
 function createStrictApp() {
   const rbacProvider = new InMemoryRbacProvider({ allowAll: false });

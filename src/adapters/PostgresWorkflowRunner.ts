@@ -1,11 +1,7 @@
 import type { Pool, PoolClient } from "pg";
-import type {
-  WorkflowRunRecord,
-  WorkflowFailureCategory,
-  DerivedArtifactSemanticType,
-} from "../types";
-import type { IWorkflowRunner, WorkflowRunRequest } from "../ports/IWorkflowRunner";
 import { ApiError } from "../errors";
+import type { IWorkflowRunner, WorkflowRunRequest } from "../ports/IWorkflowRunner";
+import type { DerivedArtifactSemanticType, WorkflowFailureCategory, WorkflowRunRecord } from "../types";
 
 /**
  * Postgres-backed IWorkflowRunner that persists workflow runs in the
@@ -20,10 +16,7 @@ export class PostgresWorkflowRunner implements IWorkflowRunner {
     const client = await this.pool.connect();
     try {
       // Check for existing run (idempotent replay)
-      const existing = await client.query(
-        `SELECT * FROM workflow_runs WHERE run_id = $1`,
-        [request.runId],
-      );
+      const existing = await client.query(`SELECT * FROM workflow_runs WHERE run_id = $1`, [request.runId]);
 
       if (existing.rows.length > 0) {
         const row = existing.rows[0];
@@ -91,10 +84,7 @@ export class PostgresWorkflowRunner implements IWorkflowRunner {
   }
 
   async getRun(runId: string): Promise<WorkflowRunRecord> {
-    const { rows } = await this.pool.query(
-      `SELECT * FROM workflow_runs WHERE run_id = $1`,
-      [runId],
-    );
+    const { rows } = await this.pool.query(`SELECT * FROM workflow_runs WHERE run_id = $1`, [runId]);
     if (rows.length === 0) {
       throw new ApiError(404, "run_not_found", "Workflow run was not found.", "Use a valid runId.");
     }
@@ -115,18 +105,18 @@ export class PostgresWorkflowRunner implements IWorkflowRunner {
       );
     }
     const now = new Date().toISOString();
-    await this.pool.query(
-      `UPDATE workflow_runs SET status = $1, completed_at = $2 WHERE run_id = $3`,
-      ["CANCELLED", now, runId],
-    );
+    await this.pool.query(`UPDATE workflow_runs SET status = $1, completed_at = $2 WHERE run_id = $3`, [
+      "CANCELLED",
+      now,
+      runId,
+    ]);
     return { ...run, status: "CANCELLED", completedAt: now };
   }
 
   async listRunsByCaseId(caseId: string): Promise<WorkflowRunRecord[]> {
-    const { rows } = await this.pool.query(
-      `SELECT * FROM workflow_runs WHERE case_id = $1 ORDER BY accepted_at`,
-      [caseId],
-    );
+    const { rows } = await this.pool.query(`SELECT * FROM workflow_runs WHERE case_id = $1 ORDER BY accepted_at`, [
+      caseId,
+    ]);
     return rows.map(mapRow);
   }
 
@@ -151,18 +141,15 @@ export class PostgresWorkflowRunner implements IWorkflowRunner {
       );
     }
     const now = new Date().toISOString();
-    await this.pool.query(
-      `UPDATE workflow_runs SET status = $1, completed_at = $2 WHERE run_id = $3`,
-      ["COMPLETED", now, runId],
-    );
+    await this.pool.query(`UPDATE workflow_runs SET status = $1, completed_at = $2 WHERE run_id = $3`, [
+      "COMPLETED",
+      now,
+      runId,
+    ]);
     return { ...run, status: "COMPLETED", completedAt: now };
   }
 
-  async failRun(
-    runId: string,
-    reason: string,
-    failureCategory?: WorkflowFailureCategory,
-  ): Promise<WorkflowRunRecord> {
+  async failRun(runId: string, reason: string, failureCategory?: WorkflowFailureCategory): Promise<WorkflowRunRecord> {
     const run = await this.getRun(runId);
     const category = failureCategory ?? "unknown";
 
@@ -178,12 +165,7 @@ export class PostgresWorkflowRunner implements IWorkflowRunner {
       return run;
     }
     if (run.status !== "RUNNING") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        "Only running workflows can be failed.",
-        "Check run status first.",
-      );
+      throw new ApiError(409, "invalid_transition", "Only running workflows can be failed.", "Check run status first.");
     }
     const now = new Date().toISOString();
     await this.pool.query(

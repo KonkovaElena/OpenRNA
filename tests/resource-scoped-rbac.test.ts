@@ -1,9 +1,9 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import request from "supertest";
-import { createApp } from "../src/app";
 import { InMemoryCaseAccessStore } from "../src/adapters/InMemoryCaseAccessStore";
 import { InMemoryRbacProvider } from "../src/adapters/InMemoryRbacProvider";
+import { createApp } from "../src/app";
 
 function buildCaseInput(patientKey: string) {
   return {
@@ -28,11 +28,7 @@ function buildSampleInput(sampleId: string, sampleType = "TUMOR_DNA") {
   };
 }
 
-async function createOwnedCase(
-  app: ReturnType<typeof createApp>,
-  principalId: string,
-  patientKey: string,
-) {
+async function createOwnedCase(app: ReturnType<typeof createApp>, principalId: string, patientKey: string) {
   const response = await request(app)
     .post("/api/cases")
     .set("x-principal-id", principalId)
@@ -70,57 +66,45 @@ test("resource-scoped RBAC denies cross-case mutations for otherwise authorized 
     assert.equal(response.status, 200);
   });
 
-  await t.test(
-    "principal A cannot mutate principal B's case despite OPERATOR role",
-    async () => {
-      const response = await request(app)
-        .post(`/api/cases/${caseB}/samples`)
-        .set("x-principal-id", "principal-a")
-        .send(buildSampleInput("tumor-dna-cross-case"));
+  await t.test("principal A cannot mutate principal B's case despite OPERATOR role", async () => {
+    const response = await request(app)
+      .post(`/api/cases/${caseB}/samples`)
+      .set("x-principal-id", "principal-a")
+      .send(buildSampleInput("tumor-dna-cross-case"));
 
-      assert.equal(response.status, 403);
-      assert.equal(response.body.code, "resource_access_denied");
-      assert.match(response.body.nextStep, /does not have access to case/);
-    },
-  );
+    assert.equal(response.status, 403);
+    assert.equal(response.body.code, "resource_access_denied");
+    assert.match(response.body.nextStep, /does not have access to case/);
+  });
 
-  await t.test(
-    "reviewer cannot submit review outcome for a foreign case despite APPROVE_REVIEW role",
-    async () => {
-      const response = await request(app)
-        .post(`/api/cases/${caseB}/review-outcomes`)
-        .set("x-principal-id", "principal-a")
-        .send({});
+  await t.test("reviewer cannot submit review outcome for a foreign case despite APPROVE_REVIEW role", async () => {
+    const response = await request(app)
+      .post(`/api/cases/${caseB}/review-outcomes`)
+      .set("x-principal-id", "principal-a")
+      .send({});
 
-      assert.equal(response.status, 403);
-      assert.equal(response.body.code, "resource_access_denied");
-      assert.match(response.body.nextStep, /does not have access to case/);
-    },
-  );
+    assert.equal(response.status, 403);
+    assert.equal(response.body.code, "resource_access_denied");
+    assert.match(response.body.nextStep, /does not have access to case/);
+  });
 
-  await t.test(
-    "case grant allows an explicitly assigned non-owner to mutate",
-    async () => {
-      await caseAccessStore.grantAccess(caseB, "principal-a", "REVIEWER");
+  await t.test("case grant allows an explicitly assigned non-owner to mutate", async () => {
+    await caseAccessStore.grantAccess(caseB, "principal-a", "REVIEWER");
 
-      const response = await request(app)
-        .post(`/api/cases/${caseB}/samples`)
-        .set("x-principal-id", "principal-a")
-        .send(buildSampleInput("tumor-dna-assigned"));
+    const response = await request(app)
+      .post(`/api/cases/${caseB}/samples`)
+      .set("x-principal-id", "principal-a")
+      .send(buildSampleInput("tumor-dna-assigned"));
 
-      assert.equal(response.status, 200);
-    },
-  );
+    assert.equal(response.status, 200);
+  });
 
-  await t.test(
-    "admin bypass remains available for regulated operations staff",
-    async () => {
-      const response = await request(app)
-        .post(`/api/cases/${caseB}/samples`)
-        .set("x-principal-id", "principal-admin")
-        .send(buildSampleInput("normal-dna-admin", "NORMAL_DNA"));
+  await t.test("admin bypass remains available for regulated operations staff", async () => {
+    const response = await request(app)
+      .post(`/api/cases/${caseB}/samples`)
+      .set("x-principal-id", "principal-admin")
+      .send(buildSampleInput("normal-dna-admin", "NORMAL_DNA"));
 
-      assert.equal(response.status, 200);
-    },
-  );
+    assert.equal(response.status, 200);
+  });
 });

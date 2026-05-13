@@ -1,13 +1,13 @@
-﻿import test from "node:test";
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import request from "supertest";
-import { createApp } from "../src/app";
+import test from "node:test";
 import { newDb } from "pg-mem";
-import { MemoryCaseStore } from "../src/store";
+import request from "supertest";
 import { PostgresCaseStore } from "../src/adapters/PostgresCaseStore";
 import { PostgresWorkflowDispatchSink } from "../src/adapters/PostgresWorkflowDispatchSink";
+import { createApp } from "../src/app";
+import { MemoryCaseStore } from "../src/store";
 
 function buildCaseInput(overrides: Record<string, unknown> = {}) {
   return {
@@ -59,11 +59,7 @@ function buildSourceArtifact(sample: { sampleId: string; sampleType: string }) {
 }
 
 function buildRequiredSampleInputs() {
-  return [
-    buildSample("TUMOR_DNA", "WES"),
-    buildSample("NORMAL_DNA", "WES"),
-    buildSample("TUMOR_RNA", "RNA_SEQ"),
-  ];
+  return [buildSample("TUMOR_DNA", "WES"), buildSample("NORMAL_DNA", "WES"), buildSample("TUMOR_RNA", "RNA_SEQ")];
 }
 
 async function registerWorkflowReadyInputs(app: ReturnType<typeof createApp>, caseId: string) {
@@ -115,7 +111,7 @@ test("registering the required sample trio and source artifacts unlocks workflow
   const caseId = String(createResponse.body.case.caseId);
 
   const samples = buildRequiredSampleInputs();
-  let latestSampleResponse;
+  let latestSampleResponse: Awaited<ReturnType<ReturnType<typeof request>["post"]>> | undefined;
   for (const sample of samples) {
     latestSampleResponse = await request(app).post(`/api/cases/${caseId}/samples`).send(sample);
     assert.equal(latestSampleResponse.status, 200);
@@ -132,7 +128,7 @@ test("registering the required sample trio and source artifacts unlocks workflow
   assert.equal(blockedWorkflowResponse.status, 409);
   assert.equal(blockedWorkflowResponse.body.code, "invalid_transition");
 
-  let latestArtifactResponse;
+  let latestArtifactResponse: Awaited<ReturnType<ReturnType<typeof request>["post"]>> | undefined;
   for (const sample of samples) {
     latestArtifactResponse = await request(app)
       .post(`/api/cases/${caseId}/artifacts`)
@@ -246,10 +242,7 @@ test("registering a source artifact adds it to the case catalog and emits a mach
 
   const auditEventTypes = artifactResponse.body.case.auditEvents.map((event: { type: string }) => event.type);
   assert.deepEqual(auditEventTypes, ["case.created", "sample.registered", "artifact.registered"]);
-  assert.equal(
-    artifactResponse.body.case.auditEvents[2].correlationId,
-    "corr-artifact-register-001",
-  );
+  assert.equal(artifactResponse.body.case.auditEvents[2].correlationId, "corr-artifact-register-001");
 });
 
 test("artifact registration is rejected when the referenced sample provenance is missing", async () => {
@@ -271,14 +264,11 @@ test("idempotency key reuse with different payload is rejected as a mismatch", a
 
   await registerWorkflowReadyInputs(app, caseId);
 
-  await request(app)
-    .post(`/api/cases/${caseId}/workflows`)
-    .set("x-idempotency-key", "workflow-key-dup")
-    .send({
-      workflowName: "somatic-dna-rna-v1",
-      referenceBundleId: "GRCh38-2026a",
-      executionProfile: "local-dev",
-    });
+  await request(app).post(`/api/cases/${caseId}/workflows`).set("x-idempotency-key", "workflow-key-dup").send({
+    workflowName: "somatic-dna-rna-v1",
+    referenceBundleId: "GRCh38-2026a",
+    executionProfile: "local-dev",
+  });
 
   const mismatchResponse = await request(app)
     .post(`/api/cases/${caseId}/workflows`)
@@ -310,10 +300,7 @@ test("workflow request records carry the correlation ID from the HTTP boundary",
     });
 
   assert.equal(workflowResponse.status, 200);
-  assert.equal(
-    workflowResponse.body.case.workflowRequests[0].correlationId,
-    "corr-wf-001",
-  );
+  assert.equal(workflowResponse.body.case.workflowRequests[0].correlationId, "corr-wf-001");
 });
 
 test("sink failure during workflow dispatch does not corrupt case state and allows retry", async () => {
@@ -329,7 +316,7 @@ test("sink failure during workflow dispatch does not corrupt case state and allo
 
   const { MemoryCaseStore } = await import("../src/store.js");
   const store = new MemoryCaseStore(undefined, failingOnFirstCallSink);
-  const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
 
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
@@ -367,7 +354,7 @@ test("workflow request persists a durable dispatch record when using the Postgre
   const { pool, sink } = await createPostgresDispatchSink();
   try {
     const store = new MemoryCaseStore(undefined, sink);
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
 
     const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
     const caseId = String(createResponse.body.case.caseId);
@@ -404,16 +391,13 @@ test("Postgres-backed case storage persists workflow-ready case state across a f
   const pool = new Pool();
 
   // Create normalized schema
-  const migrationSql = readFileSync(
-    join(__dirname, "..", "src", "migrations", "001_full_schema.sql"),
-    "utf8",
-  );
+  const migrationSql = readFileSync(join(__dirname, "..", "src", "migrations", "001_full_schema.sql"), "utf8");
   await pool.query(migrationSql.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, ""));
 
   try {
     const firstStore = new PostgresCaseStore(pool);
     await firstStore.initialize();
-    const firstApp = createApp({ store: firstStore , rbacAllowAll: true, consentGateEnabled: false });
+    const firstApp = createApp({ store: firstStore, rbacAllowAll: true, consentGateEnabled: false });
 
     const createResponse = await request(firstApp).post("/api/cases").send(buildCaseInput());
     const caseId = String(createResponse.body.case.caseId);
@@ -435,7 +419,7 @@ test("Postgres-backed case storage persists workflow-ready case state across a f
 
     const secondStore = new PostgresCaseStore(pool);
     await secondStore.initialize();
-    const secondApp = createApp({ store: secondStore , rbacAllowAll: true, consentGateEnabled: false });
+    const secondApp = createApp({ store: secondStore, rbacAllowAll: true, consentGateEnabled: false });
 
     const persistedCaseResponse = await request(secondApp).get(`/api/cases/${caseId}`);
     assert.equal(persistedCaseResponse.status, 200);
@@ -458,9 +442,7 @@ test("returned case records are immutable snapshots that do not affect stored st
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
 
-  await request(app)
-    .post(`/api/cases/${caseId}/samples`)
-    .send(buildSample("TUMOR_DNA", "WES"));
+  await request(app).post(`/api/cases/${caseId}/samples`).send(buildSample("TUMOR_DNA", "WES"));
 
   const firstGet = await request(app).get(`/api/cases/${caseId}`);
   assert.equal(firstGet.body.case.samples.length, 1);
@@ -469,20 +451,26 @@ test("returned case records are immutable snapshots that do not affect stored st
   firstGet.body.case.samples.push({ sampleId: "injected", sampleType: "FOLLOW_UP" });
 
   const secondGet = await request(app).get(`/api/cases/${caseId}`);
-  assert.equal(secondGet.body.case.samples.length, 1, "Stored case must not be affected by client-side mutation of a returned snapshot");
+  assert.equal(
+    secondGet.body.case.samples.length,
+    1,
+    "Stored case must not be affected by client-side mutation of a returned snapshot",
+  );
 });
 
 test("invalid requests return the documented operator-facing error contract", async () => {
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
-  const response = await request(app).post("/api/cases").send({
-    caseProfile: {
-      patientKey: "",
-      indication: "melanoma",
-      siteId: "site-001",
-      protocolVersion: "2026.1",
-      consentStatus: "complete",
-    },
-  });
+  const response = await request(app)
+    .post("/api/cases")
+    .send({
+      caseProfile: {
+        patientKey: "",
+        indication: "melanoma",
+        siteId: "site-001",
+        protocolVersion: "2026.1",
+        consentStatus: "complete",
+      },
+    });
 
   assert.equal(response.status, 400);
   assert.equal(typeof response.body.code, "string");

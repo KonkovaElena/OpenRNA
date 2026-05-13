@@ -1,7 +1,7 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import test from "node:test";
 import { newDb } from "pg-mem";
 import { PostgresConsentTracker } from "../src/adapters/PostgresConsentTracker";
 
@@ -9,7 +9,10 @@ function loadSqlMigration(fileName: string): string {
   return readFileSync(path.resolve(__dirname, `../src/migrations/${fileName}`), "utf8");
 }
 
-async function insertCase(pool: { query: (sql: string, values?: unknown[]) => Promise<unknown> }, caseId: string): Promise<void> {
+async function insertCase(
+  pool: { query: (sql: string, values?: unknown[]) => Promise<unknown> },
+  caseId: string,
+): Promise<void> {
   await pool.query(
     `INSERT INTO cases (case_id, status, created_at, updated_at, case_profile)
      VALUES ($1, $2, NOW(), NOW(), $3::jsonb)`,

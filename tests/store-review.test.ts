@@ -1,7 +1,7 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import test from "node:test";
 import {
   generateBoardPacketForCase,
   generateHandoffPacketForCase,
@@ -17,9 +17,9 @@ test("store delegates review mutation flows through a dedicated review module", 
   assert.equal(typeof recordReviewOutcomeForCase, "function");
   assert.equal(typeof generateHandoffPacketForCase, "function");
 
-  const storeSource = readRepoFile("src", "store.ts");
+  const storeSource = readRepoFile("src", "adapters", "MemoryCaseStore.ts");
 
-  assert.match(storeSource, /from\s+"\.\/store-review"/);
+  assert.match(storeSource, /from\s+"\.\.\/store-review"/);
   assert.match(storeSource, /return\s+generateBoardPacketForCase\(/);
   assert.match(storeSource, /return\s+recordReviewOutcomeForCase\(/);
   assert.match(storeSource, /return\s+generateHandoffPacketForCase\(/);

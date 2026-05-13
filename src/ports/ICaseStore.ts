@@ -37,30 +37,12 @@ import type {
  * and consent-state invariants.
  */
 export interface ICaseStore {
-  createCase(
-    rawInput: unknown,
-    correlationId: AuditContextInput,
-  ): Promise<CaseRecord>;
-  listCases(options?: {
-    limit?: number;
-    offset?: number;
-  }): Promise<{ cases: CaseRecord[]; totalCount: number }>;
+  createCase(rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord>;
+  listCases(options?: { limit?: number; offset?: number }): Promise<{ cases: CaseRecord[]; totalCount: number }>;
   getCase(caseId: string): Promise<CaseRecord>;
-  registerSample(
-    caseId: string,
-    rawInput: unknown,
-    correlationId: AuditContextInput,
-  ): Promise<CaseRecord>;
-  registerArtifact(
-    caseId: string,
-    rawInput: unknown,
-    correlationId: AuditContextInput,
-  ): Promise<CaseRecord>;
-  requestWorkflow(
-    caseId: string,
-    rawInput: unknown,
-    correlationId: AuditContextInput,
-  ): Promise<CaseRecord>;
+  registerSample(caseId: string, rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord>;
+  registerArtifact(caseId: string, rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord>;
+  requestWorkflow(caseId: string, rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord>;
   getOperationsSummary(): Promise<OperationsSummary>;
   startWorkflowRun(
     caseId: string,
@@ -78,16 +60,8 @@ export interface ICaseStore {
     cancelledRun: WorkflowRunRecord,
     correlationId: AuditContextInput,
   ): Promise<CaseRecord>;
-  failWorkflowRun(
-    caseId: string,
-    failedRun: WorkflowRunRecord,
-    correlationId: AuditContextInput,
-  ): Promise<CaseRecord>;
-  recordHlaConsensus(
-    caseId: string,
-    record: HlaConsensusRecord,
-    correlationId: AuditContextInput,
-  ): Promise<CaseRecord>;
+  failWorkflowRun(caseId: string, failedRun: WorkflowRunRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
+  recordHlaConsensus(caseId: string, record: HlaConsensusRecord, correlationId: AuditContextInput): Promise<CaseRecord>;
   getHlaConsensus(caseId: string): Promise<HlaConsensusRecord | null>;
   recordQcGate(
     caseId: string,
@@ -98,10 +72,7 @@ export interface ICaseStore {
   getQcGate(caseId: string, runId: string): Promise<QcGateRecord | null>;
   getWorkflowRun(caseId: string, runId: string): Promise<WorkflowRunRecord>;
   listWorkflowRuns(caseId: string): Promise<WorkflowRunRecord[]>;
-  generateBoardPacket(
-    caseId: string,
-    correlationId: AuditContextInput,
-  ): Promise<BoardPacketGenerationResult>;
+  generateBoardPacket(caseId: string, correlationId: AuditContextInput): Promise<BoardPacketGenerationResult>;
   listBoardPackets(caseId: string): Promise<BoardPacketRecord[]>;
   getBoardPacket(caseId: string, packetId: string): Promise<BoardPacketRecord>;
   recordReviewOutcome(
@@ -115,20 +86,14 @@ export interface ICaseStore {
     correlationId: AuditContextInput,
   ): Promise<FinalReleaseAuthorizationResult>;
   listReviewOutcomes(caseId: string): Promise<ReviewOutcomeRecord[]>;
-  getReviewOutcome(
-    caseId: string,
-    reviewId: string,
-  ): Promise<ReviewOutcomeRecord>;
+  getReviewOutcome(caseId: string, reviewId: string): Promise<ReviewOutcomeRecord>;
   generateHandoffPacket(
     caseId: string,
     input: GenerateHandoffPacketInput,
     correlationId: AuditContextInput,
   ): Promise<HandoffPacketGenerationResult>;
   listHandoffPackets(caseId: string): Promise<HandoffPacketRecord[]>;
-  getHandoffPacket(
-    caseId: string,
-    handoffId: string,
-  ): Promise<HandoffPacketRecord>;
+  getHandoffPacket(caseId: string, handoffId: string): Promise<HandoffPacketRecord>;
   recordNeoantigenRanking(
     caseId: string,
     ranking: RankingResult,
@@ -163,10 +128,7 @@ export interface ICaseStore {
     consentStatus: ConsentStatus,
     correlationId: AuditContextInput,
   ): Promise<CaseRecord>;
-  restartFromRevision(
-    caseId: string,
-    correlationId: AuditContextInput,
-  ): Promise<CaseRecord>;
+  restartFromRevision(caseId: string, correlationId: AuditContextInput): Promise<CaseRecord>;
   resolveHlaReview(
     caseId: string,
     resolution: { rationale: string },

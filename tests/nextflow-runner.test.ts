@@ -1,9 +1,9 @@
-import { describe, it, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
-import { NextflowWorkflowRunner, mapExitCodeToCategory } from "../src/adapters/NextflowWorkflowRunner";
+import { beforeEach, describe, it, mock } from "node:test";
+import { mapExitCodeToCategory, NextflowWorkflowRunner } from "../src/adapters/NextflowWorkflowRunner";
 import type { INextflowClient, NextflowSubmitResult } from "../src/ports/INextflowClient";
-import type { NextflowPollResult, WorkflowRunManifest, NextflowTerminalMetadata } from "../src/types";
 import type { WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
+import type { NextflowPollResult, NextflowTerminalMetadata, WorkflowRunManifest } from "../src/types";
 
 // ─── Test Fixtures ──────────────────────────────────────────────────
 
@@ -39,7 +39,9 @@ function buildRequest(overrides?: Partial<WorkflowRunRequest>): WorkflowRunReque
 function createMockClient(overrides?: Partial<INextflowClient>): INextflowClient {
   return {
     submit: overrides?.submit ?? (async () => ({ sessionId: "nf-session-abc", runName: "crazy_turing" })),
-    poll: overrides?.poll ?? (async () => ({ sessionId: "nf-session-abc", runName: "crazy_turing", state: "running" as const })),
+    poll:
+      overrides?.poll ??
+      (async () => ({ sessionId: "nf-session-abc", runName: "crazy_turing", state: "running" as const })),
     cancel: overrides?.cancel ?? (async () => {}),
   };
 }
@@ -68,7 +70,10 @@ describe("NextflowWorkflowRunner", () => {
   it("startRun replay returns existing record without re-submitting", async () => {
     let submitCount = 0;
     client = createMockClient({
-      submit: async () => { submitCount++; return { sessionId: "nf-session-abc", runName: "crazy_turing" }; },
+      submit: async () => {
+        submitCount++;
+        return { sessionId: "nf-session-abc", runName: "crazy_turing" };
+      },
     });
     runner = new NextflowWorkflowRunner(client);
 
@@ -102,7 +107,9 @@ describe("NextflowWorkflowRunner", () => {
   it("cancelRun calls client.cancel and transitions to CANCELLED", async () => {
     let cancelCalled = false;
     client = createMockClient({
-      cancel: async () => { cancelCalled = true; },
+      cancel: async () => {
+        cancelCalled = true;
+      },
     });
     runner = new NextflowWorkflowRunner(client);
 

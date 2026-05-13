@@ -19,17 +19,17 @@
  *  11. config loading: production warning on API-key-only without OIDC
  */
 
-import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import supertest from "supertest";
+import test from "node:test";
 import type { Test } from "supertest";
-import { createApp } from "../src/app";
-import { loadConfig } from "../src/config";
-import { hasAuthenticationConfig } from "../src/auth";
-import { MemoryCaseStore } from "../src/store";
-import { InMemoryConsentTracker } from "../src/adapters/InMemoryConsentTracker";
+import supertest from "supertest";
 import { InMemoryCaseAccessStore } from "../src/adapters/InMemoryCaseAccessStore";
+import { InMemoryConsentTracker } from "../src/adapters/InMemoryConsentTracker";
+import { createApp } from "../src/app";
+import { hasAuthenticationConfig } from "../src/auth";
+import { loadConfig } from "../src/config";
+import { MemoryCaseStore } from "../src/store";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -57,13 +57,7 @@ function computeServerSeal(
     signedAt: string;
   },
 ): string {
-  const payload = [
-    params.caseId,
-    params.recordId,
-    params.signedBy,
-    params.meaning,
-    params.signedAt,
-  ].join("|");
+  const payload = [params.caseId, params.recordId, params.signedBy, params.meaning, params.signedAt].join("|");
   return createHmac("sha256", sealKey).update(payload, "utf8").digest("hex");
 }
 
@@ -80,10 +74,7 @@ test("hasAuthenticationConfig detects jwksUri as a valid auth config", () => {
     "jwksUri → true",
   );
   assert.ok(hasAuthenticationConfig({ apiKey: "k" }), "apiKey → true");
-  assert.ok(
-    hasAuthenticationConfig({ jwt: { sharedSecret: "s".repeat(32) } }),
-    "sharedSecret → true",
-  );
+  assert.ok(hasAuthenticationConfig({ jwt: { sharedSecret: "s".repeat(32) } }), "sharedSecret → true");
 });
 
 // ── 2. Server seal determinism ─────────────────────────────────────────────
@@ -114,26 +105,14 @@ test("computeServerSeal produces different values when any field changes", () =>
   };
   const baseSeal = computeServerSeal(SEAL_KEY_32, base);
 
-  assert.notEqual(
-    computeServerSeal(SEAL_KEY_32, { ...base, caseId: "c2" }),
-    baseSeal,
-    "caseId change detected",
-  );
-  assert.notEqual(
-    computeServerSeal(SEAL_KEY_32, { ...base, recordId: "r2" }),
-    baseSeal,
-    "recordId change detected",
-  );
+  assert.notEqual(computeServerSeal(SEAL_KEY_32, { ...base, caseId: "c2" }), baseSeal, "caseId change detected");
+  assert.notEqual(computeServerSeal(SEAL_KEY_32, { ...base, recordId: "r2" }), baseSeal, "recordId change detected");
   assert.notEqual(
     computeServerSeal(SEAL_KEY_32, { ...base, signedBy: "other@b.com" }),
     baseSeal,
     "signedBy change detected",
   );
-  assert.notEqual(
-    computeServerSeal(SEAL_KEY_32, { ...base, meaning: "release" }),
-    baseSeal,
-    "meaning change detected",
-  );
+  assert.notEqual(computeServerSeal(SEAL_KEY_32, { ...base, meaning: "release" }), baseSeal, "meaning change detected");
   assert.notEqual(
     computeServerSeal(SEAL_KEY_32, {
       ...base,
@@ -154,12 +133,9 @@ async function createReviewReadyCaseId(
   app: ReturnType<typeof createApp>,
   principalId: string = "system:anonymous",
 ): Promise<{ caseId: string; packetId: string }> {
-  const withPrincipal = (req: Test): Test =>
-    req.set("x-principal-id", principalId);
+  const withPrincipal = (req: Test): Test => req.set("x-principal-id", principalId);
 
-  const createRes = await withPrincipal(supertest(app).post("/api/cases")).send(
-    buildCaseInput(),
-  );
+  const createRes = await withPrincipal(supertest(app).post("/api/cases")).send(buildCaseInput());
   const caseId = createRes.body.case.caseId as string;
 
   const sampleSet = [
@@ -269,10 +245,7 @@ test("identity-bound signatures: reviewerId overridden with principalId when fla
   });
 
   // Build the case using the same principal that will perform the review
-  const { caseId, packetId } = await createReviewReadyCaseId(
-    app,
-    "jwt-sub-verified-user@example.com",
-  );
+  const { caseId, packetId } = await createReviewReadyCaseId(app, "jwt-sub-verified-user@example.com");
 
   const reviewRes = await supertest(app)
     .post(`/api/cases/${caseId}/review-outcomes`)
@@ -291,16 +264,9 @@ test("identity-bound signatures: reviewerId overridden with principalId when fla
       },
     });
 
-  assert.equal(
-    reviewRes.status,
-    201,
-    `Expected 201, got ${reviewRes.status}: ${JSON.stringify(reviewRes.body)}`,
-  );
+  assert.equal(reviewRes.status, 201, `Expected 201, got ${reviewRes.status}: ${JSON.stringify(reviewRes.body)}`);
   // reviewerId must be the principal from res.locals, not the body
-  assert.equal(
-    reviewRes.body.reviewOutcome.reviewerId,
-    "jwt-sub-verified-user@example.com",
-  );
+  assert.equal(reviewRes.body.reviewOutcome.reviewerId, "jwt-sub-verified-user@example.com");
   assert.equal(reviewRes.body.meta.identityBound, true);
 });
 
@@ -313,10 +279,7 @@ test("identity-bound signatures: reviewerId from body when flag is false (backwa
     enforceIdentityBoundSignatures: false,
   });
 
-  const { caseId, packetId } = await createReviewReadyCaseId(
-    app,
-    "jwt-verified-user",
-  );
+  const { caseId, packetId } = await createReviewReadyCaseId(app, "jwt-verified-user");
 
   const reviewRes = await supertest(app)
     .post(`/api/cases/${caseId}/review-outcomes`)
@@ -369,8 +332,7 @@ test("serverSeal present in signatureManifestation when signatureSealKey provide
   const manifestation = reviewRes.body.reviewOutcome.signatureManifestation;
   assert.ok(manifestation, "signatureManifestation should be present");
   assert.ok(
-    typeof manifestation.serverSeal === "string" &&
-      manifestation.serverSeal.length === 64,
+    typeof manifestation.serverSeal === "string" && manifestation.serverSeal.length === 64,
     "serverSeal should be a 64-char hex string",
   );
 });
@@ -405,11 +367,7 @@ test("serverSeal absent when no signatureSealKey (graceful degradation)", async 
   assert.equal(reviewRes.status, 201, JSON.stringify(reviewRes.body));
   const manifestation = reviewRes.body.reviewOutcome.signatureManifestation;
   assert.ok(manifestation, "signatureManifestation should be present");
-  assert.equal(
-    manifestation.serverSeal,
-    undefined,
-    "serverSeal absent when no key configured",
-  );
+  assert.equal(manifestation.serverSeal, undefined, "serverSeal absent when no key configured");
 });
 
 // ── 8. principalName from JWT name claim ──────────────────────────────────
@@ -437,10 +395,7 @@ test("loadConfig wires SIGNATURE_SEAL_KEY to signatureSealKey", () => {
 });
 
 test("loadConfig rejects SIGNATURE_SEAL_KEY shorter than 32 bytes", () => {
-  assert.throws(
-    () => loadConfig({ ...process.env, SIGNATURE_SEAL_KEY: "short" }),
-    /32 bytes/,
-  );
+  assert.throws(() => loadConfig({ ...process.env, SIGNATURE_SEAL_KEY: "short" }), /32 bytes/);
 });
 
 // ── 10. Config: JWT_JWKS_URI env var ──────────────────────────────────────
@@ -495,10 +450,7 @@ test("final-release: releaserId overridden with principalId when enforceIdentity
     signatureSealKey: SEAL_KEY_32,
   });
 
-  const { caseId, packetId } = await createReviewReadyCaseId(
-    app,
-    "reviewer-alpha",
-  );
+  const { caseId, packetId } = await createReviewReadyCaseId(app, "reviewer-alpha");
 
   // Grant qa-beta access so the dual-auth release can proceed
   await caseAccessStore.grantAccess(caseId, "qa-beta", "REVIEWER");
@@ -535,14 +487,7 @@ test("final-release: releaserId overridden with principalId when enforceIdentity
 
   assert.equal(releaseRes.status, 201, JSON.stringify(releaseRes.body));
   const finalRelease = releaseRes.body.finalRelease;
-  assert.equal(
-    finalRelease.releaserId,
-    "qa-beta",
-    "releaserId must be the verified principal",
-  );
-  assert.ok(
-    typeof finalRelease.signatureManifestation?.serverSeal === "string",
-    "server seal present on release",
-  );
+  assert.equal(finalRelease.releaserId, "qa-beta", "releaserId must be the verified principal");
+  assert.ok(typeof finalRelease.signatureManifestation?.serverSeal === "string", "server seal present on release");
   assert.equal(releaseRes.body.meta.identityBound, true);
 });

@@ -1,10 +1,10 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import test from "node:test";
 import { newDb } from "pg-mem";
 import { PostgresCaseStore } from "../src/adapters/PostgresCaseStore";
-import type { WorkflowRunRecord, RunArtifact, HlaConsensusRecord, QcGateRecord } from "../src/types";
+import type { HlaConsensusRecord, QcGateRecord, RunArtifact, WorkflowRunRecord } from "../src/types";
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -56,14 +56,9 @@ async function createPgCaseStore() {
   const pool = new Pool();
 
   // Run the normalized migration
-  const migrationSql = readFileSync(
-    join(__dirname, "..", "src", "migrations", "001_full_schema.sql"),
-    "utf8",
-  );
+  const migrationSql = readFileSync(join(__dirname, "..", "src", "migrations", "001_full_schema.sql"), "utf8");
   // pg-mem doesn't support BEGIN/COMMIT, strip them
-  const cleanSql = migrationSql
-    .replace(/^BEGIN;/m, "")
-    .replace(/^COMMIT;/m, "");
+  const cleanSql = migrationSql.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, "");
   await pool.query(cleanSql);
 
   const store = new PostgresCaseStore(pool, fixedClock);
@@ -247,11 +242,7 @@ test("PostgresCaseStore (normalized): getCase returns data persisted in normaliz
     assert.equal(auditRows.rows[0]?.auth_mechanism, "jwt-bearer");
 
     // Register a sample and check normalized samples table
-    await store.registerSample(
-      caseId,
-      buildSample("TUMOR_DNA", "WES"),
-      "corr-sample",
-    );
+    await store.registerSample(caseId, buildSample("TUMOR_DNA", "WES"), "corr-sample");
     const sampleRows = await pool.query("SELECT sample_id, sample_type FROM samples WHERE case_id = $1", [caseId]);
     assert.equal(sampleRows.rows.length, 1);
     assert.equal(sampleRows.rows[0].sample_type, "TUMOR_DNA");

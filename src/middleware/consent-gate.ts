@@ -1,6 +1,6 @@
-import { type NextFunction, type Request, type Response } from "express";
-import type { IConsentTracker } from "../ports/IConsentTracker";
+import type { NextFunction, Request, Response } from "express";
 import { ApiError } from "../errors";
+import type { IConsentTracker } from "../ports/IConsentTracker";
 
 /**
  * Consent enforcement middleware factory.

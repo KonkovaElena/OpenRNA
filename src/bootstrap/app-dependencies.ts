@@ -1,35 +1,35 @@
 import type { RequestHandler } from "express";
-import type { JwtAuthOptions } from "../auth";
-import { MemoryCaseStore, type CaseStore } from "../store";
-import type { IConstructDesigner } from "../ports/IConstructDesigner";
-import type { IModalityRegistry } from "../ports/IModalityRegistry";
-import type { IReferenceBundleRegistry } from "../ports/IReferenceBundleRegistry";
-import type { IQcGateEvaluator } from "../ports/IQcGateEvaluator";
-import type { IWorkflowRunner } from "../ports/IWorkflowRunner";
-import type { IStateMachineGuard } from "../ports/IStateMachineGuard";
-import type { IConsentTracker } from "../ports/IConsentTracker";
-import type { IHlaConsensusProvider } from "../ports/IHlaConsensusProvider";
-import type { INeoantigenRankingEngine } from "../ports/INeoantigenRankingEngine";
-import type { IRbacProvider } from "../ports/IRbacProvider";
-import type { IAuditSignatureProvider } from "../ports/IAuditSignatureProvider";
-import type { IFhirExporter } from "../ports/IFhirExporter";
-import type { ICaseAccessStore } from "../ports/ICaseAccessStore";
+import { InMemoryAuditSignatureProvider } from "../adapters/InMemoryAuditSignatureProvider";
+import { InMemoryCaseAccessStore } from "../adapters/InMemoryCaseAccessStore";
+import { InMemoryConsentTracker } from "../adapters/InMemoryConsentTracker";
 import { InMemoryConstructDesigner } from "../adapters/InMemoryConstructDesigner";
+import { InMemoryFhirExporter } from "../adapters/InMemoryFhirExporter";
 import { InMemoryHlaConsensusProvider } from "../adapters/InMemoryHlaConsensusProvider";
 import { InMemoryModalityRegistry } from "../adapters/InMemoryModalityRegistry";
 import { InMemoryNeoantigenRankingEngine } from "../adapters/InMemoryNeoantigenRankingEngine";
-import { InMemoryReferenceBundleRegistry } from "../adapters/InMemoryReferenceBundleRegistry";
 import { InMemoryQcGateEvaluator } from "../adapters/InMemoryQcGateEvaluator";
-import { InMemoryWorkflowRunner } from "../adapters/InMemoryWorkflowRunner";
-import { InMemoryStateMachineGuard } from "../adapters/InMemoryStateMachineGuard";
-import { InMemoryConsentTracker } from "../adapters/InMemoryConsentTracker";
 import { InMemoryRbacProvider } from "../adapters/InMemoryRbacProvider";
-import { InMemoryAuditSignatureProvider } from "../adapters/InMemoryAuditSignatureProvider";
-import { InMemoryFhirExporter } from "../adapters/InMemoryFhirExporter";
-import { InMemoryCaseAccessStore } from "../adapters/InMemoryCaseAccessStore";
+import { InMemoryReferenceBundleRegistry } from "../adapters/InMemoryReferenceBundleRegistry";
+import { InMemoryStateMachineGuard } from "../adapters/InMemoryStateMachineGuard";
+import { InMemoryWorkflowRunner } from "../adapters/InMemoryWorkflowRunner";
+import type { JwtAuthOptions } from "../auth";
 import { requireActiveConsent } from "../middleware/consent-gate";
-import type { RequestLogWriter } from "../middleware/request-logger";
 import type { RateLimiterOptions } from "../middleware/rate-limiter";
+import type { RequestLogWriter } from "../middleware/request-logger";
+import type { IAuditSignatureProvider } from "../ports/IAuditSignatureProvider";
+import type { ICaseAccessStore } from "../ports/ICaseAccessStore";
+import type { IConsentTracker } from "../ports/IConsentTracker";
+import type { IConstructDesigner } from "../ports/IConstructDesigner";
+import type { IFhirExporter } from "../ports/IFhirExporter";
+import type { IHlaConsensusProvider } from "../ports/IHlaConsensusProvider";
+import type { IModalityRegistry } from "../ports/IModalityRegistry";
+import type { INeoantigenRankingEngine } from "../ports/INeoantigenRankingEngine";
+import type { IQcGateEvaluator } from "../ports/IQcGateEvaluator";
+import type { IRbacProvider } from "../ports/IRbacProvider";
+import type { IReferenceBundleRegistry } from "../ports/IReferenceBundleRegistry";
+import type { IStateMachineGuard } from "../ports/IStateMachineGuard";
+import type { IWorkflowRunner } from "../ports/IWorkflowRunner";
+import { type CaseStore, MemoryCaseStore } from "../store";
 
 export interface AppDependencies {
   store?: CaseStore;
@@ -98,43 +98,23 @@ const passThroughConsentGate: RequestHandler = (_req, _res, next) => {
   next();
 };
 
-export function resolveAppDependencies(
-  dependencies: AppDependencies = {},
-): ResolvedAppDependencies {
-  const modalityRegistry =
-    dependencies.modalityRegistry ?? new InMemoryModalityRegistry();
-  const constructDesigner =
-    dependencies.constructDesigner ??
-    new InMemoryConstructDesigner(modalityRegistry);
-  const workflowRunner =
-    dependencies.workflowRunner ?? new InMemoryWorkflowRunner();
+export function resolveAppDependencies(dependencies: AppDependencies = {}): ResolvedAppDependencies {
+  const modalityRegistry = dependencies.modalityRegistry ?? new InMemoryModalityRegistry();
+  const constructDesigner = dependencies.constructDesigner ?? new InMemoryConstructDesigner(modalityRegistry);
+  const workflowRunner = dependencies.workflowRunner ?? new InMemoryWorkflowRunner();
   const store = dependencies.store ?? new MemoryCaseStore();
-  const referenceBundleRegistry =
-    dependencies.referenceBundleRegistry ??
-    new InMemoryReferenceBundleRegistry();
-  const qcGateEvaluator =
-    dependencies.qcGateEvaluator ?? new InMemoryQcGateEvaluator();
-  const hlaConsensusProvider =
-    dependencies.hlaConsensusProvider ?? new InMemoryHlaConsensusProvider();
-  const neoantigenRankingEngine =
-    dependencies.neoantigenRankingEngine ??
-    new InMemoryNeoantigenRankingEngine();
-  const stateMachineGuard =
-    dependencies.stateMachineGuard ?? new InMemoryStateMachineGuard();
-  const consentTracker =
-    dependencies.consentTracker ?? new InMemoryConsentTracker();
+  const referenceBundleRegistry = dependencies.referenceBundleRegistry ?? new InMemoryReferenceBundleRegistry();
+  const qcGateEvaluator = dependencies.qcGateEvaluator ?? new InMemoryQcGateEvaluator();
+  const hlaConsensusProvider = dependencies.hlaConsensusProvider ?? new InMemoryHlaConsensusProvider();
+  const neoantigenRankingEngine = dependencies.neoantigenRankingEngine ?? new InMemoryNeoantigenRankingEngine();
+  const stateMachineGuard = dependencies.stateMachineGuard ?? new InMemoryStateMachineGuard();
+  const consentTracker = dependencies.consentTracker ?? new InMemoryConsentTracker();
   const consentGateMw =
-    dependencies.consentGateEnabled === false
-      ? passThroughConsentGate
-      : requireActiveConsent(consentTracker);
-  const rbacProvider =
-    dependencies.rbacProvider ??
-    new InMemoryRbacProvider({ allowAll: dependencies.rbacAllowAll });
-  const auditSignatureProvider =
-    dependencies.auditSignatureProvider ?? new InMemoryAuditSignatureProvider();
+    dependencies.consentGateEnabled === false ? passThroughConsentGate : requireActiveConsent(consentTracker);
+  const rbacProvider = dependencies.rbacProvider ?? new InMemoryRbacProvider({ allowAll: dependencies.rbacAllowAll });
+  const auditSignatureProvider = dependencies.auditSignatureProvider ?? new InMemoryAuditSignatureProvider();
   const fhirExporter = dependencies.fhirExporter ?? new InMemoryFhirExporter();
-  const caseAccessStore =
-    dependencies.caseAccessStore ?? new InMemoryCaseAccessStore();
+  const caseAccessStore = dependencies.caseAccessStore ?? new InMemoryCaseAccessStore();
 
   return {
     store,

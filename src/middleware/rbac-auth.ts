@@ -1,4 +1,4 @@
-import { type NextFunction, type Request, type Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { ApiError } from "../errors";
 import type { IRbacProvider, RbacAction } from "../ports/IRbacProvider";
 
@@ -25,12 +25,7 @@ export function rbacAuth(rbacProvider: IRbacProvider | undefined, action: RbacAc
       const result = await rbacProvider.checkPermission(principal, action, resource);
       if (!result.allowed) {
         const guidance = `Use a principal with '${action}' permission for this route.`;
-        next(new ApiError(
-          403,
-          "forbidden",
-          "Forbidden.",
-          result.reason ? `${result.reason}. ${guidance}` : guidance,
-        ));
+        next(new ApiError(403, "forbidden", "Forbidden.", result.reason ? `${result.reason}. ${guidance}` : guidance));
         return;
       }
       next();

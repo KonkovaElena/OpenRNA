@@ -1,40 +1,28 @@
-﻿import express, {
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
-import { randomUUID } from "node:crypto";
+﻿import { randomUUID } from "node:crypto";
+import express, { type NextFunction, type Request, type Response } from "express";
+import { type AppDependencies, resolveAppDependencies } from "./bootstrap/app-dependencies";
 import { ApiError } from "./errors";
-import {
-  resolveAppDependencies,
-  type AppDependencies,
-} from "./bootstrap/app-dependencies";
 import { authenticationContext } from "./middleware/auth-context";
-import {
-  requestLogger,
-  type RequestLogWriter,
-} from "./middleware/request-logger";
-import { securityHeaders } from "./middleware/security-headers";
+import { caseAccessAuth } from "./middleware/case-access-auth";
 import { rateLimiter } from "./middleware/rate-limiter";
 import { rbacAuth } from "./middleware/rbac-auth";
-import { caseAccessAuth } from "./middleware/case-access-auth";
-import { registerSystemRoutes } from "./routes/system";
-import { registerModalityRoutes } from "./routes/modalities";
-import { registerFhirRoutes } from "./routes/fhir";
+import { type RequestLogWriter, requestLogger } from "./middleware/request-logger";
+import { securityHeaders } from "./middleware/security-headers";
 import { registerAuditRoutes } from "./routes/audit";
-import { registerReviewRoutes } from "./routes/review";
 import { registerDesignRoutes } from "./routes/design";
+import { registerFhirRoutes } from "./routes/fhir";
 import { registerGovernanceRoutes } from "./routes/governance";
+import { registerModalityRoutes } from "./routes/modalities";
 import { registerOutcomeRoutes } from "./routes/outcomes";
+import { registerReviewRoutes } from "./routes/review";
+import { registerSystemRoutes } from "./routes/system";
 import { registerWorkflowRoutes } from "./routes/workflow";
 
 interface CaseOwnershipAwareRbacProvider {
   setCaseOwner(caseId: string, principalId: string): Promise<void>;
 }
 
-function hasCaseOwnershipRbacProvider(
-  value: unknown,
-): value is CaseOwnershipAwareRbacProvider {
+function hasCaseOwnershipRbacProvider(value: unknown): value is CaseOwnershipAwareRbacProvider {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -95,8 +83,7 @@ export function createApp(dependencies: AppDependencies = {}) {
     app.use(rateLimiter(dependencies.rateLimitOptions));
   }
   app.use((req, res, next) => {
-    const correlationId =
-      req.header("x-correlation-id") ?? `corr_${randomUUID()}`;
+    const correlationId = req.header("x-correlation-id") ?? `corr_${randomUUID()}`;
     res.locals.correlationId = correlationId;
     res.setHeader("x-correlation-id", correlationId);
     next();
@@ -165,108 +152,78 @@ export function createApp(dependencies: AppDependencies = {}) {
     getRequiredRouteParam,
   });
 
-  app.post(
-    "/api/cases",
-    rbacAuth(rbacProvider, "CREATE_CASE"),
-    async (req, res, next) => {
-      try {
-        const correlationId = String(res.locals.correlationId ?? "");
-        const createPayload = dependencies.enforceServerDerivedConsentOnCreate
-          ? {
-              ...(typeof req.body === "object" && req.body !== null
-                ? (req.body as Record<string, unknown>)
+  app.post("/api/cases", rbacAuth(rbacProvider, "CREATE_CASE"), async (req, res, next) => {
+    try {
+      const correlationId = String(res.locals.correlationId ?? "");
+      const createPayload = dependencies.enforceServerDerivedConsentOnCreate
+        ? {
+            ...(typeof req.body === "object" && req.body !== null ? (req.body as Record<string, unknown>) : {}),
+            caseProfile: {
+              ...(typeof req.body === "object" &&
+              req.body !== null &&
+              typeof (req.body as Record<string, unknown>).caseProfile === "object" &&
+              (req.body as Record<string, unknown>).caseProfile !== null
+                ? (req.body as { caseProfile: Record<string, unknown> }).caseProfile
                 : {}),
-              caseProfile: {
-                ...(typeof req.body === "object" &&
-                req.body !== null &&
-                typeof (req.body as Record<string, unknown>).caseProfile ===
-                  "object" &&
-                (req.body as Record<string, unknown>).caseProfile !== null
-                  ? (req.body as { caseProfile: Record<string, unknown> })
-                      .caseProfile
-                  : {}),
-                consentStatus: "missing",
-              },
-            }
-          : req.body;
+              consentStatus: "missing",
+            },
+          }
+        : req.body;
 
-        const createdCase = await store.createCase(
-          createPayload,
-          correlationId,
-        );
-        const principalId = String(
-          res.locals.principalId ?? "system:anonymous",
-        );
-        await caseAccessStore.setOwner(createdCase.caseId, principalId);
-        if (hasCaseOwnershipRbacProvider(rbacProvider)) {
-          await rbacProvider.setCaseOwner(createdCase.caseId, principalId);
-        }
-        res.status(201).json({ case: createdCase });
-      } catch (error) {
-        next(error);
+      const createdCase = await store.createCase(createPayload, correlationId);
+      const principalId = String(res.locals.principalId ?? "system:anonymous");
+      await caseAccessStore.setOwner(createdCase.caseId, principalId);
+      if (hasCaseOwnershipRbacProvider(rbacProvider)) {
+        await rbacProvider.setCaseOwner(createdCase.caseId, principalId);
       }
-    },
-  );
+      res.status(201).json({ case: createdCase });
+    } catch (error) {
+      next(error);
+    }
+  });
 
-  app.get(
-    "/api/cases",
-    rbacAuth(rbacProvider, "VIEW_CASE"),
-    async (req, res, next) => {
-      try {
-        const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
-        const offset = Math.max(Number(req.query.offset) || 0, 0);
-        const principalId = String(
-          res.locals.principalId ?? "system:anonymous",
-        );
-        const roles = await rbacProvider.getPrincipalRoles(principalId);
-        const isPrivileged =
-          roles.includes("ADMIN") || roles.includes("SYSTEM");
+  app.get("/api/cases", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+    try {
+      const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 200);
+      const offset = Math.max(Number(req.query.offset) || 0, 0);
+      const principalId = String(res.locals.principalId ?? "system:anonymous");
+      const roles = await rbacProvider.getPrincipalRoles(principalId);
+      const isPrivileged = roles.includes("ADMIN") || roles.includes("SYSTEM");
 
-        const { cases } = await store.listCases({ limit: 2000, offset: 0 });
-        const filteredCases = isPrivileged
-          ? cases
-          : (
-              await Promise.all(
-                cases.map(async (candidate) => {
-                  const allowed = await caseAccessStore.canAccess(
-                    candidate.caseId,
-                    principalId,
-                  );
-                  return allowed ? candidate : undefined;
-                }),
-              )
-            ).filter(
-              (candidate): candidate is (typeof cases)[number] =>
-                candidate !== undefined,
-            );
+      const { cases } = await store.listCases({ limit: 2000, offset: 0 });
+      const filteredCases = isPrivileged
+        ? cases
+        : (
+            await Promise.all(
+              cases.map(async (candidate) => {
+                const allowed = await caseAccessStore.canAccess(candidate.caseId, principalId);
+                return allowed ? candidate : undefined;
+              }),
+            )
+          ).filter((candidate): candidate is (typeof cases)[number] => candidate !== undefined);
 
-        const pagedCases = filteredCases.slice(offset, offset + limit);
-        res.json({
-          cases: pagedCases,
-          meta: {
-            totalCases: filteredCases.length,
-            limit,
-            offset,
-          },
-        });
-      } catch (error) {
-        next(error);
-      }
-    },
-  );
+      const pagedCases = filteredCases.slice(offset, offset + limit);
+      res.json({
+        cases: pagedCases,
+        meta: {
+          totalCases: filteredCases.length,
+          limit,
+          offset,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  });
 
-  app.get(
-    "/api/cases/:caseId",
-    rbacAuth(rbacProvider, "VIEW_CASE"),
-    async (req, res, next) => {
-      try {
-        const caseId = getRequiredRouteParam(req, "caseId");
-        res.json({ case: await store.getCase(caseId) });
-      } catch (error) {
-        next(error);
-      }
-    },
-  );
+  app.get("/api/cases/:caseId", rbacAuth(rbacProvider, "VIEW_CASE"), async (req, res, next) => {
+    try {
+      const caseId = getRequiredRouteParam(req, "caseId");
+      res.json({ case: await store.getCase(caseId) });
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.post(
     "/api/cases/:caseId/samples",
@@ -302,28 +259,26 @@ export function createApp(dependencies: AppDependencies = {}) {
     },
   );
 
-  app.use(
-    (error: unknown, _req: Request, res: Response, _next: NextFunction) => {
-      const correlationId = String(res.locals.correlationId ?? "");
+  app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    const correlationId = String(res.locals.correlationId ?? "");
 
-      if (error instanceof ApiError) {
-        res.status(error.statusCode).json({
-          code: error.code,
-          message: error.message,
-          nextStep: error.nextStep,
-          correlationId,
-        });
-        return;
-      }
-
-      res.status(500).json({
-        code: "internal_error",
-        message: "Internal server error.",
-        nextStep: "Retry the request or inspect server logs.",
+    if (error instanceof ApiError) {
+      res.status(error.statusCode).json({
+        code: error.code,
+        message: error.message,
+        nextStep: error.nextStep,
         correlationId,
       });
-    },
-  );
+      return;
+    }
+
+    res.status(500).json({
+      code: "internal_error",
+      message: "Internal server error.",
+      nextStep: "Retry the request or inspect server logs.",
+      correlationId,
+    });
+  });
 
   return app;
 }

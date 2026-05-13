@@ -1,4 +1,10 @@
-import type { CaseRecord, FullTraceabilityRecord, HandoffPacketRecord, OutcomeTimelineEntry, ReviewOutcomeRecord } from "./types.js";
+import type {
+  CaseRecord,
+  FullTraceabilityRecord,
+  HandoffPacketRecord,
+  OutcomeTimelineEntry,
+  ReviewOutcomeRecord,
+} from "./types.js";
 
 function requireTraceabilityInputs(caseRecord: CaseRecord): {
   rankedCandidateIds: string[];
@@ -69,14 +75,12 @@ export function buildFullTraceability(
   caseRecord: CaseRecord,
   outcomeTimeline: OutcomeTimelineEntry[],
 ): FullTraceabilityRecord {
-  const {
-    rankedCandidateIds,
-    constructId,
-    constructVersion,
-    constructCandidateIds,
-  } = requireTraceabilityInputs(caseRecord);
+  const { rankedCandidateIds, constructId, constructVersion, constructCandidateIds } =
+    requireTraceabilityInputs(caseRecord);
 
-  const timeline = structuredClone(outcomeTimeline).sort((left, right) => left.occurredAt.localeCompare(right.occurredAt));
+  const timeline = structuredClone(outcomeTimeline).sort((left, right) =>
+    left.occurredAt.localeCompare(right.occurredAt),
+  );
   for (const entry of timeline) {
     assertEntryMatchesConstruct(caseRecord, entry, constructId, constructVersion);
   }
@@ -99,13 +103,22 @@ export function buildFullTraceability(
     constructCandidateIds,
     timeline,
     administrations: timeline
-      .filter((entry): entry is Extract<OutcomeTimelineEntry, { entryType: "administration" }> => entry.entryType === "administration")
+      .filter(
+        (entry): entry is Extract<OutcomeTimelineEntry, { entryType: "administration" }> =>
+          entry.entryType === "administration",
+      )
       .map((entry) => structuredClone(entry.administration)),
     immuneMonitoringRecords: timeline
-      .filter((entry): entry is Extract<OutcomeTimelineEntry, { entryType: "immune-monitoring" }> => entry.entryType === "immune-monitoring")
+      .filter(
+        (entry): entry is Extract<OutcomeTimelineEntry, { entryType: "immune-monitoring" }> =>
+          entry.entryType === "immune-monitoring",
+      )
       .map((entry) => structuredClone(entry.immuneMonitoring)),
     clinicalFollowUpRecords: timeline
-      .filter((entry): entry is Extract<OutcomeTimelineEntry, { entryType: "clinical-follow-up" }> => entry.entryType === "clinical-follow-up")
+      .filter(
+        (entry): entry is Extract<OutcomeTimelineEntry, { entryType: "clinical-follow-up" }> =>
+          entry.entryType === "clinical-follow-up",
+      )
       .map((entry) => structuredClone(entry.clinicalFollowUp)),
     reviewOutcomes,
     handoffPackets,

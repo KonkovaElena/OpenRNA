@@ -1,5 +1,5 @@
-import test, { describe } from "node:test";
 import assert from "node:assert/strict";
+import test, { describe } from "node:test";
 import request from "supertest";
 import { createApp } from "../src/app";
 
@@ -31,29 +31,79 @@ describe("RBAC deny-by-default coverage", () => {
     { path: "/api/cases", body: buildCaseInput(), status: 403, label: "POST /api/cases" },
     { path: "/api/cases/c1/samples", body: {}, status: 403, label: "POST /api/cases/:caseId/samples" },
     { path: "/api/cases/c1/artifacts", body: {}, status: 403, label: "POST /api/cases/:caseId/artifacts" },
-    { path: "/api/cases/c1/workflows", body: { referenceBundleId: "b1" }, status: 403, label: "POST /api/cases/:caseId/workflows" },
+    {
+      path: "/api/cases/c1/workflows",
+      body: { referenceBundleId: "b1" },
+      status: 403,
+      label: "POST /api/cases/:caseId/workflows",
+    },
     { path: "/api/cases/c1/runs/r1/start", body: {}, status: 403, label: "POST /api/cases/:caseId/runs/:runId/start" },
-    { path: "/api/cases/c1/runs/r1/complete", body: {}, status: 403, label: "POST /api/cases/:caseId/runs/:runId/complete" },
+    {
+      path: "/api/cases/c1/runs/r1/complete",
+      body: {},
+      status: 403,
+      label: "POST /api/cases/:caseId/runs/:runId/complete",
+    },
     { path: "/api/cases/c1/runs/r1/fail", body: {}, status: 403, label: "POST /api/cases/:caseId/runs/:runId/fail" },
-    { path: "/api/cases/c1/runs/r1/cancel", body: {}, status: 403, label: "POST /api/cases/:caseId/runs/:runId/cancel" },
+    {
+      path: "/api/cases/c1/runs/r1/cancel",
+      body: {},
+      status: 403,
+      label: "POST /api/cases/:caseId/runs/:runId/cancel",
+    },
     { path: "/api/cases/c1/hla-consensus", body: {}, status: 403, label: "POST /api/cases/:caseId/hla-consensus" },
     { path: "/api/cases/c1/runs/r1/qc", body: {}, status: 403, label: "POST /api/cases/:caseId/runs/:runId/qc" },
-    { path: "/api/cases/c1/neoantigen-ranking", body: {}, status: 403, label: "POST /api/cases/:caseId/neoantigen-ranking" },
-    { path: "/api/cases/c1/construct-design", body: {}, status: 403, label: "POST /api/cases/:caseId/construct-design" },
+    {
+      path: "/api/cases/c1/neoantigen-ranking",
+      body: {},
+      status: 403,
+      label: "POST /api/cases/:caseId/neoantigen-ranking",
+    },
+    {
+      path: "/api/cases/c1/construct-design",
+      body: {},
+      status: 403,
+      label: "POST /api/cases/:caseId/construct-design",
+    },
     { path: "/api/cases/c1/outcomes/administration", body: {}, status: 403, label: "POST outcomes/administration" },
-    { path: "/api/cases/c1/outcomes/immune-monitoring", body: {}, status: 403, label: "POST outcomes/immune-monitoring" },
-    { path: "/api/cases/c1/outcomes/clinical-follow-up", body: {}, status: 403, label: "POST outcomes/clinical-follow-up" },
+    {
+      path: "/api/cases/c1/outcomes/immune-monitoring",
+      body: {},
+      status: 403,
+      label: "POST outcomes/immune-monitoring",
+    },
+    {
+      path: "/api/cases/c1/outcomes/clinical-follow-up",
+      body: {},
+      status: 403,
+      label: "POST outcomes/clinical-follow-up",
+    },
     { path: "/api/cases/c1/board-packets", body: {}, status: 403, label: "POST /api/cases/:caseId/board-packets" },
     { path: "/api/cases/c1/review-outcomes", body: {}, status: 403, label: "POST /api/cases/:caseId/review-outcomes" },
     { path: "/api/cases/c1/final-releases", body: {}, status: 403, label: "POST /api/cases/:caseId/final-releases" },
     { path: "/api/cases/c1/handoff-packets", body: {}, status: 403, label: "POST /api/cases/:caseId/handoff-packets" },
-    { path: "/api/cases/c1/consent", body: { type: "granted", scope: "full", version: "1.0" }, status: 403, label: "POST /api/cases/:caseId/consent" },
+    {
+      path: "/api/cases/c1/consent",
+      body: { type: "granted", scope: "full", version: "1.0" },
+      status: 403,
+      label: "POST /api/cases/:caseId/consent",
+    },
     { path: "/api/reference-bundles", body: {}, status: 403, label: "POST /api/reference-bundles (ADMIN)" },
     { path: "/api/audit/sign", body: {}, status: 403, label: "POST /api/audit/sign (ADMIN)" },
     { path: "/api/audit/verify", body: {}, status: 403, label: "POST /api/audit/verify" },
-    { path: "/api/cases/c1/validate-transition", body: { targetStatus: "REVIEWED" }, status: 403, label: "POST validate-transition" },
+    {
+      path: "/api/cases/c1/validate-transition",
+      body: { targetStatus: "REVIEWED" },
+      status: 403,
+      label: "POST validate-transition",
+    },
     { path: "/api/cases/c1/restart-from-revision", body: {}, status: 403, label: "POST restart-from-revision" },
-    { path: "/api/cases/c1/resolve-hla-review", body: { rationale: "test" }, status: 403, label: "POST resolve-hla-review" },
+    {
+      path: "/api/cases/c1/resolve-hla-review",
+      body: { rationale: "test" },
+      status: 403,
+      label: "POST resolve-hla-review",
+    },
   ];
 
   const getRoutes = [

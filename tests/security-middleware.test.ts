@@ -1,10 +1,10 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
+import test from "node:test";
 import request from "supertest";
+import { InMemoryRbacProvider } from "../src/adapters/InMemoryRbacProvider";
 import { createApp } from "../src/app";
 import { MemoryCaseStore } from "../src/store";
-import { InMemoryRbacProvider } from "../src/adapters/InMemoryRbacProvider";
 
 /**
  * Tests for security middleware: rate limiter, security headers, and RBAC auth.
@@ -27,9 +27,7 @@ function buildCaseInput() {
 function signHs256Jwt(payload: Record<string, unknown>, secret: string): string {
   const encodedHeader = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const signature = createHmac("sha256", secret)
-    .update(`${encodedHeader}.${encodedPayload}`)
-    .digest("base64url");
+  const signature = createHmac("sha256", secret).update(`${encodedHeader}.${encodedPayload}`).digest("base64url");
   return `${encodedHeader}.${encodedPayload}.${signature}`;
 }
 
@@ -106,9 +104,7 @@ test("RBAC Auth Middleware", async (t) => {
     const store = new MemoryCaseStore();
     const app = createApp({ store });
 
-    const res = await request(app)
-      .post("/api/cases")
-      .send(buildCaseInput());
+    const res = await request(app).post("/api/cases").send(buildCaseInput());
     assert.strictEqual(res.status, 403);
   });
 
@@ -116,10 +112,7 @@ test("RBAC Auth Middleware", async (t) => {
     const store = new MemoryCaseStore();
     const app = createApp({ store });
 
-    const res = await request(app)
-      .post("/api/cases")
-      .set("x-api-key", "spoofed-user")
-      .send(buildCaseInput());
+    const res = await request(app).post("/api/cases").set("x-api-key", "spoofed-user").send(buildCaseInput());
 
     assert.strictEqual(res.status, 403);
   });
@@ -129,10 +122,7 @@ test("RBAC Auth Middleware", async (t) => {
     const store = new MemoryCaseStore();
     const app = createApp({ store, rbacProvider });
 
-    const res = await request(app)
-      .post("/api/cases")
-      .set("x-api-key", "unauthorized-user")
-      .send(buildCaseInput());
+    const res = await request(app).post("/api/cases").set("x-api-key", "unauthorized-user").send(buildCaseInput());
     assert.strictEqual(res.status, 403);
     assert.strictEqual(res.body.code, "forbidden");
     assert.strictEqual(res.body.message, "Forbidden.");
@@ -146,10 +136,7 @@ test("RBAC Auth Middleware", async (t) => {
     const store = new MemoryCaseStore();
     const app = createApp({ store, rbacProvider });
 
-    const res = await request(app)
-      .post("/api/cases")
-      .set("x-api-key", "authorized-user")
-      .send(buildCaseInput());
+    const res = await request(app).post("/api/cases").set("x-api-key", "authorized-user").send(buildCaseInput());
 
     assert.strictEqual(res.status, 403);
   });
@@ -159,13 +146,14 @@ test("RBAC Auth Middleware", async (t) => {
     const store = new MemoryCaseStore();
     const app = createApp({ store, rbacProvider });
 
-    const res = await request(app)
-      .post("/api/cases")
-      .set("x-api-key", "unknown-user")
-      .send(buildCaseInput());
+    const res = await request(app).post("/api/cases").set("x-api-key", "unknown-user").send(buildCaseInput());
     assert.strictEqual(res.status, 403);
     assert.strictEqual(res.body.code, "forbidden");
-    assert.match(String(res.body.nextStep), /CREATE_CASE|permission/i, "response should include detail about the denied action");
+    assert.match(
+      String(res.body.nextStep),
+      /CREATE_CASE|permission/i,
+      "response should include detail about the denied action",
+    );
   });
 
   await t.test("strict RBAC allows configured api-key principal id instead of raw secret", async () => {
@@ -179,10 +167,7 @@ test("RBAC Auth Middleware", async (t) => {
       rbacProvider,
     });
 
-    const res = await request(app)
-      .post("/api/cases")
-      .set("x-api-key", "secret-key-42")
-      .send(buildCaseInput());
+    const res = await request(app).post("/api/cases").set("x-api-key", "secret-key-42").send(buildCaseInput());
     assert.strictEqual(res.status, 201);
   });
 
@@ -212,10 +197,7 @@ test("RBAC Auth Middleware", async (t) => {
       },
     });
 
-    const res = await request(app)
-      .post("/api/cases")
-      .set("authorization", `Bearer ${token}`)
-      .send(buildCaseInput());
+    const res = await request(app).post("/api/cases").set("authorization", `Bearer ${token}`).send(buildCaseInput());
     assert.strictEqual(res.status, 201);
   });
 

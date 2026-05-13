@@ -1,13 +1,18 @@
-﻿import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import request from "supertest";
-import type { NeoantigenCandidate, RankingResult, RankingRationale, DerivedArtifactSemanticType } from "../src/types.js";
-import type { INeoantigenRankingEngine } from "../src/ports/INeoantigenRankingEngine.js";
 import { InMemoryNeoantigenRankingEngine } from "../src/adapters/InMemoryNeoantigenRankingEngine.js";
-import { MemoryCaseStore } from "../src/store.js";
 import { createApp } from "../src/app.js";
+import type { INeoantigenRankingEngine } from "../src/ports/INeoantigenRankingEngine.js";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner.js";
-import type { WorkflowRunRecord } from "../src/types.js";
+import { MemoryCaseStore } from "../src/store.js";
+import type {
+  DerivedArtifactSemanticType,
+  NeoantigenCandidate,
+  RankingRationale,
+  RankingResult,
+  WorkflowRunRecord,
+} from "../src/types.js";
 
 // в”Ђв”Ђв”Ђ 8.A: Ranking types and port contract в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
@@ -40,8 +45,20 @@ describe("Wave 8.A вЂ” Neoantigen ranking types", () => {
       candidateId: "neo-001",
       rank: 1,
       compositeScore: 0.87,
-      featureWeights: { bindingAffinity: 0.3, expression: 0.25, clonality: 0.2, manufacturability: 0.15, tolerance: 0.1 },
-      featureScores: { bindingAffinity: 0.95, expression: 0.8, clonality: 0.85, manufacturability: 0.9, tolerance: 0.7 },
+      featureWeights: {
+        bindingAffinity: 0.3,
+        expression: 0.25,
+        clonality: 0.2,
+        manufacturability: 0.15,
+        tolerance: 0.1,
+      },
+      featureScores: {
+        bindingAffinity: 0.95,
+        expression: 0.8,
+        clonality: 0.85,
+        manufacturability: 0.9,
+        tolerance: 0.7,
+      },
       uncertaintyContribution: 0.05,
       explanation: "Strong binding + high expression; moderate tolerance risk",
     };
@@ -133,8 +150,8 @@ describe("Wave 8.B вЂ” InMemoryNeoantigenRankingEngine", () => {
     const lowUnc = buildCandidate({ candidateId: "neo-low-unc", uncertaintyScore: 0.05 });
     const highUnc = buildCandidate({ candidateId: "neo-high-unc", uncertaintyScore: 0.9 });
     const result = await engine.rank("case-004", [lowUnc, highUnc]);
-    const lowRat = result.rankedCandidates.find(r => r.candidateId === "neo-low-unc")!;
-    const highRat = result.rankedCandidates.find(r => r.candidateId === "neo-high-unc")!;
+    const lowRat = result.rankedCandidates.find((r) => r.candidateId === "neo-low-unc")!;
+    const highRat = result.rankedCandidates.find((r) => r.candidateId === "neo-high-unc")!;
     assert.ok(highRat.uncertaintyContribution > lowRat.uncertaintyContribution);
   });
 
@@ -180,9 +197,13 @@ class FakeWorkflowRunner implements IWorkflowRunner {
   private runs = new Map<string, WorkflowRunRecord>();
   startRun(input: WorkflowRunRequest): Promise<WorkflowRunRecord> {
     const rec: WorkflowRunRecord = {
-      runId: input.runId, caseId: input.caseId, requestId: input.requestId,
-      status: "RUNNING", workflowName: input.workflowName,
-      referenceBundleId: input.referenceBundleId, executionProfile: input.executionProfile,
+      runId: input.runId,
+      caseId: input.caseId,
+      requestId: input.requestId,
+      status: "RUNNING",
+      workflowName: input.workflowName,
+      referenceBundleId: input.referenceBundleId,
+      executionProfile: input.executionProfile,
       startedAt: new Date().toISOString(),
     };
     this.runs.set(input.runId, rec);
@@ -196,7 +217,14 @@ class FakeWorkflowRunner implements IWorkflowRunner {
   listRunsByCaseId(caseId: string): Promise<WorkflowRunRecord[]> {
     return Promise.resolve([...this.runs.values()].filter((r) => r.caseId === caseId));
   }
-  completeRun(runId: string, _derivedArtifacts?: Array<{ semanticType: DerivedArtifactSemanticType; artifactHash: string; producingStep: string }>): Promise<WorkflowRunRecord> {
+  completeRun(
+    runId: string,
+    _derivedArtifacts?: Array<{
+      semanticType: DerivedArtifactSemanticType;
+      artifactHash: string;
+      producingStep: string;
+    }>,
+  ): Promise<WorkflowRunRecord> {
     const r = this.runs.get(runId)!;
     r.status = "COMPLETED";
     r.completedAt = new Date().toISOString();
@@ -224,8 +252,20 @@ function buildRanking(caseId: string): RankingResult {
         candidateId: "neo-top",
         rank: 1,
         compositeScore: 0.92,
-        featureWeights: { bindingAffinity: 0.3, expression: 0.25, clonality: 0.2, manufacturability: 0.15, tolerance: 0.1 },
-        featureScores: { bindingAffinity: 0.95, expression: 0.88, clonality: 0.9, manufacturability: 0.85, tolerance: 0.8 },
+        featureWeights: {
+          bindingAffinity: 0.3,
+          expression: 0.25,
+          clonality: 0.2,
+          manufacturability: 0.15,
+          tolerance: 0.1,
+        },
+        featureScores: {
+          bindingAffinity: 0.95,
+          expression: 0.88,
+          clonality: 0.9,
+          manufacturability: 0.85,
+          tolerance: 0.8,
+        },
         uncertaintyContribution: 0.03,
         explanation: "Strong binding affinity at 5nM; high expression support",
       },
@@ -233,8 +273,20 @@ function buildRanking(caseId: string): RankingResult {
         candidateId: "neo-second",
         rank: 2,
         compositeScore: 0.74,
-        featureWeights: { bindingAffinity: 0.3, expression: 0.25, clonality: 0.2, manufacturability: 0.15, tolerance: 0.1 },
-        featureScores: { bindingAffinity: 0.7, expression: 0.65, clonality: 0.8, manufacturability: 0.75, tolerance: 0.85 },
+        featureWeights: {
+          bindingAffinity: 0.3,
+          expression: 0.25,
+          clonality: 0.2,
+          manufacturability: 0.15,
+          tolerance: 0.1,
+        },
+        featureScores: {
+          bindingAffinity: 0.7,
+          expression: 0.65,
+          clonality: 0.8,
+          manufacturability: 0.75,
+          tolerance: 0.85,
+        },
         uncertaintyContribution: 0.08,
         explanation: "Moderate binding; moderate expression",
       },
@@ -246,22 +298,42 @@ function buildRanking(caseId: string): RankingResult {
 }
 
 async function createReviewReadyCaseForRanking(app: ReturnType<typeof createApp>): Promise<string> {
-  const createRes = await request(app).post("/api/cases").send({
-    caseProfile: {
-      patientKey: "PAT-RANK-001",
-      indication: "melanoma",
-      siteId: "SITE-A",
-      protocolVersion: "1.0",
-      consentStatus: "complete",
-      boardRoute: "solid-tumor-board",
-    },
-  });
+  const createRes = await request(app)
+    .post("/api/cases")
+    .send({
+      caseProfile: {
+        patientKey: "PAT-RANK-001",
+        indication: "melanoma",
+        siteId: "SITE-A",
+        protocolVersion: "1.0",
+        consentStatus: "complete",
+        boardRoute: "solid-tumor-board",
+      },
+    });
   const caseId = String(createRes.body.case.caseId);
 
   const samples = [
-    { sampleId: "tumor-dna-rank", sampleType: "TUMOR_DNA", assayType: "WES", accessionId: "acc-tumor-dna", sourceSite: "SITE-A" },
-    { sampleId: "normal-dna-rank", sampleType: "NORMAL_DNA", assayType: "WES", accessionId: "acc-normal-dna", sourceSite: "SITE-A" },
-    { sampleId: "tumor-rna-rank", sampleType: "TUMOR_RNA", assayType: "RNA_SEQ", accessionId: "acc-tumor-rna", sourceSite: "SITE-A" },
+    {
+      sampleId: "tumor-dna-rank",
+      sampleType: "TUMOR_DNA",
+      assayType: "WES",
+      accessionId: "acc-tumor-dna",
+      sourceSite: "SITE-A",
+    },
+    {
+      sampleId: "normal-dna-rank",
+      sampleType: "NORMAL_DNA",
+      assayType: "WES",
+      accessionId: "acc-normal-dna",
+      sourceSite: "SITE-A",
+    },
+    {
+      sampleId: "tumor-rna-rank",
+      sampleType: "TUMOR_RNA",
+      assayType: "RNA_SEQ",
+      accessionId: "acc-tumor-rna",
+      sourceSite: "SITE-A",
+    },
   ];
   for (const sample of samples) {
     await request(app).post(`/api/cases/${caseId}/samples`).send(sample);
@@ -273,13 +345,15 @@ async function createReviewReadyCaseForRanking(app: ReturnType<typeof createApp>
     TUMOR_RNA: "tumor-rna-fastq",
   };
   for (const sample of samples) {
-    await request(app).post(`/api/cases/${caseId}/artifacts`).send({
-      sampleId: sample.sampleId,
-      semanticType: semanticTypeBySampleType[sample.sampleType] ?? "tumor-dna-fastq",
-      schemaVersion: 1,
-      artifactHash: `sha256:${sample.sampleId}`,
-      storageUri: `s3://bucket/${sample.sampleId}.fastq.gz`,
-    });
+    await request(app)
+      .post(`/api/cases/${caseId}/artifacts`)
+      .send({
+        sampleId: sample.sampleId,
+        semanticType: semanticTypeBySampleType[sample.sampleType] ?? "tumor-dna-fastq",
+        schemaVersion: 1,
+        artifactHash: `sha256:${sample.sampleId}`,
+        storageUri: `s3://bucket/${sample.sampleId}.fastq.gz`,
+      });
   }
 
   await request(app).post(`/api/cases/${caseId}/workflows`).send({
@@ -290,20 +364,30 @@ async function createReviewReadyCaseForRanking(app: ReturnType<typeof createApp>
 
   const runId = `run-rank-${Date.now()}`;
   await request(app).post(`/api/cases/${caseId}/runs/${runId}/start`).send({ runId });
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/complete`).send({
-    derivedArtifacts: [
-      { semanticType: "somatic-vcf" as DerivedArtifactSemanticType, artifactHash: "sha256:derived-rank", producingStep: "variant-calling" },
-    ],
-  });
-  await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-    alleles: ["HLA-A*02:01", "HLA-B*07:02"],
-    perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 }],
-    confidenceScore: 0.95,
-    referenceVersion: "IMGT/HLA 3.55.0",
-  });
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({
-    results: [{ metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "Clean" }],
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/complete`)
+    .send({
+      derivedArtifacts: [
+        {
+          semanticType: "somatic-vcf" as DerivedArtifactSemanticType,
+          artifactHash: "sha256:derived-rank",
+          producingStep: "variant-calling",
+        },
+      ],
+    });
+  await request(app)
+    .post(`/api/cases/${caseId}/hla-consensus`)
+    .send({
+      alleles: ["HLA-A*02:01", "HLA-B*07:02"],
+      perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 }],
+      confidenceScore: 0.95,
+      referenceVersion: "IMGT/HLA 3.55.0",
+    });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/qc`)
+    .send({
+      results: [{ metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "Clean" }],
+    });
 
   return caseId;
 }
@@ -311,15 +395,18 @@ async function createReviewReadyCaseForRanking(app: ReturnType<typeof createApp>
 describe("Wave 8.C вЂ” Ranking in board packets", () => {
   it("store records and retrieves neoantigen ranking", async () => {
     const store = new MemoryCaseStore();
-    const caseRec = await store.createCase({
-      caseProfile: {
-        patientKey: "PAT-STORE-001",
-        indication: "melanoma",
-        protocolVersion: "1.0",
-        siteId: "SITE-A",
-        consentStatus: "complete",
+    const caseRec = await store.createCase(
+      {
+        caseProfile: {
+          patientKey: "PAT-STORE-001",
+          indication: "melanoma",
+          protocolVersion: "1.0",
+          siteId: "SITE-A",
+          consentStatus: "complete",
+        },
       },
-    }, "corr-8c-1");
+      "corr-8c-1",
+    );
     const ranking = buildRanking(caseRec.caseId);
     const updated = await store.recordNeoantigenRanking(caseRec.caseId, ranking, "corr-test");
     assert.ok(updated.neoantigenRanking, "ranking should be on record");
@@ -333,15 +420,18 @@ describe("Wave 8.C вЂ” Ranking in board packets", () => {
 
   it("recordNeoantigenRanking appends provenance trail entries", async () => {
     const store = new MemoryCaseStore();
-    const caseRec = await store.createCase({
-      caseProfile: {
-        patientKey: "PAT-STORE-003",
-        indication: "melanoma",
-        protocolVersion: "1.0",
-        siteId: "SITE-C",
-        consentStatus: "complete",
+    const caseRec = await store.createCase(
+      {
+        caseProfile: {
+          patientKey: "PAT-STORE-003",
+          indication: "melanoma",
+          protocolVersion: "1.0",
+          siteId: "SITE-C",
+          consentStatus: "complete",
+        },
       },
-    }, "corr-8c-3");
+      "corr-8c-3",
+    );
 
     const ranking = buildRanking(caseRec.caseId);
     const updated = await store.recordNeoantigenRanking(caseRec.caseId, ranking, "corr-rank-provenance");
@@ -360,22 +450,30 @@ describe("Wave 8.C вЂ” Ranking in board packets", () => {
 
   it("getNeoantigenRanking returns null when no ranking recorded", async () => {
     const store = new MemoryCaseStore();
-    const caseRec = await store.createCase({
-      caseProfile: {
-        patientKey: "PAT-STORE-002",
-        indication: "lung",
-        protocolVersion: "1.0",
-        siteId: "SITE-B",
-        consentStatus: "complete",
+    const caseRec = await store.createCase(
+      {
+        caseProfile: {
+          patientKey: "PAT-STORE-002",
+          indication: "lung",
+          protocolVersion: "1.0",
+          siteId: "SITE-B",
+          consentStatus: "complete",
+        },
       },
-    }, "corr-8c-2");
+      "corr-8c-2",
+    );
     const result = await store.getNeoantigenRanking(caseRec.caseId);
     assert.equal(result, null);
   });
 
   it("board packet includes ranking when present", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({
+      store,
+      workflowRunner: new FakeWorkflowRunner(),
+      rbacAllowAll: true,
+      consentGateEnabled: false,
+    });
     const caseId = await createReviewReadyCaseForRanking(app);
 
     // Record ranking directly on the store
@@ -395,12 +493,19 @@ describe("Wave 8.C вЂ” Ranking in board packets", () => {
     assert.equal(snapshot.neoantigenRanking.rankedCandidates.length, 2);
     assert.equal(snapshot.neoantigenRanking.rankedCandidates[0].candidateId, "neo-top");
     assert.equal(snapshot.neoantigenRanking.ensembleMethod, "weighted-sum");
-    assert.ok(snapshot.neoantigenRanking.confidenceInterval.lower < snapshot.neoantigenRanking.confidenceInterval.upper);
+    assert.ok(
+      snapshot.neoantigenRanking.confidenceInterval.lower < snapshot.neoantigenRanking.confidenceInterval.upper,
+    );
   });
 
   it("board packet omits ranking when not recorded", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({
+      store,
+      workflowRunner: new FakeWorkflowRunner(),
+      rbacAllowAll: true,
+      consentGateEnabled: false,
+    });
     const caseId = await createReviewReadyCaseForRanking(app);
 
     // Generate board packet WITHOUT ranking
@@ -416,7 +521,12 @@ describe("Wave 8.C вЂ” Ranking in board packets", () => {
 
   it("ranking evidence decomposition shows per-candidate feature scores", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({
+      store,
+      workflowRunner: new FakeWorkflowRunner(),
+      rbacAllowAll: true,
+      consentGateEnabled: false,
+    });
     const caseId = await createReviewReadyCaseForRanking(app);
 
     const ranking = buildRanking(caseId);

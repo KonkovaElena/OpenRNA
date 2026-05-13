@@ -1,7 +1,7 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import test from "node:test";
 import {
   getFullTraceabilityForCase,
   getOutcomeTimelineForCase,
@@ -21,9 +21,9 @@ test("store delegates outcomes flows through a dedicated outcomes module", () =>
   assert.equal(typeof getOutcomeTimelineForCase, "function");
   assert.equal(typeof getFullTraceabilityForCase, "function");
 
-  const storeSource = readRepoFile("src", "store.ts");
+  const storeSource = readRepoFile("src", "adapters", "MemoryCaseStore.ts");
 
-  assert.match(storeSource, /from\s+"\.\/store-outcomes"/);
+  assert.match(storeSource, /from\s+"\.\.\/store-outcomes"/);
   assert.match(storeSource, /return\s+recordAdministrationForCase\(/);
   assert.match(storeSource, /return\s+recordImmuneMonitoringForCase\(/);
   assert.match(storeSource, /return\s+recordClinicalFollowUpForCase\(/);

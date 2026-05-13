@@ -1,10 +1,4 @@
-import type {
-  CasePermission,
-  IRbacProvider,
-  PermissionCheckResult,
-  RbacAction,
-  Role,
-} from "../ports/IRbacProvider";
+import type { CasePermission, IRbacProvider, PermissionCheckResult, RbacAction, Role } from "../ports/IRbacProvider";
 
 /**
  * Default role → permission mapping.
@@ -12,35 +6,29 @@ import type {
  * REVIEWER can view cases and approve reviews.
  * OPERATOR can create cases, register samples, request workflows, and view cases.
  */
-const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<Role, readonly RbacAction[]>> =
-  {
-    SYSTEM: [
-      "CREATE_CASE",
-      "REGISTER_SAMPLE",
-      "REQUEST_WORKFLOW",
-      "APPROVE_REVIEW",
-      "RELEASE_CASE",
-      "VIEW_CASE",
-      "ADMIN_OPERATIONS",
-    ],
-    ADMIN: [
-      "CREATE_CASE",
-      "REGISTER_SAMPLE",
-      "REQUEST_WORKFLOW",
-      "APPROVE_REVIEW",
-      "RELEASE_CASE",
-      "VIEW_CASE",
-      "ADMIN_OPERATIONS",
-    ],
-    REVIEWER: ["VIEW_CASE", "APPROVE_REVIEW"],
-    QUALITY_PERSON: ["VIEW_CASE", "RELEASE_CASE"],
-    OPERATOR: [
-      "CREATE_CASE",
-      "REGISTER_SAMPLE",
-      "REQUEST_WORKFLOW",
-      "VIEW_CASE",
-    ],
-  };
+const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<Role, readonly RbacAction[]>> = {
+  SYSTEM: [
+    "CREATE_CASE",
+    "REGISTER_SAMPLE",
+    "REQUEST_WORKFLOW",
+    "APPROVE_REVIEW",
+    "RELEASE_CASE",
+    "VIEW_CASE",
+    "ADMIN_OPERATIONS",
+  ],
+  ADMIN: [
+    "CREATE_CASE",
+    "REGISTER_SAMPLE",
+    "REQUEST_WORKFLOW",
+    "APPROVE_REVIEW",
+    "RELEASE_CASE",
+    "VIEW_CASE",
+    "ADMIN_OPERATIONS",
+  ],
+  REVIEWER: ["VIEW_CASE", "APPROVE_REVIEW"],
+  QUALITY_PERSON: ["VIEW_CASE", "RELEASE_CASE"],
+  OPERATOR: ["CREATE_CASE", "REGISTER_SAMPLE", "REQUEST_WORKFLOW", "VIEW_CASE"],
+};
 
 export interface RbacProviderOptions {
   /** When true, all permission checks return allowed (backward-compatible default). */
@@ -50,10 +38,7 @@ export interface RbacProviderOptions {
 
 export class InMemoryRbacProvider implements IRbacProvider {
   private readonly principalRoles = new Map<string, Set<Role>>();
-  private readonly casePermissionsByCaseId = new Map<
-    string,
-    Map<string, Set<CasePermission>>
-  >();
+  private readonly casePermissionsByCaseId = new Map<string, Map<string, Set<CasePermission>>>();
   private readonly allowAll: boolean;
   private readonly rolePermissions: Record<Role, readonly RbacAction[]>;
 
@@ -64,11 +49,7 @@ export class InMemoryRbacProvider implements IRbacProvider {
     };
   }
 
-  async checkPermission(
-    principal: string,
-    action: RbacAction,
-    _resource?: string,
-  ): Promise<PermissionCheckResult> {
+  async checkPermission(principal: string, action: RbacAction, _resource?: string): Promise<PermissionCheckResult> {
     if (this.allowAll) {
       return { allowed: true };
     }
@@ -94,11 +75,7 @@ export class InMemoryRbacProvider implements IRbacProvider {
     };
   }
 
-  async canAccessCase(
-    principalId: string,
-    caseId: string,
-    requiredPermission: CasePermission,
-  ): Promise<boolean> {
+  async canAccessCase(principalId: string, caseId: string, requiredPermission: CasePermission): Promise<boolean> {
     if (this.allowAll) {
       return true;
     }
@@ -108,9 +85,7 @@ export class InMemoryRbacProvider implements IRbacProvider {
       return true;
     }
 
-    const principalCasePermissions = this.casePermissionsByCaseId
-      .get(caseId)
-      ?.get(principalId);
+    const principalCasePermissions = this.casePermissionsByCaseId.get(caseId)?.get(principalId);
 
     return Boolean(principalCasePermissions?.has(requiredPermission));
   }
@@ -137,19 +112,10 @@ export class InMemoryRbacProvider implements IRbacProvider {
   }
 
   async setCaseOwner(caseId: string, principalId: string): Promise<void> {
-    await this.grantCaseAccess(caseId, principalId, [
-      "VIEW_CASE",
-      "MUTATE_CASE",
-      "REVIEW_CASE",
-      "RELEASE_CASE",
-    ]);
+    await this.grantCaseAccess(caseId, principalId, ["VIEW_CASE", "MUTATE_CASE", "REVIEW_CASE", "RELEASE_CASE"]);
   }
 
-  async grantCaseAccess(
-    caseId: string,
-    principalId: string,
-    permissions: readonly CasePermission[],
-  ): Promise<void> {
+  async grantCaseAccess(caseId: string, principalId: string, permissions: readonly CasePermission[]): Promise<void> {
     let casePermissions = this.casePermissionsByCaseId.get(caseId);
     if (!casePermissions) {
       casePermissions = new Map();

@@ -1,18 +1,18 @@
-import type { AppConfig } from "../config";
-import { MemoryCaseStore } from "../store";
+import { InMemoryCaseAccessStore } from "../adapters/InMemoryCaseAccessStore";
+import { InMemoryConsentTracker } from "../adapters/InMemoryConsentTracker";
+import { InMemoryStateMachineGuard } from "../adapters/InMemoryStateMachineGuard";
 import { InMemoryWorkflowDispatchSink } from "../adapters/InMemoryWorkflowDispatchSink";
 import { InMemoryWorkflowRunner } from "../adapters/InMemoryWorkflowRunner";
+import { PostgresCaseAccessStore } from "../adapters/PostgresCaseAccessStore";
 import { PostgresCaseStore } from "../adapters/PostgresCaseStore";
+import { PostgresConsentTracker } from "../adapters/PostgresConsentTracker";
 import { PostgresWorkflowDispatchSink } from "../adapters/PostgresWorkflowDispatchSink";
 import { PostgresWorkflowRunner } from "../adapters/PostgresWorkflowRunner";
-import { InMemoryStateMachineGuard } from "../adapters/InMemoryStateMachineGuard";
-import { InMemoryConsentTracker } from "../adapters/InMemoryConsentTracker";
-import { PostgresConsentTracker } from "../adapters/PostgresConsentTracker";
-import { InMemoryCaseAccessStore } from "../adapters/InMemoryCaseAccessStore";
-import { PostgresCaseAccessStore } from "../adapters/PostgresCaseAccessStore";
+import type { AppConfig } from "../config";
 import { createPostgresPool } from "../infrastructure/postgres/createPostgresPool";
-import type { IConsentTracker } from "../ports/IConsentTracker";
 import type { ICaseAccessStore } from "../ports/ICaseAccessStore";
+import type { IConsentTracker } from "../ports/IConsentTracker";
+import { MemoryCaseStore } from "../store";
 
 export interface WorkflowDispatchRuntimeDependency {
   sink: InMemoryWorkflowDispatchSink | PostgresWorkflowDispatchSink;
@@ -27,9 +27,7 @@ export interface DurableRuntimeDependencies {
   shutdown: () => Promise<void>;
 }
 
-export async function createWorkflowDispatchDependency(
-  config: AppConfig,
-): Promise<WorkflowDispatchRuntimeDependency> {
+export async function createWorkflowDispatchDependency(config: AppConfig): Promise<WorkflowDispatchRuntimeDependency> {
   const connectionString = config.workflowDispatchDatabaseUrl;
   if (!connectionString) {
     return {

@@ -1,12 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { ApiError } from "./errors";
 import type { AuditContextInput } from "./store-helpers";
-import {
-  auditEvent,
-  normalizeTraceabilityError,
-  sortOutcomeTimeline,
-  timelineEvent,
-} from "./store-helpers";
+import { auditEvent, normalizeTraceabilityError, sortOutcomeTimeline, timelineEvent } from "./store-helpers";
 import { buildFullTraceability } from "./traceability";
 import type {
   AdministrationRecord,

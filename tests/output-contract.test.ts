@@ -1,11 +1,11 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { derivedArtifactSemanticTypes, wellKnownQcMetrics } from "../src/types";
 import {
-  parseEvaluateQcGateInput,
   parseCompleteWorkflowRunInput,
+  parseEvaluateQcGateInput,
   parseWorkflowOutputManifest,
 } from "../src/validation";
-import { derivedArtifactSemanticTypes, wellKnownQcMetrics } from "../src/types";
 
 // ─── 5.A: Expanded Derived Artifact Types ──────────────────────────
 
@@ -13,9 +13,15 @@ describe("5.A — Expanded Derived Artifact Semantic Types", () => {
   it("accepts all 10 declared derived artifact types", () => {
     assert.equal(derivedArtifactSemanticTypes.length, 10);
     const expected = [
-      "somatic-vcf", "filtered-maf", "hla-calls",
-      "alignment-bam", "annotated-vcf", "expression-matrix",
-      "hla-calls-raw", "qc-summary-json", "run-manifest-artifact",
+      "somatic-vcf",
+      "filtered-maf",
+      "hla-calls",
+      "alignment-bam",
+      "annotated-vcf",
+      "expression-matrix",
+      "hla-calls-raw",
+      "qc-summary-json",
+      "run-manifest-artifact",
       "board-evidence-bundle",
     ];
     assert.deepStrictEqual([...derivedArtifactSemanticTypes], expected);
@@ -24,9 +30,7 @@ describe("5.A — Expanded Derived Artifact Semantic Types", () => {
   for (const semType of ["alignment-bam", "annotated-vcf", "expression-matrix", "qc-summary-json"] as const) {
     it(`completeRun accepts new type '${semType}'`, () => {
       const input = parseCompleteWorkflowRunInput({
-        derivedArtifacts: [
-          { semanticType: semType, artifactHash: "sha256:abc", producingStep: "step1" },
-        ],
+        derivedArtifacts: [{ semanticType: semType, artifactHash: "sha256:abc", producingStep: "step1" }],
       });
       assert.ok(input.derivedArtifacts);
       assert.equal(input.derivedArtifacts[0].semanticType, semType);
@@ -35,11 +39,10 @@ describe("5.A — Expanded Derived Artifact Semantic Types", () => {
 
   it("rejects unknown derived artifact type", () => {
     assert.throws(
-      () => parseCompleteWorkflowRunInput({
-        derivedArtifacts: [
-          { semanticType: "unknown-type", artifactHash: "sha256:abc", producingStep: "s" },
-        ],
-      }),
+      () =>
+        parseCompleteWorkflowRunInput({
+          derivedArtifacts: [{ semanticType: "unknown-type", artifactHash: "sha256:abc", producingStep: "s" }],
+        }),
       (err: any) => err.message.includes("Unsupported derived artifact semantic type"),
     );
   });
@@ -61,20 +64,17 @@ describe("5.B — QC Evidence Contract", () => {
 
   it("accepts QC result with valid metricCategory", () => {
     const input = parseEvaluateQcGateInput({
-      results: [
-        { metric: "cov", metricCategory: "callable_region_coverage", value: 30, threshold: 20, pass: true },
-      ],
+      results: [{ metric: "cov", metricCategory: "callable_region_coverage", value: 30, threshold: 20, pass: true }],
     });
     assert.equal(input.results[0].metricCategory, "callable_region_coverage");
   });
 
   it("rejects QC result with unknown metricCategory", () => {
     assert.throws(
-      () => parseEvaluateQcGateInput({
-        results: [
-          { metric: "cov", metricCategory: "unknown_metric", value: 30, threshold: 20, pass: true },
-        ],
-      }),
+      () =>
+        parseEvaluateQcGateInput({
+          results: [{ metric: "cov", metricCategory: "unknown_metric", value: 30, threshold: 20, pass: true }],
+        }),
       (err: any) => err.message.includes("metricCategory must be a known QC metric"),
     );
   });
@@ -110,9 +110,7 @@ function validManifest(): Record<string, unknown> {
     ],
     qcSummary: {
       outcome: "PASSED",
-      results: [
-        { metric: "cov", value: 30, threshold: 20, pass: true },
-      ],
+      results: [{ metric: "cov", value: 30, threshold: 20, pass: true }],
       evaluatedAt: "2026-03-27T12:00:05Z",
     },
     inputManifestReference: {

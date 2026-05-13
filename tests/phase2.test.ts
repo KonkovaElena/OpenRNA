@@ -1,10 +1,10 @@
-﻿import test from "node:test";
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
+import test from "node:test";
 import request from "supertest";
-import { createApp } from "../src/app";
-import { MemoryCaseStore } from "../src/store";
 import { InMemoryReferenceBundleRegistry } from "../src/adapters/InMemoryReferenceBundleRegistry";
+import { createApp } from "../src/app";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
+import { MemoryCaseStore } from "../src/store";
 import type { DerivedArtifactSemanticType, WorkflowRunRecord } from "../src/types";
 
 // в”Ђв”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
@@ -57,11 +57,7 @@ function buildSourceArtifact(sample: { sampleId: string; sampleType: string }) {
 }
 
 function buildRequiredSampleInputs() {
-  return [
-    buildSample("TUMOR_DNA", "WES"),
-    buildSample("NORMAL_DNA", "WES"),
-    buildSample("TUMOR_RNA", "RNA_SEQ"),
-  ];
+  return [buildSample("TUMOR_DNA", "WES"), buildSample("NORMAL_DNA", "WES"), buildSample("TUMOR_RNA", "RNA_SEQ")];
 }
 
 async function registerWorkflowReadyInputs(app: ReturnType<typeof createApp>, caseId: string) {
@@ -73,9 +69,7 @@ async function registerWorkflowReadyInputs(app: ReturnType<typeof createApp>, ca
   }
 
   for (const sample of samples) {
-    const artifactRes = await request(app)
-      .post(`/api/cases/${caseId}/artifacts`)
-      .send(buildSourceArtifact(sample));
+    const artifactRes = await request(app).post(`/api/cases/${caseId}/artifacts`).send(buildSourceArtifact(sample));
     assert.equal(artifactRes.status, 200);
   }
 }
@@ -102,9 +96,7 @@ async function createCaseWithRunningWorkflow(app: ReturnType<typeof createApp>) 
   const caseId = await createCaseAtWorkflowRequested(app);
   const runId = "run-001";
 
-  const startRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/start`)
-    .send({});
+  const startRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/start`).send({});
   assert.equal(startRes.status, 200);
   return { caseId, runId };
 }
@@ -116,9 +108,7 @@ async function createCaseWithCompletedWorkflow(app: ReturnType<typeof createApp>
   const completeRes = await request(app)
     .post(`/api/cases/${caseId}/runs/${runId}/complete`)
     .send({
-      derivedArtifacts: [
-        { semanticType: "somatic-vcf", artifactHash: "sha256:abc123", producingStep: "mutect2" },
-      ],
+      derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:abc123", producingStep: "mutect2" }],
     });
   assert.equal(completeRes.status, 200);
   return { caseId, runId };
@@ -143,23 +133,23 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>, caseOver
   await request(app)
     .post(`/api/cases/${caseId}/runs/${runId}/complete`)
     .send({
-      derivedArtifacts: [
-        { semanticType: "somatic-vcf", artifactHash: "sha256:review-vcf", producingStep: "mutect2" },
-      ],
+      derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:review-vcf", producingStep: "mutect2" }],
     });
 
-  await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-    alleles: ["HLA-A*02:01", "HLA-B*07:02"],
-    perToolEvidence: [
-      { toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.98 },
-    ],
-    confidenceScore: 0.98,
-    referenceVersion: "IMGT/HLA 3.55.0",
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/hla-consensus`)
+    .send({
+      alleles: ["HLA-A*02:01", "HLA-B*07:02"],
+      perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.98 }],
+      confidenceScore: 0.98,
+      referenceVersion: "IMGT/HLA 3.55.0",
+    });
 
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({
-    results: [{ metric: "tumor_purity", value: 0.55, threshold: 0.20, pass: true }],
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/qc`)
+    .send({
+      results: [{ metric: "tumor_purity", value: 0.55, threshold: 0.2, pass: true }],
+    });
 
   return { caseId, runId };
 }
@@ -220,9 +210,7 @@ class RecordingWorkflowRunner implements IWorkflowRunner {
   }
 
   async listRunsByCaseId(caseId: string): Promise<WorkflowRunRecord[]> {
-    return [...this.runs.values()]
-      .filter((run) => run.caseId === caseId)
-      .map((run) => structuredClone(run));
+    return [...this.runs.values()].filter((run) => run.caseId === caseId).map((run) => structuredClone(run));
   }
 
   async completeRun(
@@ -253,7 +241,11 @@ class RecordingWorkflowRunner implements IWorkflowRunner {
     return structuredClone(completedRun);
   }
 
-  async failRun(runId: string, reason: string, failureCategory?: import("../src/types").WorkflowFailureCategory): Promise<WorkflowRunRecord> {
+  async failRun(
+    runId: string,
+    reason: string,
+    failureCategory?: import("../src/types").WorkflowFailureCategory,
+  ): Promise<WorkflowRunRecord> {
     const run = await this.getRun(runId);
     const failedRun: WorkflowRunRecord = {
       ...run,
@@ -276,12 +268,10 @@ class RecordingWorkflowRunner implements IWorkflowRunner {
 
 test("starting a workflow run delegates to the configured workflow runner and preserves the route runId", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
+  const app = createApp({ workflowRunner, rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
 
-  const startRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/run-seam-001/start`)
-    .send({});
+  const startRes = await request(app).post(`/api/cases/${caseId}/runs/run-seam-001/start`).send({});
 
   assert.equal(startRes.status, 200);
   assert.equal(workflowRunner.startRequests.length, 1);
@@ -295,20 +285,16 @@ test("starting a workflow run delegates to the configured workflow runner and pr
 
 test("completing a workflow run uses the configured workflow runner terminal metadata", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
+  const app = createApp({ workflowRunner, rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
 
-  const startRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/run-seam-002/start`)
-    .send({});
+  const startRes = await request(app).post(`/api/cases/${caseId}/runs/run-seam-002/start`).send({});
   assert.equal(startRes.status, 200);
 
   const completeRes = await request(app)
     .post(`/api/cases/${caseId}/runs/run-seam-002/complete`)
     .send({
-      derivedArtifacts: [
-        { semanticType: "somatic-vcf", artifactHash: "sha256:runner-vcf", producingStep: "mutect2" },
-      ],
+      derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:runner-vcf", producingStep: "mutect2" }],
     });
 
   assert.equal(completeRes.status, 200);
@@ -322,23 +308,16 @@ test("replaying workflow start for the same runId is idempotent and does not dup
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
 
-  const firstStartRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/run-replay-start-001/start`)
-    .send({});
+  const firstStartRes = await request(app).post(`/api/cases/${caseId}/runs/run-replay-start-001/start`).send({});
 
   assert.equal(firstStartRes.status, 200);
 
-  const secondStartRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/run-replay-start-001/start`)
-    .send({});
+  const secondStartRes = await request(app).post(`/api/cases/${caseId}/runs/run-replay-start-001/start`).send({});
 
   assert.equal(secondStartRes.status, 200);
   assert.equal(secondStartRes.body.case.workflowRuns.length, 1);
   assert.equal(secondStartRes.body.case.workflowRuns[0].runId, "run-replay-start-001");
-  assert.equal(
-    secondStartRes.body.case.workflowRuns[0].startedAt,
-    firstStartRes.body.case.workflowRuns[0].startedAt,
-  );
+  assert.equal(secondStartRes.body.case.workflowRuns[0].startedAt, firstStartRes.body.case.workflowRuns[0].startedAt);
   assert.equal(
     secondStartRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "workflow.started").length,
     1,
@@ -375,11 +354,13 @@ test("replaying workflow completion does not duplicate derived artifacts or term
     firstCompleteRes.body.case.workflowRuns[0].completedAt,
   );
   assert.equal(
-    secondCompleteRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "workflow.completed").length,
+    secondCompleteRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "workflow.completed")
+      .length,
     1,
   );
   assert.equal(
-    secondCompleteRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "artifact.derived").length,
+    secondCompleteRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "artifact.derived")
+      .length,
     1,
   );
 });
@@ -388,15 +369,11 @@ test("replaying workflow cancellation does not duplicate terminal history", asyn
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
-  const firstCancelRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/cancel`)
-    .send({});
+  const firstCancelRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/cancel`).send({});
 
   assert.equal(firstCancelRes.status, 200);
 
-  const secondCancelRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/cancel`)
-    .send({});
+  const secondCancelRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/cancel`).send({});
 
   assert.equal(secondCancelRes.status, 200);
   assert.equal(secondCancelRes.body.case.workflowRuns.length, 1);
@@ -406,7 +383,8 @@ test("replaying workflow cancellation does not duplicate terminal history", asyn
     firstCancelRes.body.case.workflowRuns[0].completedAt,
   );
   assert.equal(
-    secondCancelRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "workflow.cancelled").length,
+    secondCancelRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "workflow.cancelled")
+      .length,
     1,
   );
 });
@@ -429,10 +407,7 @@ test("replaying workflow failure does not duplicate terminal history", async () 
   assert.equal(secondFailRes.body.case.workflowRuns.length, 1);
   assert.equal(secondFailRes.body.case.workflowRuns[0].status, "FAILED");
   assert.equal(secondFailRes.body.case.workflowRuns[0].failureReason, "executor lost node");
-  assert.equal(
-    secondFailRes.body.case.workflowRuns[0].completedAt,
-    firstFailRes.body.case.workflowRuns[0].completedAt,
-  );
+  assert.equal(secondFailRes.body.case.workflowRuns[0].completedAt, firstFailRes.body.case.workflowRuns[0].completedAt);
   assert.equal(
     secondFailRes.body.case.auditEvents.filter((event: { type: string }) => event.type === "workflow.failed").length,
     1,
@@ -443,9 +418,7 @@ test("starting a workflow run advances the case from WORKFLOW_REQUESTED to WORKF
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
 
-  const startRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/run-001/start`)
-    .send({});
+  const startRes = await request(app).post(`/api/cases/${caseId}/runs/run-001/start`).send({});
 
   assert.equal(startRes.status, 200);
   assert.equal(startRes.body.case.status, "WORKFLOW_RUNNING");
@@ -481,22 +454,18 @@ test("completing a workflow run reuses one terminal timestamp across run, timeli
   const clock = {
     nowIso: () => new Date(Date.UTC(2026, 0, 1, 0, 0, tick++)).toISOString(),
   };
-  const app = createApp({ store: new MemoryCaseStore(clock) , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ store: new MemoryCaseStore(clock), rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
   const completeRes = await request(app)
     .post(`/api/cases/${caseId}/runs/${runId}/complete`)
     .send({
-      derivedArtifacts: [
-        { semanticType: "somatic-vcf", artifactHash: "sha256:vcf001", producingStep: "mutect2" },
-      ],
+      derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:vcf001", producingStep: "mutect2" }],
     });
 
   assert.equal(completeRes.status, 200);
 
-  const completedRun = completeRes.body.case.workflowRuns.find(
-    (run: { runId: string }) => run.runId === runId,
-  );
+  const completedRun = completeRes.body.case.workflowRuns.find((run: { runId: string }) => run.runId === runId);
   const completedTimelineEvent = completeRes.body.case.timeline.find(
     (event: { type: string }) => event.type === "workflow_completed",
   );
@@ -522,9 +491,7 @@ test("failing a workflow run produces WORKFLOW_FAILED status and records the rea
 
   assert.equal(failRes.status, 200);
   assert.equal(failRes.body.case.status, "WORKFLOW_FAILED");
-  const failedRun = failRes.body.case.workflowRuns.find(
-    (r: { runId: string }) => r.runId === runId,
-  );
+  const failedRun = failRes.body.case.workflowRuns.find((r: { runId: string }) => r.runId === runId);
   assert.equal(failedRun.status, "FAILED");
   assert.equal(failedRun.failureReason, "OutOfMemoryError in alignment step");
 });
@@ -533,16 +500,12 @@ test("cancelling a workflow run produces WORKFLOW_CANCELLED status and records t
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
-  const cancelRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/cancel`)
-    .send({});
+  const cancelRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/cancel`).send({});
 
   assert.equal(cancelRes.status, 200);
   assert.equal(cancelRes.body.case.status, "WORKFLOW_CANCELLED");
 
-  const cancelledRun = cancelRes.body.case.workflowRuns.find(
-    (r: { runId: string }) => r.runId === runId,
-  );
+  const cancelledRun = cancelRes.body.case.workflowRuns.find((r: { runId: string }) => r.runId === runId);
   assert.equal(cancelledRun.status, "CANCELLED");
   assert.ok(cancelledRun.completedAt, "completedAt should be set on cancellation");
 
@@ -570,9 +533,7 @@ test("starting a run on a case that is not WORKFLOW_REQUESTED returns 409", asyn
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
-  const startRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/run-001/start`)
-    .send({});
+  const startRes = await request(app).post(`/api/cases/${caseId}/runs/run-001/start`).send({});
 
   assert.equal(startRes.status, 409);
   assert.equal(startRes.body.code, "invalid_transition");
@@ -641,9 +602,7 @@ test("cancelling a completed run returns 409", async () => {
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
-  const cancelRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/cancel`)
-    .send({});
+  const cancelRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/cancel`).send({});
 
   assert.equal(cancelRes.status, 409);
   assert.equal(cancelRes.body.code, "invalid_transition");
@@ -692,12 +651,14 @@ test("retrieving HLA consensus for an existing case returns the stored record", 
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
-  await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-    alleles: ["HLA-A*02:01"],
-    perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01"], confidence: 0.99 }],
-    confidenceScore: 0.99,
-    referenceVersion: "IMGT/HLA 3.55.0",
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/hla-consensus`)
+    .send({
+      alleles: ["HLA-A*02:01"],
+      perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01"], confidence: 0.99 }],
+      confidenceScore: 0.99,
+      referenceVersion: "IMGT/HLA 3.55.0",
+    });
 
   const getRes = await request(app).get(`/api/cases/${caseId}/hla-consensus`);
   assert.equal(getRes.status, 200);
@@ -719,9 +680,7 @@ test("HLA consensus with invalid input returns 400", async () => {
   const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createRes.body.case.caseId);
 
-  const badRes = await request(app)
-    .post(`/api/cases/${caseId}/hla-consensus`)
-    .send({ alleles: [] });
+  const badRes = await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({ alleles: [] });
 
   assert.equal(badRes.status, 400);
   assert.equal(badRes.body.code, "invalid_input");
@@ -739,7 +698,7 @@ test("evaluating QC on a completed run records the gate and transitions case to 
       results: [
         { metric: "contamination_fraction", value: 0.002, threshold: 0.05, pass: true },
         { metric: "mean_coverage", value: 85.3, threshold: 30.0, pass: true },
-        { metric: "tumor_purity", value: 0.62, threshold: 0.20, pass: true },
+        { metric: "tumor_purity", value: 0.62, threshold: 0.2, pass: true },
       ],
     });
 
@@ -780,7 +739,7 @@ test("evaluating QC with passing metrics and non-warning notes keeps the case PA
     .send({
       results: [
         { metric: "contamination_fraction", value: 0.002, threshold: 0.05, pass: true },
-        { metric: "tumor_purity", value: 0.21, threshold: 0.20, pass: true, notes: "Borderline but acceptable" },
+        { metric: "tumor_purity", value: 0.21, threshold: 0.2, pass: true, notes: "Borderline but acceptable" },
       ],
     });
 
@@ -798,7 +757,7 @@ test("evaluating QC with an explicit warning marker produces WARN without failin
     .send({
       results: [
         { metric: "contamination_fraction", value: 0.002, threshold: 0.05, pass: true },
-        { metric: "tumor_purity", value: 0.21, threshold: 0.20, pass: true, notes: "WARN: borderline but acceptable" },
+        { metric: "tumor_purity", value: 0.21, threshold: 0.2, pass: true, notes: "WARN: borderline but acceptable" },
       ],
     });
 
@@ -811,9 +770,11 @@ test("retrieving QC gate for a specific run returns the recorded result", async 
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({
-    results: [{ metric: "coverage", value: 100, threshold: 30, pass: true }],
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/qc`)
+    .send({
+      results: [{ metric: "coverage", value: 100, threshold: 30, pass: true }],
+    });
 
   const getRes = await request(app).get(`/api/cases/${caseId}/runs/${runId}/qc`);
   assert.equal(getRes.status, 200);
@@ -839,9 +800,7 @@ test("QC gate with no results returns 400", async () => {
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
-  const qcRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/qc`)
-    .send({ results: [] });
+  const qcRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({ results: [] });
 
   assert.equal(qcRes.status, 400);
   assert.equal(qcRes.body.code, "invalid_input");
@@ -905,13 +864,11 @@ test("requesting a workflow with an unknown reference bundle returns 404 and lea
 
 test("starting a workflow run pins the requested reference bundle to the run", async () => {
   const referenceBundleRegistry = new InMemoryReferenceBundleRegistry();
-  const app = createApp({ referenceBundleRegistry , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ referenceBundleRegistry, rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
   const runId = "run-pin-001";
 
-  const startRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/start`)
-    .send({});
+  const startRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/start`).send({});
 
   assert.equal(startRes.status, 200);
   assert.equal(referenceBundleRegistry.getPinnedBundle(runId), "GRCh38-2026a");
@@ -983,19 +940,21 @@ test("HLA consensus + QC in full workflow produces complete provenance chain", a
   const { caseId, runId } = await createCaseWithCompletedWorkflow(app);
 
   // Record HLA consensus
-  await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-    alleles: ["HLA-A*02:01", "HLA-B*07:02"],
-    perToolEvidence: [
-      { toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.98 },
-    ],
-    confidenceScore: 0.98,
-    referenceVersion: "IMGT/HLA 3.55.0",
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/hla-consensus`)
+    .send({
+      alleles: ["HLA-A*02:01", "HLA-B*07:02"],
+      perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.98 }],
+      confidenceScore: 0.98,
+      referenceVersion: "IMGT/HLA 3.55.0",
+    });
 
   // Evaluate QC
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({
-    results: [{ metric: "tumor_purity", value: 0.55, threshold: 0.20, pass: true }],
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/qc`)
+    .send({
+      results: [{ metric: "tumor_purity", value: 0.55, threshold: 0.2, pass: true }],
+    });
 
   // Verify everything is on the case
   const finalCase = await request(app).get(`/api/cases/${caseId}`);
@@ -1120,9 +1079,7 @@ test("board packet snapshot includes the workflow run manifest", async () => {
     configProfile: "hpc-slurm",
     submissionIntent: "production",
     acceptedAt: new Date().toISOString(),
-    inputArtifactSet: [
-      { artifactId: "art-brd-001", semanticType: "fastq-r1", artifactHash: "sha256:brd111" },
-    ],
+    inputArtifactSet: [{ artifactId: "art-brd-001", semanticType: "fastq-r1", artifactHash: "sha256:brd111" }],
     pinnedReferenceBundle: {
       bundleId: "ref-hg38-board",
       genomeAssembly: "GRCh38",
@@ -1131,24 +1088,26 @@ test("board packet snapshot includes the workflow run manifest", async () => {
     sampleSnapshot: { sampleId: "SPL-BRD-001", sampleType: "tumor", assayType: "WES" },
   };
   await request(app).post(`/api/cases/${caseId}/runs/${runId}/start`).send({ manifest });
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/complete`).send({
-    derivedArtifacts: [
-      { semanticType: "somatic-vcf", artifactHash: "sha256:board-vcf", producingStep: "mutect2" },
-    ],
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/complete`)
+    .send({
+      derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:board-vcf", producingStep: "mutect2" }],
+    });
 
-  await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-    alleles: ["HLA-A*02:01", "HLA-B*07:02"],
-    perToolEvidence: [
-      { toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.98 },
-    ],
-    confidenceScore: 0.98,
-    referenceVersion: "IMGT/HLA 3.55.0",
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/hla-consensus`)
+    .send({
+      alleles: ["HLA-A*02:01", "HLA-B*07:02"],
+      perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.98 }],
+      confidenceScore: 0.98,
+      referenceVersion: "IMGT/HLA 3.55.0",
+    });
 
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({
-    results: [{ metric: "tumor_purity", value: 0.55, threshold: 0.20, pass: true }],
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/qc`)
+    .send({
+      results: [{ metric: "tumor_purity", value: 0.55, threshold: 0.2, pass: true }],
+    });
 
   const packetRes = await request(app)
     .post(`/api/cases/${caseId}/board-packets`)
@@ -1167,9 +1126,7 @@ test("board packet snapshot includes the workflow run manifest", async () => {
 test("workflow operations on a non-existent case return 404", async () => {
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
-  const startRes = await request(app)
-    .post("/api/cases/nonexistent/runs/run-001/start")
-    .send({});
+  const startRes = await request(app).post("/api/cases/nonexistent/runs/run-001/start").send({});
   assert.equal(startRes.status, 404);
 
   const listRes = await request(app).get("/api/cases/nonexistent/runs");
@@ -1180,9 +1137,7 @@ test("fail workflow run input validation rejects missing reason", async () => {
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
-  const failRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/fail`)
-    .send({});
+  const failRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/fail`).send({});
 
   assert.equal(failRes.status, 400);
   assert.equal(failRes.body.code, "invalid_input");
@@ -1192,9 +1147,7 @@ test("complete workflow run with empty body still succeeds (no derived artifacts
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const { caseId, runId } = await createCaseWithRunningWorkflow(app);
 
-  const completeRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/complete`)
-    .send({});
+  const completeRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/complete`).send({});
 
   assert.equal(completeRes.status, 200);
   assert.equal(completeRes.body.case.status, "WORKFLOW_COMPLETED");
@@ -1244,9 +1197,7 @@ test("starting a workflow run records acceptedAt as the submission timestamp", a
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
 
-  const startRes = await request(app)
-    .post(`/api/cases/${caseId}/runs/run-ts-001/start`)
-    .send({});
+  const startRes = await request(app).post(`/api/cases/${caseId}/runs/run-ts-001/start`).send({});
 
   assert.equal(startRes.status, 200);
   const run = startRes.body.case.workflowRuns[0];
@@ -1259,18 +1210,11 @@ test("replaying workflow start preserves the original acceptedAt timestamp", asy
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createCaseAtWorkflowRequested(app);
 
-  const first = await request(app)
-    .post(`/api/cases/${caseId}/runs/run-ts-002/start`)
-    .send({});
-  const second = await request(app)
-    .post(`/api/cases/${caseId}/runs/run-ts-002/start`)
-    .send({});
+  const first = await request(app).post(`/api/cases/${caseId}/runs/run-ts-002/start`).send({});
+  const second = await request(app).post(`/api/cases/${caseId}/runs/run-ts-002/start`).send({});
 
   assert.equal(second.status, 200);
-  assert.equal(
-    second.body.case.workflowRuns[0].acceptedAt,
-    first.body.case.workflowRuns[0].acceptedAt,
-  );
+  assert.equal(second.body.case.workflowRuns[0].acceptedAt, first.body.case.workflowRuns[0].acceptedAt);
 });
 
 // в”Ђв”Ђв”Ђ Wave 1: Terminal Error Taxonomy в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
@@ -1284,9 +1228,7 @@ test("failing a workflow run with a failure category persists it on the run reco
     .send({ reason: "Nextflow pipeline crashed", failureCategory: "pipeline_error" });
 
   assert.equal(failRes.status, 200);
-  const run = failRes.body.case.workflowRuns.find(
-    (r: { runId: string }) => r.runId === runId,
-  );
+  const run = failRes.body.case.workflowRuns.find((r: { runId: string }) => r.runId === runId);
   assert.equal(run.failureCategory, "pipeline_error");
 });
 
@@ -1299,9 +1241,7 @@ test("failing a workflow run without a failure category defaults to unknown", as
     .send({ reason: "something went wrong" });
 
   assert.equal(failRes.status, 200);
-  const run = failRes.body.case.workflowRuns.find(
-    (r: { runId: string }) => r.runId === runId,
-  );
+  const run = failRes.body.case.workflowRuns.find((r: { runId: string }) => r.runId === runId);
   assert.equal(run.failureCategory, "unknown");
 });
 
@@ -1330,17 +1270,14 @@ test("replaying workflow failure preserves the original failureCategory", async 
     .post(`/api/cases/${caseId}/runs/${runId}/fail`)
     .send({ reason: "timeout exceeded", failureCategory: "timeout" });
   assert.equal(second.status, 200);
-  assert.equal(
-    second.body.case.workflowRuns[0].failureCategory,
-    first.body.case.workflowRuns[0].failureCategory,
-  );
+  assert.equal(second.body.case.workflowRuns[0].failureCategory, first.body.case.workflowRuns[0].failureCategory);
 });
 
 // в”Ђв”Ђв”Ђ Slice 1.C: Typed Terminal Metadata в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("completing a workflow run carries typed terminalMetadata from the runner", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
+  const app = createApp({ workflowRunner, rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
 
   await request(app).post(`/api/cases/${caseId}/runs/run-meta-001/start`).send({});
@@ -1357,7 +1294,7 @@ test("completing a workflow run carries typed terminalMetadata from the runner",
 
 test("failing a workflow run carries typed terminalMetadata from the runner", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
+  const app = createApp({ workflowRunner, rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
 
   await request(app).post(`/api/cases/${caseId}/runs/run-meta-002/start`).send({});
@@ -1403,16 +1340,19 @@ test("WorkflowRunManifest Zod schema validates a complete manifest", async () =>
 
 test("WorkflowRunManifest Zod schema rejects a partial manifest", async () => {
   const { parseWorkflowRunManifest } = await import("../src/validation.js");
-  assert.throws(() => parseWorkflowRunManifest({ manifestVersion: 1 }), (err: any) => {
-    assert.equal(err.statusCode, 400);
-    assert.equal(err.code, "invalid_input");
-    return true;
-  });
+  assert.throws(
+    () => parseWorkflowRunManifest({ manifestVersion: 1 }),
+    (err: any) => {
+      assert.equal(err.statusCode, 400);
+      assert.equal(err.code, "invalid_input");
+      return true;
+    },
+  );
 });
 
 test("starting a workflow run with a manifest attaches it to the run record", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
+  const app = createApp({ workflowRunner, rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
   const manifest = {
     manifestVersion: 1,
@@ -1422,9 +1362,7 @@ test("starting a workflow run with a manifest attaches it to the run record", as
     configProfile: "hpc-slurm",
     submissionIntent: "production",
     acceptedAt: new Date().toISOString(),
-    inputArtifactSet: [
-      { artifactId: "art-001", semanticType: "fastq-r1", artifactHash: "sha256:aaa" },
-    ],
+    inputArtifactSet: [{ artifactId: "art-001", semanticType: "fastq-r1", artifactHash: "sha256:aaa" }],
     pinnedReferenceBundle: {
       bundleId: "ref-hg38-v2",
       genomeAssembly: "GRCh38",
@@ -1432,9 +1370,7 @@ test("starting a workflow run with a manifest attaches it to the run record", as
     },
     sampleSnapshot: { sampleId: "SPL-001", sampleType: "tumor", assayType: "WES" },
   };
-  const res = await request(app)
-    .post(`/api/cases/${caseId}/runs/manifest-run-001/start`)
-    .send({ manifest });
+  const res = await request(app).post(`/api/cases/${caseId}/runs/manifest-run-001/start`).send({ manifest });
   assert.equal(res.status, 200);
   const run = res.body.case.workflowRuns[0];
   assert.equal(run.manifest.executorKind, "nextflow");
@@ -1444,7 +1380,7 @@ test("starting a workflow run with a manifest attaches it to the run record", as
 // в”Ђв”Ђв”Ђ Slice 2.B: Manifest replay identity в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 test("replaying a workflow start with the same manifest is idempotent", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
+  const app = createApp({ workflowRunner, rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
   const manifest = {
     manifestVersion: 1,
@@ -1454,9 +1390,7 @@ test("replaying a workflow start with the same manifest is idempotent", async ()
     configProfile: "cloud-aws",
     submissionIntent: "production",
     acceptedAt: "2026-03-27T10:00:00Z",
-    inputArtifactSet: [
-      { artifactId: "art-010", semanticType: "fastq-r1", artifactHash: "sha256:ddd" },
-    ],
+    inputArtifactSet: [{ artifactId: "art-010", semanticType: "fastq-r1", artifactHash: "sha256:ddd" }],
     pinnedReferenceBundle: {
       bundleId: "ref-hg38-v3",
       genomeAssembly: "GRCh38",
@@ -1464,21 +1398,17 @@ test("replaying a workflow start with the same manifest is idempotent", async ()
     },
     sampleSnapshot: { sampleId: "SPL-010", sampleType: "normal", assayType: "WGS" },
   };
-  const res1 = await request(app)
-    .post(`/api/cases/${caseId}/runs/replay-manifest-001/start`)
-    .send({ manifest });
+  const res1 = await request(app).post(`/api/cases/${caseId}/runs/replay-manifest-001/start`).send({ manifest });
   assert.equal(res1.status, 200);
 
-  const res2 = await request(app)
-    .post(`/api/cases/${caseId}/runs/replay-manifest-001/start`)
-    .send({ manifest });
+  const res2 = await request(app).post(`/api/cases/${caseId}/runs/replay-manifest-001/start`).send({ manifest });
   assert.equal(res2.status, 200, "replay with same manifest should succeed");
   assert.equal(res2.body.case.workflowRuns.length, 1, "should not duplicate run");
 });
 
 test("replaying a workflow start with a different manifest returns 409", async () => {
   const workflowRunner = new RecordingWorkflowRunner();
-  const app = createApp({ workflowRunner , rbacAllowAll: true, consentGateEnabled: false } as never);
+  const app = createApp({ workflowRunner, rbacAllowAll: true, consentGateEnabled: false } as never);
   const caseId = await createCaseAtWorkflowRequested(app);
   const manifest = {
     manifestVersion: 1,
@@ -1488,9 +1418,7 @@ test("replaying a workflow start with a different manifest returns 409", async (
     configProfile: "cloud-aws",
     submissionIntent: "production",
     acceptedAt: "2026-03-27T10:00:00Z",
-    inputArtifactSet: [
-      { artifactId: "art-020", semanticType: "fastq-r1", artifactHash: "sha256:fff" },
-    ],
+    inputArtifactSet: [{ artifactId: "art-020", semanticType: "fastq-r1", artifactHash: "sha256:fff" }],
     pinnedReferenceBundle: {
       bundleId: "ref-hg38-v3",
       genomeAssembly: "GRCh38",
@@ -1498,9 +1426,7 @@ test("replaying a workflow start with a different manifest returns 409", async (
     },
     sampleSnapshot: { sampleId: "SPL-020", sampleType: "normal", assayType: "WGS" },
   };
-  const res1 = await request(app)
-    .post(`/api/cases/${caseId}/runs/replay-manifest-002/start`)
-    .send({ manifest });
+  const res1 = await request(app).post(`/api/cases/${caseId}/runs/replay-manifest-002/start`).send({ manifest });
   assert.equal(res1.status, 200);
 
   const alteredManifest = { ...manifest, workflowRevision: "v2.0.0-tampered" };
@@ -1508,10 +1434,7 @@ test("replaying a workflow start with a different manifest returns 409", async (
     .post(`/api/cases/${caseId}/runs/replay-manifest-002/start`)
     .send({ manifest: alteredManifest });
   assert.equal(res2.status, 409, "replay with different manifest should be rejected");
-  assert.ok(
-    res2.body.code === "invalid_transition",
-    "error code should be invalid_transition",
-  );
+  assert.ok(res2.body.code === "invalid_transition", "error code should be invalid_transition");
 });
 
 // в”Ђв”Ђв”Ђ Slice 2.D: Manifest-only run reconstruction в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
@@ -1525,9 +1448,7 @@ test("reconstructRunFromManifest builds a complete run record from manifest + te
     configProfile: "cloud-aws",
     submissionIntent: "production",
     acceptedAt: "2026-03-27T10:00:00Z",
-    inputArtifactSet: [
-      { artifactId: "art-r-001", semanticType: "fastq-r1", artifactHash: "sha256:rrr" },
-    ],
+    inputArtifactSet: [{ artifactId: "art-r-001", semanticType: "fastq-r1", artifactHash: "sha256:rrr" }],
     pinnedReferenceBundle: {
       bundleId: "ref-hg38-v3",
       genomeAssembly: "GRCh38",

@@ -1,17 +1,16 @@
-﻿import test from "node:test";
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import request from "supertest";
+import test from "node:test";
 import { newDb } from "pg-mem";
+import request from "supertest";
 import { InMemoryConstructDesigner } from "../src/adapters/InMemoryConstructDesigner.js";
 import { InMemoryModalityRegistry } from "../src/adapters/InMemoryModalityRegistry.js";
-import { createApp } from "../src/app.js";
-import { MemoryCaseStore } from "../src/store.js";
 import { PostgresCaseStore } from "../src/adapters/PostgresCaseStore.js";
-import type { DerivedArtifactSemanticType, RankingRationale } from "../src/types.js";
+import { createApp } from "../src/app.js";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner.js";
-import type { WorkflowRunRecord } from "../src/types.js";
+import { MemoryCaseStore } from "../src/store.js";
+import type { DerivedArtifactSemanticType, RankingRationale, WorkflowRunRecord } from "../src/types.js";
 
 function buildCaseInput(overrides: Record<string, unknown> = {}) {
   return {
@@ -134,7 +133,11 @@ class FakeWorkflowRunner implements IWorkflowRunner {
 
   async completeRun(
     runId: string,
-    _derivedArtifacts?: Array<{ semanticType: DerivedArtifactSemanticType; artifactHash: string; producingStep: string }>,
+    _derivedArtifacts?: Array<{
+      semanticType: DerivedArtifactSemanticType;
+      artifactHash: string;
+      producingStep: string;
+    }>,
   ): Promise<WorkflowRunRecord> {
     const record = this.runs.get(runId);
     if (!record) {
@@ -197,9 +200,7 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>): Promise
   assert.equal(workflowResponse.status, 200);
 
   const runId = `run-construct-${Date.now()}`;
-  const startResponse = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/start`)
-    .send({ runId });
+  const startResponse = await request(app).post(`/api/cases/${caseId}/runs/${runId}/start`).send({ runId });
   assert.equal(startResponse.status, 200);
 
   const completeResponse = await request(app)
@@ -215,9 +216,7 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>): Promise
     .post(`/api/cases/${caseId}/hla-consensus`)
     .send({
       alleles: ["HLA-A*02:01", "HLA-B*07:02"],
-      perToolEvidence: [
-        { toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 },
-      ],
+      perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 }],
       confidenceScore: 0.95,
       referenceVersion: "IMGT/HLA 3.55.0",
     });
@@ -226,9 +225,7 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>): Promise
   const qcResponse = await request(app)
     .post(`/api/cases/${caseId}/runs/${runId}/qc`)
     .send({
-      results: [
-        { metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "Clean" },
-      ],
+      results: [{ metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "Clean" }],
     });
   assert.equal(qcResponse.status, 200);
 
@@ -237,7 +234,12 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>): Promise
 
 test("POST /api/cases/:caseId/construct-design generates and GET retrieves a construct package", async () => {
   const store = new MemoryCaseStore();
-  const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({
+    store,
+    workflowRunner: new FakeWorkflowRunner(),
+    rbacAllowAll: true,
+    consentGateEnabled: false,
+  });
   const caseId = await createReviewReadyCase(app);
 
   const createResponse = await request(app)
@@ -258,7 +260,12 @@ test("POST /api/cases/:caseId/construct-design generates and GET retrieves a con
 
 test("POST /api/cases/:caseId/construct-design records payload provenance on the case", async () => {
   const store = new MemoryCaseStore();
-  const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({
+    store,
+    workflowRunner: new FakeWorkflowRunner(),
+    rbacAllowAll: true,
+    consentGateEnabled: false,
+  });
   const caseId = await createReviewReadyCase(app);
 
   const createResponse = await request(app)
@@ -281,7 +288,7 @@ test("POST /api/cases/:caseId/construct-design records payload provenance on the
 });
 
 test("GET /api/cases/:caseId/construct-design returns 404 when no construct was recorded", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   const createResponse = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = String(createResponse.body.case.caseId);
 
@@ -292,7 +299,12 @@ test("GET /api/cases/:caseId/construct-design returns 404 when no construct was 
 
 test("POST /api/cases/:caseId/construct-design rejects saRNA by default", async () => {
   const store = new MemoryCaseStore();
-  const app = createApp({ store, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({
+    store,
+    workflowRunner: new FakeWorkflowRunner(),
+    rbacAllowAll: true,
+    consentGateEnabled: false,
+  });
   const caseId = await createReviewReadyCase(app);
 
   const createResponse = await request(app)
@@ -311,17 +323,16 @@ test("board packet snapshot includes construct design when present", async () =>
     store,
     workflowRunner: new FakeWorkflowRunner(),
     constructDesigner: new InMemoryConstructDesigner(modalityRegistry),
-    rbacAllowAll: true, consentGateEnabled: false,
+    rbacAllowAll: true,
+    consentGateEnabled: false,
   });
   const caseId = await createReviewReadyCase(app);
 
-  const constructResponse = await request(app)
-    .post(`/api/cases/${caseId}/construct-design`)
-    .send({
-      rankedCandidates: buildRankedCandidates(),
-      deliveryModality: "saRNA",
-      linkerStrategy: "aay-cleavage",
-    });
+  const constructResponse = await request(app).post(`/api/cases/${caseId}/construct-design`).send({
+    rankedCandidates: buildRankedCandidates(),
+    deliveryModality: "saRNA",
+    linkerStrategy: "aay-cleavage",
+  });
   assert.equal(constructResponse.status, 201);
 
   const packetResponse = await request(app).post(`/api/cases/${caseId}/board-packets`);
@@ -349,7 +360,12 @@ test("Postgres-backed case storage persists construct design across a fresh app 
   try {
     const firstStore = new PostgresCaseStore(pool);
     await firstStore.initialize();
-    const firstApp = createApp({ store: firstStore, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+    const firstApp = createApp({
+      store: firstStore,
+      workflowRunner: new FakeWorkflowRunner(),
+      rbacAllowAll: true,
+      consentGateEnabled: false,
+    });
     const caseId = await createReviewReadyCase(firstApp);
 
     const createResponse = await request(firstApp)
@@ -359,7 +375,12 @@ test("Postgres-backed case storage persists construct design across a fresh app 
 
     const secondStore = new PostgresCaseStore(pool);
     await secondStore.initialize();
-    const secondApp = createApp({ store: secondStore, workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+    const secondApp = createApp({
+      store: secondStore,
+      workflowRunner: new FakeWorkflowRunner(),
+      rbacAllowAll: true,
+      consentGateEnabled: false,
+    });
 
     const getResponse = await request(secondApp).get(`/api/cases/${caseId}/construct-design`);
     assert.equal(getResponse.status, 200);

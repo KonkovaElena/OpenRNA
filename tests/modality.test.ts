@@ -1,14 +1,13 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import request from "supertest";
-import { ApiError } from "../src/errors.js";
 import { InMemoryModalityRegistry } from "../src/adapters/InMemoryModalityRegistry.js";
 import { createApp } from "../src/app.js";
-import { MemoryCaseStore } from "../src/store.js";
+import { ApiError } from "../src/errors.js";
 import type { IModalityRegistry } from "../src/ports/IModalityRegistry.js";
-import type { RankingRationale } from "../src/types.js";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner.js";
-import type { WorkflowRunRecord } from "../src/types.js";
+import { MemoryCaseStore } from "../src/store.js";
+import type { RankingRationale, WorkflowRunRecord } from "../src/types.js";
 
 function buildCaseInput(overrides: Record<string, unknown> = {}) {
   return {
@@ -169,9 +168,7 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>): Promise
   assert.equal(workflowResponse.status, 200);
 
   const runId = `run-modality-${Date.now()}`;
-  const startResponse = await request(app)
-    .post(`/api/cases/${caseId}/runs/${runId}/start`)
-    .send({ runId });
+  const startResponse = await request(app).post(`/api/cases/${caseId}/runs/${runId}/start`).send({ runId });
   assert.equal(startResponse.status, 200);
 
   const completeResponse = await request(app)
@@ -187,9 +184,7 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>): Promise
     .post(`/api/cases/${caseId}/hla-consensus`)
     .send({
       alleles: ["HLA-A*02:01", "HLA-B*07:02"],
-      perToolEvidence: [
-        { toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 },
-      ],
+      perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 }],
       confidenceScore: 0.95,
       referenceVersion: "IMGT/HLA 3.55.0",
     });
@@ -300,9 +295,7 @@ describe("Wave 14 — Modality governance HTTP", () => {
   it("POST /api/modalities/:modality/activate validates activation evidence", async () => {
     const app = createApp();
 
-    const response = await request(app)
-      .post("/api/modalities/saRNA/activate")
-      .send({});
+    const response = await request(app).post("/api/modalities/saRNA/activate").send({});
 
     assert.equal(response.status, 400);
     assert.equal(response.body.code, "invalid_input");
@@ -337,7 +330,12 @@ describe("Wave 14 — Modality governance HTTP", () => {
 
   it("activated modalities are honored by construct design over HTTP", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store, workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({
+      store,
+      workflowRunner: new FakeWorkflowRunner(),
+      rbacAllowAll: true,
+      consentGateEnabled: false,
+    });
     const caseId = await createReviewReadyCase(app);
 
     const activateResponse = await request(app)

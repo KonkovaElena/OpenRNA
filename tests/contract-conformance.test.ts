@@ -1,11 +1,11 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import type { WorkflowOutputManifest } from "../src/types";
 import {
-  parseWorkflowOutputManifest,
   parseCompleteWorkflowRunInput,
   parseEvaluateQcGateInput,
+  parseWorkflowOutputManifest,
 } from "../src/validation";
-import type { WorkflowOutputManifest } from "../src/types";
 
 /**
  * 5.D — Contract conformance: proves an external executor can emit a full
@@ -46,8 +46,20 @@ describe("5.D — Executor output manifest → control-plane ingestion", () => {
       outcome: "PASSED",
       results: [
         { metric: "coverage_depth", metricCategory: "callable_region_coverage", value: 120, threshold: 80, pass: true },
-        { metric: "identity_check", metricCategory: "sample_identity_check", value: 0.998, threshold: 0.95, pass: true },
-        { metric: "hla_completeness", metricCategory: "hla_consensus_completeness", value: 1.0, threshold: 0.8, pass: true },
+        {
+          metric: "identity_check",
+          metricCategory: "sample_identity_check",
+          value: 0.998,
+          threshold: 0.95,
+          pass: true,
+        },
+        {
+          metric: "hla_completeness",
+          metricCategory: "hla_consensus_completeness",
+          value: 1.0,
+          threshold: 0.8,
+          pass: true,
+        },
       ],
       evaluatedAt: "2026-03-27T14:31:00Z",
     },

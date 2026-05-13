@@ -1,10 +1,10 @@
-import { describe, it, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { PollingSupervisor } from "../src/supervision/PollingSupervisor";
+import { beforeEach, describe, it } from "node:test";
 import { NextflowWorkflowRunner } from "../src/adapters/NextflowWorkflowRunner";
 import type { INextflowClient } from "../src/ports/INextflowClient";
-import type { NextflowPollResult, WorkflowRunManifest } from "../src/types";
 import type { WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
+import { PollingSupervisor } from "../src/supervision/PollingSupervisor";
+import type { NextflowPollResult, WorkflowRunManifest } from "../src/types";
 
 function buildManifest(): WorkflowRunManifest {
   return {
@@ -42,7 +42,8 @@ describe("PollingSupervisor", () => {
     pollResults = new Map();
     client = {
       submit: async () => ({ sessionId: "nf-sess", runName: "run_name" }),
-      poll: async (sessionId) => pollResults.get(sessionId) ?? { sessionId, runName: "run_name", state: "running" as const },
+      poll: async (sessionId) =>
+        pollResults.get(sessionId) ?? { sessionId, runName: "run_name", state: "running" as const },
       cancel: async () => {},
     };
     runner = new NextflowWorkflowRunner(client);
@@ -98,7 +99,13 @@ describe("PollingSupervisor", () => {
     await runner.startRun(buildRequest("run-a"));
     await runner.startRun(buildRequest("run-b"));
 
-    pollResults.set("sess-1", { sessionId: "sess-1", runName: "name-1", state: "completed", exitCode: 0, durationMs: 5000 });
+    pollResults.set("sess-1", {
+      sessionId: "sess-1",
+      runName: "name-1",
+      state: "completed",
+      exitCode: 0,
+      durationMs: 5000,
+    });
     // sess-2 stays running (no pollResults entry)
 
     const transitions: Array<[string, string]> = [];
@@ -114,7 +121,9 @@ describe("PollingSupervisor", () => {
 
   it("tick catches errors per run and fires onError", async () => {
     await runner.startRun(buildRequest("run-err"));
-    client.poll = async () => { throw new Error("network timeout"); };
+    client.poll = async () => {
+      throw new Error("network timeout");
+    };
 
     const errors: Array<[string, unknown]> = [];
     const supervisor = new PollingSupervisor(runner, {
@@ -133,7 +142,10 @@ describe("PollingSupervisor", () => {
     await runner.completeRun("run-done");
 
     let pollCalls = 0;
-    client.poll = async () => { pollCalls++; return { sessionId: "x", runName: "x", state: "completed" } };
+    client.poll = async () => {
+      pollCalls++;
+      return { sessionId: "x", runName: "x", state: "completed" };
+    };
 
     const supervisor = new PollingSupervisor(runner);
     await supervisor.tick();

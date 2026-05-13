@@ -2,8 +2,8 @@
  * Regression tests for PROB-002, PROB-004, PROB-008, PROB-009, PROB-010, PROB-014.
  * Each section targets one specific fix to prevent silent reintroduction.
  */
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import request from "supertest";
 import { createApp } from "../src/app";
 import { loadConfig } from "../src/config";
@@ -46,7 +46,7 @@ async function createConstructDesign(app: ReturnType<typeof createApp>, caseId: 
 // в”Ђв”Ђ PROB-002: API Key Authentication в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("PROB-002: exempt paths respond without api key", async () => {
-  const app = createApp({ apiKey: "secret-key-42" , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ apiKey: "secret-key-42", rbacAllowAll: true, consentGateEnabled: false });
 
   for (const path of ["/", "/healthz", "/readyz", "/metrics"]) {
     const res = await request(app).get(path);
@@ -56,7 +56,7 @@ test("PROB-002: exempt paths respond without api key", async () => {
 });
 
 test("PROB-002: protected route returns 401 without x-api-key header", async () => {
-  const app = createApp({ apiKey: "secret-key-42" , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ apiKey: "secret-key-42", rbacAllowAll: true, consentGateEnabled: false });
   const res = await request(app).get("/api/cases");
   assert.equal(res.status, 401);
   assert.equal(res.body.code, "missing_credentials");
@@ -66,10 +66,8 @@ test("PROB-002: protected route returns 401 without x-api-key header", async () 
 });
 
 test("PROB-002: protected route returns 403 with wrong api key", async () => {
-  const app = createApp({ apiKey: "secret-key-42" , rbacAllowAll: true, consentGateEnabled: false });
-  const res = await request(app)
-    .get("/api/cases")
-    .set("x-api-key", "wrong-key");
+  const app = createApp({ apiKey: "secret-key-42", rbacAllowAll: true, consentGateEnabled: false });
+  const res = await request(app).get("/api/cases").set("x-api-key", "wrong-key");
   assert.equal(res.status, 403);
   assert.equal(res.body.code, "invalid_api_key");
   assert.match(res.body.message, /Invalid API key/);
@@ -78,10 +76,8 @@ test("PROB-002: protected route returns 403 with wrong api key", async () => {
 });
 
 test("PROB-002: protected route returns 200 with correct api key", async () => {
-  const app = createApp({ apiKey: "secret-key-42" , rbacAllowAll: true, consentGateEnabled: false });
-  const res = await request(app)
-    .get("/api/cases")
-    .set("x-api-key", "secret-key-42");
+  const app = createApp({ apiKey: "secret-key-42", rbacAllowAll: true, consentGateEnabled: false });
+  const res = await request(app).get("/api/cases").set("x-api-key", "secret-key-42");
   assert.equal(res.status, 200);
 });
 
@@ -177,14 +173,14 @@ test("PROB-008: HLA confidenceScore rejects values > 1", async () => {
   const caseRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = caseRes.body.case.caseId;
 
-  const res = await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-    alleles: ["A*01:01", "A*02:01"],
-    perToolEvidence: [
-      { toolName: "optitype", alleles: ["A*01:01"], confidence: 0.9 },
-    ],
-    confidenceScore: 1.5,
-    referenceVersion: "IMGT-3.54.0",
-  });
+  const res = await request(app)
+    .post(`/api/cases/${caseId}/hla-consensus`)
+    .send({
+      alleles: ["A*01:01", "A*02:01"],
+      perToolEvidence: [{ toolName: "optitype", alleles: ["A*01:01"], confidence: 0.9 }],
+      confidenceScore: 1.5,
+      referenceVersion: "IMGT-3.54.0",
+    });
   assert.equal(res.status, 400);
   assert.match(res.body.message, /confidenceScore must be between 0 and 1/);
 });
@@ -194,14 +190,14 @@ test("PROB-008: HLA confidenceScore rejects values < 0", async () => {
   const caseRes = await request(app).post("/api/cases").send(buildCaseInput());
   const caseId = caseRes.body.case.caseId;
 
-  const res = await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-    alleles: ["A*01:01", "A*02:01"],
-    perToolEvidence: [
-      { toolName: "optitype", alleles: ["A*01:01"], confidence: 0.9 },
-    ],
-    confidenceScore: -0.1,
-    referenceVersion: "IMGT-3.54.0",
-  });
+  const res = await request(app)
+    .post(`/api/cases/${caseId}/hla-consensus`)
+    .send({
+      alleles: ["A*01:01", "A*02:01"],
+      perToolEvidence: [{ toolName: "optitype", alleles: ["A*01:01"], confidence: 0.9 }],
+      confidenceScore: -0.1,
+      referenceVersion: "IMGT-3.54.0",
+    });
   assert.equal(res.status, 400);
   assert.match(res.body.message, /confidenceScore must be between 0 and 1/);
 });
@@ -212,14 +208,14 @@ test("PROB-008: HLA confidenceScore accepts boundary values 0 and 1", async () =
   const caseId = caseRes.body.case.caseId;
 
   for (const score of [0, 1]) {
-    const res = await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-      alleles: ["A*01:01", "A*02:01"],
-      perToolEvidence: [
-        { toolName: "optitype", alleles: ["A*01:01"], confidence: 0.9 },
-      ],
-      confidenceScore: score,
-      referenceVersion: "IMGT-3.54.0",
-    });
+    const res = await request(app)
+      .post(`/api/cases/${caseId}/hla-consensus`)
+      .send({
+        alleles: ["A*01:01", "A*02:01"],
+        perToolEvidence: [{ toolName: "optitype", alleles: ["A*01:01"], confidence: 0.9 }],
+        confidenceScore: score,
+        referenceVersion: "IMGT-3.54.0",
+      });
     assert.equal(res.status, 200, `score=${score} should be accepted`);
   }
 });
@@ -254,7 +250,7 @@ test("PROB-009: rejects non-ISO administeredAt in administration outcome", async
     administrationId: "admin-001",
     constructId: "construct-001",
     constructVersion: 1,
-    administeredAt: "2026-01-15",  // not ISO datetime
+    administeredAt: "2026-01-15", // not ISO datetime
     route: "intravenous",
     doseMicrograms: 100,
   });
@@ -301,7 +297,8 @@ test("PROB-014: request logger emits JSON to stdout for API calls", async () => 
         lines.push(line.trim());
       }
     },
-    rbacAllowAll: true, consentGateEnabled: false,
+    rbacAllowAll: true,
+    consentGateEnabled: false,
   });
 
   await request(app).post("/api/cases").send(buildCaseInput());
@@ -323,7 +320,8 @@ test("PROB-014: request logger skips health/metrics paths", async () => {
         lines.push(line.trim());
       }
     },
-    rbacAllowAll: true, consentGateEnabled: false,
+    rbacAllowAll: true,
+    consentGateEnabled: false,
   });
 
   await request(app).get("/healthz");

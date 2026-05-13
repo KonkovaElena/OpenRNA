@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
+import type { ConstructDesignRequest, IConstructDesigner } from "../ports/IConstructDesigner";
 import type { IModalityRegistry } from "../ports/IModalityRegistry.js";
 import type { ConstructDesignPackage, DeliveryModality, EpitopeLinkerStrategy, RankingRationale } from "../types";
-import type { IConstructDesigner, ConstructDesignRequest } from "../ports/IConstructDesigner";
 import { InMemoryModalityRegistry } from "./InMemoryModalityRegistry.js";
 
 /**
@@ -126,9 +126,7 @@ export class InMemoryConstructDesigner implements IConstructDesigner {
     checks.push({
       checkName: "homopolymer_runs",
       pass: !homopolymerMatch,
-      detail: homopolymerMatch
-        ? `Homopolymer run detected: ${homopolymerMatch[0]}`
-        : "No problematic homopolymer runs",
+      detail: homopolymerMatch ? `Homopolymer run detected: ${homopolymerMatch[0]}` : "No problematic homopolymer runs",
       severity: homopolymerMatch ? "warning" : "info",
     });
 
@@ -143,9 +141,14 @@ export class InMemoryConstructDesigner implements IConstructDesigner {
     if (candidates.length === 0) {
       return `No candidates provided; empty construct generated with ${linkerStrategy} linker strategy.`;
     }
-    const topIds = candidates.slice(0, 3).map((c) => c.candidateId).join(", ");
-    return `Construct designed with ${candidates.length} epitope(s) from candidates [${topIds}] ` +
+    const topIds = candidates
+      .slice(0, 3)
+      .map((c) => c.candidateId)
+      .join(", ");
+    return (
+      `Construct designed with ${candidates.length} epitope(s) from candidates [${topIds}] ` +
       `using ${modality} delivery modality and ${linkerStrategy} linker strategy. ` +
-      "Epitopes ordered by composite rank score.";
+      "Epitopes ordered by composite rank score."
+    );
   }
 }

@@ -26,9 +26,7 @@ export class InMemoryCaseAccessStore implements ICaseAccessStore {
 
   async grantAccess(caseId: string, principalId: string, accessLevel: CaseAccessLevel): Promise<void> {
     const grants = this.grantsByCaseId.get(caseId) ?? [];
-    const exists = grants.some(
-      (grant) => grant.principalId === principalId && grant.accessLevel === accessLevel,
-    );
+    const exists = grants.some((grant) => grant.principalId === principalId && grant.accessLevel === accessLevel);
     if (exists) {
       return;
     }

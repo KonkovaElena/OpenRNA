@@ -1,16 +1,16 @@
-import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { InMemoryConstructDesigner } from "../src/adapters/InMemoryConstructDesigner";
+import { InMemoryModalityRegistry } from "../src/adapters/InMemoryModalityRegistry";
 import { ApiError } from "../src/errors";
+import type { ConstructDesignRequest, IConstructDesigner } from "../src/ports/IConstructDesigner";
 import type {
+  CodonOptimizationMeta,
   ConstructDesignPackage,
   DeliveryModality,
-  CodonOptimizationMeta,
   ManufacturabilityCheck,
   RankingRationale,
 } from "../src/types";
-import type { IConstructDesigner, ConstructDesignRequest } from "../src/ports/IConstructDesigner";
-import { InMemoryConstructDesigner } from "../src/adapters/InMemoryConstructDesigner";
-import { InMemoryModalityRegistry } from "../src/adapters/InMemoryModalityRegistry";
 
 // ─── Wave 9.A — Construct design types ──────────────────────────────
 
@@ -74,8 +74,20 @@ function buildRankedCandidates(): RankingRationale[] {
       candidateId: "neo-alpha",
       compositeScore: 0.88,
       rank: 1,
-      featureScores: { bindingAffinity: 0.92, expression: 0.85, clonality: 0.90, manufacturability: 0.80, tolerance: 0.75 },
-      featureWeights: { bindingAffinity: 0.30, expression: 0.25, clonality: 0.20, manufacturability: 0.15, tolerance: 0.10 },
+      featureScores: {
+        bindingAffinity: 0.92,
+        expression: 0.85,
+        clonality: 0.9,
+        manufacturability: 0.8,
+        tolerance: 0.75,
+      },
+      featureWeights: {
+        bindingAffinity: 0.3,
+        expression: 0.25,
+        clonality: 0.2,
+        manufacturability: 0.15,
+        tolerance: 0.1,
+      },
       uncertaintyContribution: 0.05,
       explanation: "Top candidate with strong binding and expression",
     },
@@ -83,8 +95,20 @@ function buildRankedCandidates(): RankingRationale[] {
       candidateId: "neo-beta",
       compositeScore: 0.72,
       rank: 2,
-      featureScores: { bindingAffinity: 0.78, expression: 0.70, clonality: 0.65, manufacturability: 0.75, tolerance: 0.80 },
-      featureWeights: { bindingAffinity: 0.30, expression: 0.25, clonality: 0.20, manufacturability: 0.15, tolerance: 0.10 },
+      featureScores: {
+        bindingAffinity: 0.78,
+        expression: 0.7,
+        clonality: 0.65,
+        manufacturability: 0.75,
+        tolerance: 0.8,
+      },
+      featureWeights: {
+        bindingAffinity: 0.3,
+        expression: 0.25,
+        clonality: 0.2,
+        manufacturability: 0.15,
+        tolerance: 0.1,
+      },
       uncertaintyContribution: 0.08,
       explanation: "Second candidate with moderate scores",
     },
@@ -123,7 +147,11 @@ describe("Wave 9.B — InMemoryConstructDesigner", () => {
     const modalityRegistry = new InMemoryModalityRegistry();
     await modalityRegistry.activateModality("saRNA", "Wave 11 adapter test enablement");
     const gatedDesigner = new InMemoryConstructDesigner(modalityRegistry);
-    const pkg = await gatedDesigner.designConstruct({ caseId: "case-9b", rankedCandidates: candidates, deliveryModality: "saRNA" });
+    const pkg = await gatedDesigner.designConstruct({
+      caseId: "case-9b",
+      rankedCandidates: candidates,
+      deliveryModality: "saRNA",
+    });
     assert.equal(pkg.deliveryModality, "saRNA");
   });
 

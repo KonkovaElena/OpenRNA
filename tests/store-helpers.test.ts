@@ -1,5 +1,6 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
+import { buildEvidenceLineage as buildEvidenceLineageFromStore } from "../src/store";
 import {
   buildEvidenceLineage,
   deriveCaseStatus,
@@ -8,7 +9,6 @@ import {
   stableHandoffPacketSignature,
   stableReviewOutcomeSignature,
 } from "../src/store-helpers";
-import { buildEvidenceLineage as buildEvidenceLineageFromStore } from "../src/store";
 import type {
   ArtifactRecord,
   GenerateHandoffPacketInput,
@@ -43,10 +43,7 @@ function buildSourceArtifact(sampleId: string, semanticType: ArtifactRecord["sem
   };
 }
 
-function buildCompletedRun(
-  runId: string,
-  workflowName: WorkflowRunRecord["workflowName"],
-): WorkflowRunRecord {
+function buildCompletedRun(runId: string, workflowName: WorkflowRunRecord["workflowName"]): WorkflowRunRecord {
   return {
     runId,
     caseId: "case-store-helper-001",
@@ -180,9 +177,7 @@ test("store helpers build workflow evidence lineage and preserve store.ts compat
     true,
   );
   assert.equal(
-    helperLineage.edges.some(
-      (edge) => edge.producerRunId === hlaRun.runId && edge.consumerRunId === combinedRun.runId,
-    ),
+    helperLineage.edges.some((edge) => edge.producerRunId === hlaRun.runId && edge.consumerRunId === combinedRun.runId),
     true,
   );
 });

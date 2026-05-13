@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import request from "supertest";
 import { createApp } from "../src/app";
 
@@ -24,9 +24,7 @@ test("server-derived consent on create-case", async (t) => {
       enforceServerDerivedConsentOnCreate: true,
     });
 
-    const res = await request(app)
-      .post("/api/cases")
-      .send(buildCaseInput("complete"));
+    const res = await request(app).post("/api/cases").send(buildCaseInput("complete"));
 
     assert.equal(res.status, 201);
     assert.equal(res.body.case.caseProfile.consentStatus, "missing");
@@ -39,9 +37,7 @@ test("server-derived consent on create-case", async (t) => {
       consentGateEnabled: false,
     });
 
-    const res = await request(app)
-      .post("/api/cases")
-      .send(buildCaseInput("complete"));
+    const res = await request(app).post("/api/cases").send(buildCaseInput("complete"));
 
     assert.equal(res.status, 201);
     assert.equal(res.body.case.caseProfile.consentStatus, "complete");

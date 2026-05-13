@@ -1,6 +1,6 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import test from "node:test";
 import { closeServerAndResources } from "../src/runtime-shutdown";
 
 test("closeServerAndResources waits for resource shutdown before resolving", async () => {

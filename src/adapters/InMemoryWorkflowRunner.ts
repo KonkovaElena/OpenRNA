@@ -1,6 +1,6 @@
-import type { DerivedArtifactSemanticType, WorkflowRunRecord } from "../types";
-import type { IWorkflowRunner, WorkflowRunRequest } from "../ports/IWorkflowRunner";
 import { ApiError } from "../errors";
+import type { IWorkflowRunner, WorkflowRunRequest } from "../ports/IWorkflowRunner";
+import type { DerivedArtifactSemanticType, WorkflowRunRecord } from "../types";
 
 export class InMemoryWorkflowRunner implements IWorkflowRunner {
   private readonly runs = new Map<string, WorkflowRunRecord>();
@@ -66,7 +66,12 @@ export class InMemoryWorkflowRunner implements IWorkflowRunner {
       return structuredClone(run);
     }
     if (run.status !== "RUNNING" && run.status !== "PENDING") {
-      throw new ApiError(409, "invalid_transition", "Only running or pending runs can be cancelled.", "Check run status first.");
+      throw new ApiError(
+        409,
+        "invalid_transition",
+        "Only running or pending runs can be cancelled.",
+        "Check run status first.",
+      );
     }
     const cancelledRun: WorkflowRunRecord = {
       ...run,
@@ -78,21 +83,28 @@ export class InMemoryWorkflowRunner implements IWorkflowRunner {
   }
 
   async listRunsByCaseId(caseId: string): Promise<WorkflowRunRecord[]> {
-    return [...this.runs.values()]
-      .filter((r) => r.caseId === caseId)
-      .map((run) => structuredClone(run));
+    return [...this.runs.values()].filter((r) => r.caseId === caseId).map((run) => structuredClone(run));
   }
 
   async completeRun(
     runId: string,
-    _derivedArtifacts?: Array<{ semanticType: DerivedArtifactSemanticType; artifactHash: string; producingStep: string }>,
+    _derivedArtifacts?: Array<{
+      semanticType: DerivedArtifactSemanticType;
+      artifactHash: string;
+      producingStep: string;
+    }>,
   ): Promise<WorkflowRunRecord> {
     const run = await this.getRun(runId);
     if (run.status === "COMPLETED") {
       return structuredClone(run);
     }
     if (run.status !== "RUNNING") {
-      throw new ApiError(409, "invalid_transition", "Only running workflows can be completed.", "Check run status first.");
+      throw new ApiError(
+        409,
+        "invalid_transition",
+        "Only running workflows can be completed.",
+        "Check run status first.",
+      );
     }
     const completedRun: WorkflowRunRecord = {
       ...run,
@@ -103,7 +115,11 @@ export class InMemoryWorkflowRunner implements IWorkflowRunner {
     return structuredClone(completedRun);
   }
 
-  async failRun(runId: string, reason: string, failureCategory?: import("../types").WorkflowFailureCategory): Promise<WorkflowRunRecord> {
+  async failRun(
+    runId: string,
+    reason: string,
+    failureCategory?: import("../types").WorkflowFailureCategory,
+  ): Promise<WorkflowRunRecord> {
     const run = await this.getRun(runId);
     const category = failureCategory ?? "unknown";
     if (run.status === "FAILED") {

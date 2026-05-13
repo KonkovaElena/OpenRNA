@@ -37,7 +37,9 @@ export class PostgresConsentTracker implements IConsentTracker {
     );
 
     if (!result.rows[0]?.exists) {
-      throw new Error("Database schema not found. Run migration 003_case_access_and_consent.sql before starting the application.");
+      throw new Error(
+        "Database schema not found. Run migration 003_case_access_and_consent.sql before starting the application.",
+      );
     }
 
     this.initialized = true;

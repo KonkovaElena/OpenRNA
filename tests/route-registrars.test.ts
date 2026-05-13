@@ -1,11 +1,11 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { registerReviewRoutes } from "../src/routes/review";
+import test from "node:test";
 import { registerDesignRoutes } from "../src/routes/design";
 import { registerGovernanceRoutes } from "../src/routes/governance";
 import { registerOutcomeRoutes } from "../src/routes/outcomes";
+import { registerReviewRoutes } from "../src/routes/review";
 import { registerWorkflowRoutes } from "../src/routes/workflow";
 
 function readRepoFile(...segments: string[]): string {

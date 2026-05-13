@@ -1,6 +1,6 @@
 import type { Express } from "express";
-import { parseActivateModalityInput } from "../store";
 import type { IModalityRegistry } from "../ports/IModalityRegistry";
+import { parseActivateModalityInput } from "../store";
 import type { DeliveryModality } from "../types";
 
 export function registerModalityRoutes(app: Express, modalityRegistry: IModalityRegistry): void {

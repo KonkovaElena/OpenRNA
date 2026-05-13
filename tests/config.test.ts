@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { loadConfig } from "../src/config";
 
 test("loadConfig uses safe defaults for local development", () => {
@@ -45,10 +45,7 @@ test("loadConfig rejects an invalid case store table identifier", () => {
 });
 
 test("loadConfig rejects an out-of-range port", () => {
-  assert.throws(
-    () => loadConfig({ PORT: "70000" }),
-    /PORT must be between 1 and 65535/,
-  );
+  assert.throws(() => loadConfig({ PORT: "70000" }), /PORT must be between 1 and 65535/);
 });
 
 test("loadConfig rejects an invalid dispatch table identifier", () => {

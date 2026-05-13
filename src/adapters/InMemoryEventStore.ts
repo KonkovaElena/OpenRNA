@@ -5,7 +5,8 @@ type AppendableEvent = { aggregateId: string };
 type StoredEvent<TEventInput extends AppendableEvent> = TEventInput & { version: number };
 
 export class InMemoryEventStore<TEventInput extends AppendableEvent>
-  implements IEventStore<TEventInput, StoredEvent<TEventInput>> {
+  implements IEventStore<TEventInput, StoredEvent<TEventInput>>
+{
   private readonly eventsByAggregateId = new Map<string, StoredEvent<TEventInput>[]>();
 
   async append(

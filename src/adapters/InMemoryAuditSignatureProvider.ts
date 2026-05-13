@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import type { IAuditSignatureProvider, AuditEntry, SignedAuditEntry } from "../ports/IAuditSignatureProvider";
+import type { AuditEntry, IAuditSignatureProvider, SignedAuditEntry } from "../ports/IAuditSignatureProvider";
 
 /**
  * HMAC-SHA256 based audit entry signing.

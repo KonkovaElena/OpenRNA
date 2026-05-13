@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { InMemoryConsentTracker } from "../src/adapters/InMemoryConsentTracker";
 import type { ConsentEvent } from "../src/ports/IConsentTracker";
 

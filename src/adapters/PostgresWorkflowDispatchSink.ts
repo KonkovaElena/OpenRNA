@@ -1,5 +1,5 @@
-import type { WorkflowDispatchRecord } from "../types";
 import type { IWorkflowDispatchSink } from "../ports/IWorkflowDispatchSink";
+import type { WorkflowDispatchRecord } from "../types";
 
 interface QueryResult<T> {
   rows: T[];
@@ -85,7 +85,7 @@ export class PostgresWorkflowDispatchSink implements IWorkflowDispatchSink {
       )
     `);
     await this.pool.query(
-      `CREATE INDEX IF NOT EXISTS ${quoteIdentifier(`${this.tableName}_case_requested_idx`)} ON ${this.qualifiedTableName} (case_id, requested_at)`
+      `CREATE INDEX IF NOT EXISTS ${quoteIdentifier(`${this.tableName}_case_requested_idx`)} ON ${this.qualifiedTableName} (case_id, requested_at)`,
     );
     this.initialized = true;
   }

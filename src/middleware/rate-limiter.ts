@@ -1,4 +1,4 @@
-import { type NextFunction, type Request, type Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 
 /**
  * Token-bucket rate limiter — per-IP by default, per-API-key when available.
@@ -9,9 +9,9 @@ import { type NextFunction, type Request, type Response } from "express";
  * empty the request is rejected with 429 Too Many Requests.
  */
 export interface RateLimiterOptions {
-  maxTokens?: number;      // default: 100
-  refillRate?: number;     // tokens per second, default: 10
-  windowMs?: number;       // cleanup interval for stale buckets, default: 60_000
+  maxTokens?: number; // default: 100
+  refillRate?: number; // tokens per second, default: 10
+  windowMs?: number; // cleanup interval for stale buckets, default: 60_000
 }
 
 interface TokenBucket {

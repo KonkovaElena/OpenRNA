@@ -1,14 +1,14 @@
-﻿import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { describe, it } from "node:test";
 import { newDb } from "pg-mem";
 import request from "supertest";
 import { InMemoryOutcomeRegistry } from "../src/adapters/InMemoryOutcomeRegistry.js";
 import { PostgresCaseStore } from "../src/adapters/PostgresCaseStore.js";
-import type { IOutcomeRegistry } from "../src/ports/IOutcomeRegistry.js";
 import { createApp } from "../src/app.js";
-import { MemoryCaseStore, type CaseStore } from "../src/store.js";
+import type { IOutcomeRegistry } from "../src/ports/IOutcomeRegistry.js";
+import { type CaseStore, MemoryCaseStore } from "../src/store.js";
 import { buildFullTraceability } from "../src/traceability.js";
 import type {
   AdministrationRecord,
@@ -41,8 +41,20 @@ function buildRanking(caseId: string): RankingResult {
         candidateId: "neo-alpha",
         rank: 1,
         compositeScore: 0.92,
-        featureWeights: { bindingAffinity: 0.3, expression: 0.25, clonality: 0.2, manufacturability: 0.15, tolerance: 0.1 },
-        featureScores: { bindingAffinity: 0.95, expression: 0.88, clonality: 0.9, manufacturability: 0.85, tolerance: 0.8 },
+        featureWeights: {
+          bindingAffinity: 0.3,
+          expression: 0.25,
+          clonality: 0.2,
+          manufacturability: 0.15,
+          tolerance: 0.1,
+        },
+        featureScores: {
+          bindingAffinity: 0.95,
+          expression: 0.88,
+          clonality: 0.9,
+          manufacturability: 0.85,
+          tolerance: 0.8,
+        },
         uncertaintyContribution: 0.03,
         explanation: "Strong binding and high expression",
       },
@@ -50,8 +62,20 @@ function buildRanking(caseId: string): RankingResult {
         candidateId: "neo-beta",
         rank: 2,
         compositeScore: 0.74,
-        featureWeights: { bindingAffinity: 0.3, expression: 0.25, clonality: 0.2, manufacturability: 0.15, tolerance: 0.1 },
-        featureScores: { bindingAffinity: 0.7, expression: 0.65, clonality: 0.8, manufacturability: 0.75, tolerance: 0.85 },
+        featureWeights: {
+          bindingAffinity: 0.3,
+          expression: 0.25,
+          clonality: 0.2,
+          manufacturability: 0.15,
+          tolerance: 0.1,
+        },
+        featureScores: {
+          bindingAffinity: 0.7,
+          expression: 0.65,
+          clonality: 0.8,
+          manufacturability: 0.75,
+          tolerance: 0.85,
+        },
         uncertaintyContribution: 0.08,
         explanation: "Moderate binding and expression",
       },
@@ -73,7 +97,9 @@ function buildConstruct(caseId: string): ConstructDesignPackage {
     designRationale: "Top ranked candidates converted into a tandem minigene construct.",
     candidateIds: ["neo-alpha", "neo-beta"],
     codonOptimization: { algorithm: "LinearDesign", gcContentPercent: 53.2, caiScore: 0.88 },
-    manufacturabilityChecks: [{ checkName: "sequence_length", pass: true, detail: "Sequence length within bounds", severity: "info" }],
+    manufacturabilityChecks: [
+      { checkName: "sequence_length", pass: true, detail: "Sequence length within bounds", severity: "info" },
+    ],
     designedAt: "2026-03-29T11:00:00.000Z",
   };
 }
@@ -200,7 +226,10 @@ function findLastMatching<T>(items: readonly T[], predicate: (item: T) => boolea
   return undefined;
 }
 
-function withHeaders<T extends { set(name: string, value: string): T }>(requestBuilder: T, headers: Record<string, string> = {}): T {
+function withHeaders<T extends { set(name: string, value: string): T }>(
+  requestBuilder: T,
+  headers: Record<string, string> = {},
+): T {
   let decorated = requestBuilder;
   for (const [name, value] of Object.entries(headers)) {
     decorated = decorated.set(name, value);
@@ -208,7 +237,10 @@ function withHeaders<T extends { set(name: string, value: string): T }>(requestB
   return decorated;
 }
 
-async function createReviewReadyCase(app: ReturnType<typeof createApp>, headers: Record<string, string> = {}): Promise<string> {
+async function createReviewReadyCase(
+  app: ReturnType<typeof createApp>,
+  headers: Record<string, string> = {},
+): Promise<string> {
   const createResponse = await withHeaders(request(app).post("/api/cases"), headers).send(buildCaseInput());
   assert.equal(createResponse.status, 201);
   const caseId = String(createResponse.body.case.caseId);
@@ -225,11 +257,9 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>, headers:
   }
 
   for (const sample of samples) {
-    const artifactResponse = await withHeaders(
-      request(app).post(`/api/cases/${caseId}/artifacts`),
-      headers,
-    )
-      .send(buildSourceArtifact(sample));
+    const artifactResponse = await withHeaders(request(app).post(`/api/cases/${caseId}/artifacts`), headers).send(
+      buildSourceArtifact(sample),
+    );
     assert.equal(artifactResponse.status, 200);
   }
 
@@ -241,47 +271,32 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>, headers:
   assert.equal(workflowResponse.status, 200);
 
   const runId = `run-outcome-${Date.now()}`;
-  const startResponse = await withHeaders(
-    request(app).post(`/api/cases/${caseId}/runs/${runId}/start`),
-    headers,
-  )
-    .send({ runId });
+  const startResponse = await withHeaders(request(app).post(`/api/cases/${caseId}/runs/${runId}/start`), headers).send({
+    runId,
+  });
   assert.equal(startResponse.status, 200);
 
   const completeResponse = await withHeaders(
     request(app).post(`/api/cases/${caseId}/runs/${runId}/complete`),
     headers,
-  )
-    .send({
-      derivedArtifacts: [
-        { semanticType: "somatic-vcf", artifactHash: "sha256:derived-outcome", producingStep: "variant-calling" },
-      ],
-    });
+  ).send({
+    derivedArtifacts: [
+      { semanticType: "somatic-vcf", artifactHash: "sha256:derived-outcome", producingStep: "variant-calling" },
+    ],
+  });
   assert.equal(completeResponse.status, 200);
 
-  const hlaResponse = await withHeaders(
-    request(app).post(`/api/cases/${caseId}/hla-consensus`),
-    headers,
-  )
-    .send({
-      alleles: ["HLA-A*02:01", "HLA-B*07:02"],
-      perToolEvidence: [
-        { toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 },
-      ],
-      confidenceScore: 0.95,
-      referenceVersion: "IMGT/HLA 3.55.0",
-    });
+  const hlaResponse = await withHeaders(request(app).post(`/api/cases/${caseId}/hla-consensus`), headers).send({
+    alleles: ["HLA-A*02:01", "HLA-B*07:02"],
+    perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 }],
+    confidenceScore: 0.95,
+    referenceVersion: "IMGT/HLA 3.55.0",
+  });
   assert.equal(hlaResponse.status, 200);
 
-  const qcResponse = await withHeaders(
-    request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`),
-    headers,
-  )
-    .send({
-      results: [
-        { metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "Clean" },
-      ],
-    });
+  const qcResponse = await withHeaders(request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`), headers).send({
+    results: [{ metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "Clean" }],
+  });
   assert.equal(qcResponse.status, 200);
 
   return caseId;
@@ -328,9 +343,7 @@ async function createBoardPacketReadyHttpCase(
   app: ReturnType<typeof createApp>,
 ): Promise<{ caseId: string; constructId: string; constructVersion: number; packetId: string }> {
   const { caseId, constructId, constructVersion } = await createOutcomeReadyHttpCase(app);
-  const packetResponse = await request(app)
-    .post(`/api/cases/${caseId}/board-packets`)
-    .send({});
+  const packetResponse = await request(app).post(`/api/cases/${caseId}/board-packets`).send({});
   assert.equal(packetResponse.status, 201);
 
   return {
@@ -453,18 +466,24 @@ describe("Wave 10.B вЂ” InMemoryOutcomeRegistry", () => {
 });
 
 describe("Wave 10.C вЂ” Full traceability join", () => {
-  async function buildCaseAndTimeline(): Promise<{ traceability: FullTraceabilityRecord; timeline: OutcomeTimelineEntry[] }> {
+  async function buildCaseAndTimeline(): Promise<{
+    traceability: FullTraceabilityRecord;
+    timeline: OutcomeTimelineEntry[];
+  }> {
     const store = new MemoryCaseStore();
-    const caseRecord = await store.createCase({
-      caseProfile: {
-        patientKey: "pt-outcome-001",
-        indication: "melanoma",
-        siteId: "site-001",
-        protocolVersion: "2026.1",
-        consentStatus: "complete",
-        boardRoute: "solid-tumor-board",
+    const caseRecord = await store.createCase(
+      {
+        caseProfile: {
+          patientKey: "pt-outcome-001",
+          indication: "melanoma",
+          siteId: "site-001",
+          protocolVersion: "2026.1",
+          consentStatus: "complete",
+          boardRoute: "solid-tumor-board",
+        },
       },
-    }, "corr-outcome-create");
+      "corr-outcome-create",
+    );
 
     await store.recordNeoantigenRanking(caseRecord.caseId, buildRanking(caseRecord.caseId), "corr-outcome-rank");
     await store.recordConstructDesign(caseRecord.caseId, buildConstruct(caseRecord.caseId), "corr-outcome-construct");
@@ -499,15 +518,18 @@ describe("Wave 10.C вЂ” Full traceability join", () => {
 
   it("rejects outcome entries that reference a different construct version", async () => {
     const store = new MemoryCaseStore();
-    const caseRecord = await store.createCase({
-      caseProfile: {
-        patientKey: "pt-outcome-002",
-        indication: "melanoma",
-        siteId: "site-001",
-        protocolVersion: "2026.1",
-        consentStatus: "complete",
+    const caseRecord = await store.createCase(
+      {
+        caseProfile: {
+          patientKey: "pt-outcome-002",
+          indication: "melanoma",
+          siteId: "site-001",
+          protocolVersion: "2026.1",
+          consentStatus: "complete",
+        },
       },
-    }, "corr-outcome-create-2");
+      "corr-outcome-create-2",
+    );
     await store.recordNeoantigenRanking(caseRecord.caseId, buildRanking(caseRecord.caseId), "corr-outcome-rank-2");
     await store.recordConstructDesign(caseRecord.caseId, buildConstruct(caseRecord.caseId), "corr-outcome-construct-2");
 
@@ -527,31 +549,39 @@ describe("Wave 10.C вЂ” Full traceability join", () => {
       },
     ];
 
-    assert.throws(
-      () => buildFullTraceability(updatedCase, timeline),
-      /stored construct design/i,
-    );
+    assert.throws(() => buildFullTraceability(updatedCase, timeline), /stored construct design/i);
   });
 });
 
 describe("Wave 12 вЂ” Outcome aggregate integration", () => {
   async function buildStoredOutcomeCase(store: MemoryCaseStore | PostgresCaseStore): Promise<string> {
-    const caseRecord = await store.createCase({
-      caseProfile: {
-        patientKey: "pt-wave12-001",
-        indication: "melanoma",
-        siteId: "site-001",
-        protocolVersion: "2026.1",
-        consentStatus: "complete",
-        boardRoute: "solid-tumor-board",
+    const caseRecord = await store.createCase(
+      {
+        caseProfile: {
+          patientKey: "pt-wave12-001",
+          indication: "melanoma",
+          siteId: "site-001",
+          protocolVersion: "2026.1",
+          consentStatus: "complete",
+          boardRoute: "solid-tumor-board",
+        },
       },
-    }, "corr-wave12-create");
+      "corr-wave12-create",
+    );
 
     await store.recordNeoantigenRanking(caseRecord.caseId, buildRanking(caseRecord.caseId), "corr-wave12-rank");
     await store.recordConstructDesign(caseRecord.caseId, buildConstruct(caseRecord.caseId), "corr-wave12-construct");
     await store.recordAdministration(caseRecord.caseId, buildAdministration(caseRecord.caseId), "corr-wave12-admin");
-    await store.recordImmuneMonitoring(caseRecord.caseId, buildImmuneMonitoring(caseRecord.caseId), "corr-wave12-immune");
-    await store.recordClinicalFollowUp(caseRecord.caseId, buildClinicalFollowUp(caseRecord.caseId), "corr-wave12-follow");
+    await store.recordImmuneMonitoring(
+      caseRecord.caseId,
+      buildImmuneMonitoring(caseRecord.caseId),
+      "corr-wave12-immune",
+    );
+    await store.recordClinicalFollowUp(
+      caseRecord.caseId,
+      buildClinicalFollowUp(caseRecord.caseId),
+      "corr-wave12-follow",
+    );
 
     return caseRecord.caseId;
   }
@@ -613,7 +643,7 @@ describe("Wave 12 вЂ” Outcome aggregate integration", () => {
 describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
   it("POST /api/cases/:caseId/neoantigen-ranking enables downstream traceability without direct store mutation", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const caseId = await createReviewReadyCase(app);
 
     const rankingResponse = await request(app)
@@ -662,7 +692,8 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
       store,
       apiKey: "svc-secret",
       apiKeyPrincipalId: "svc:board-orchestrator",
-      rbacAllowAll: true, consentGateEnabled: false,
+      rbacAllowAll: true,
+      consentGateEnabled: false,
     });
     const caseId = await createReviewReadyCase(app, authHeaders);
 
@@ -671,9 +702,7 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
       "x-correlation-id": "corr-auth-hla",
     }).send({
       alleles: ["HLA-A*02:01", "HLA-B*07:02"],
-      perToolEvidence: [
-        { toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.97 },
-      ],
+      perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.97 }],
       confidenceScore: 0.97,
       referenceVersion: "IMGT/HLA 3.55.0",
     });
@@ -706,7 +735,10 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
     assert.equal(latestHlaAudit?.actorId, "svc:board-orchestrator");
     assert.equal(latestHlaAudit?.authMechanism, "api-key");
 
-    const latestRankingAudit = findLastMatching(storedCase.auditEvents, (event) => event.type === "candidate.rank-generated");
+    const latestRankingAudit = findLastMatching(
+      storedCase.auditEvents,
+      (event) => event.type === "candidate.rank-generated",
+    );
     assert.ok(latestRankingAudit, "expected ranking audit event");
     assert.equal(latestRankingAudit?.correlationId, "corr-auth-rank");
     assert.equal(latestRankingAudit?.actorId, "svc:board-orchestrator");
@@ -728,7 +760,7 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
 
   it("POST outcome routes record entries and preserve correlation ids", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const { caseId, constructId, constructVersion } = await createOutcomeReadyHttpCase(app);
 
     const administration = {
@@ -759,20 +791,18 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
       constructId,
       constructVersion,
     };
-    const immuneResponse = await request(app)
-      .post(`/api/cases/${caseId}/outcomes/immune-monitoring`)
-      .send({
-        monitoringId: immuneMonitoring.monitoringId,
-        constructId: immuneMonitoring.constructId,
-        constructVersion: immuneMonitoring.constructVersion,
-        collectedAt: immuneMonitoring.collectedAt,
-        assayType: immuneMonitoring.assayType,
-        biomarker: immuneMonitoring.biomarker,
-        value: immuneMonitoring.value,
-        unit: immuneMonitoring.unit,
-        baselineDelta: immuneMonitoring.baselineDelta,
-        notes: immuneMonitoring.notes,
-      });
+    const immuneResponse = await request(app).post(`/api/cases/${caseId}/outcomes/immune-monitoring`).send({
+      monitoringId: immuneMonitoring.monitoringId,
+      constructId: immuneMonitoring.constructId,
+      constructVersion: immuneMonitoring.constructVersion,
+      collectedAt: immuneMonitoring.collectedAt,
+      assayType: immuneMonitoring.assayType,
+      biomarker: immuneMonitoring.biomarker,
+      value: immuneMonitoring.value,
+      unit: immuneMonitoring.unit,
+      baselineDelta: immuneMonitoring.baselineDelta,
+      notes: immuneMonitoring.notes,
+    });
 
     assert.equal(immuneResponse.status, 201);
     assert.equal(immuneResponse.body.immuneMonitoring.monitoringId, immuneMonitoring.monitoringId);
@@ -782,18 +812,16 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
       constructId,
       constructVersion,
     };
-    const followResponse = await request(app)
-      .post(`/api/cases/${caseId}/outcomes/clinical-follow-up`)
-      .send({
-        followUpId: followUp.followUpId,
-        constructId: followUp.constructId,
-        constructVersion: followUp.constructVersion,
-        evaluatedAt: followUp.evaluatedAt,
-        responseCategory: followUp.responseCategory,
-        progressionFreeDays: followUp.progressionFreeDays,
-        overallSurvivalDays: followUp.overallSurvivalDays,
-        notes: followUp.notes,
-      });
+    const followResponse = await request(app).post(`/api/cases/${caseId}/outcomes/clinical-follow-up`).send({
+      followUpId: followUp.followUpId,
+      constructId: followUp.constructId,
+      constructVersion: followUp.constructVersion,
+      evaluatedAt: followUp.evaluatedAt,
+      responseCategory: followUp.responseCategory,
+      progressionFreeDays: followUp.progressionFreeDays,
+      overallSurvivalDays: followUp.overallSurvivalDays,
+      notes: followUp.notes,
+    });
 
     assert.equal(followResponse.status, 201);
     assert.equal(followResponse.body.clinicalFollowUp.followUpId, followUp.followUpId);
@@ -808,11 +836,19 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
 
   it("GET /api/cases/:caseId/outcomes returns the stored timeline and meta", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const { caseId, constructId, constructVersion } = await createOutcomeReadyHttpCase(app);
 
-    await store.recordAdministration(caseId, { ...buildAdministration(caseId), constructId, constructVersion }, "corr-outcomes-read");
-    await store.recordImmuneMonitoring(caseId, { ...buildImmuneMonitoring(caseId), constructId, constructVersion }, "corr-outcomes-read");
+    await store.recordAdministration(
+      caseId,
+      { ...buildAdministration(caseId), constructId, constructVersion },
+      "corr-outcomes-read",
+    );
+    await store.recordImmuneMonitoring(
+      caseId,
+      { ...buildImmuneMonitoring(caseId), constructId, constructVersion },
+      "corr-outcomes-read",
+    );
 
     const response = await request(app).get(`/api/cases/${caseId}/outcomes`);
 
@@ -826,7 +862,7 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
 
   it("GET /api/cases/:caseId/outcomes returns an empty list when no outcomes exist yet", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const { caseId } = await createOutcomeReadyHttpCase(app);
 
     const response = await request(app).get(`/api/cases/${caseId}/outcomes`);
@@ -838,12 +874,24 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
 
   it("GET /api/cases/:caseId/traceability returns the stored full traceability join", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const { caseId, constructId, constructVersion } = await createOutcomeReadyHttpCase(app);
 
-    await store.recordAdministration(caseId, { ...buildAdministration(caseId), constructId, constructVersion }, "corr-traceability-admin");
-    await store.recordImmuneMonitoring(caseId, { ...buildImmuneMonitoring(caseId), constructId, constructVersion }, "corr-traceability-immune");
-    await store.recordClinicalFollowUp(caseId, { ...buildClinicalFollowUp(caseId), constructId, constructVersion }, "corr-traceability-follow");
+    await store.recordAdministration(
+      caseId,
+      { ...buildAdministration(caseId), constructId, constructVersion },
+      "corr-traceability-admin",
+    );
+    await store.recordImmuneMonitoring(
+      caseId,
+      { ...buildImmuneMonitoring(caseId), constructId, constructVersion },
+      "corr-traceability-immune",
+    );
+    await store.recordClinicalFollowUp(
+      caseId,
+      { ...buildClinicalFollowUp(caseId), constructId, constructVersion },
+      "corr-traceability-follow",
+    );
 
     const response = await request(app).get(`/api/cases/${caseId}/traceability`);
 
@@ -855,7 +903,7 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
 
   it("GET /api/cases/:caseId/traceability returns an operator-facing readiness error when ranking is missing", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const caseId = await createReviewReadyCase(app);
 
     const constructResponse = await request(app)
@@ -873,7 +921,7 @@ describe("Wave 13 вЂ” Outcome HTTP surfaces", () => {
 describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
   it("POST /api/cases/:caseId/review-outcomes records an approved review outcome for a board packet", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const { caseId, packetId } = await createBoardPacketReadyHttpCase(app);
 
     const response = await request(app)
@@ -888,7 +936,7 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
     assert.equal(response.body.case.status, "AWAITING_FINAL_RELEASE");
     assert.equal(response.headers["x-correlation-id"], "corr-wave15-review");
 
-    const storedCase = await store.getCase(caseId) as unknown as {
+    const storedCase = (await store.getCase(caseId)) as unknown as {
       reviewOutcomes: Array<{ reviewId: string; packetId: string }>;
       auditEvents: Array<{ type: string; correlationId: string }>;
       timeline: Array<{ type: string }>;
@@ -902,7 +950,7 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
 
   it("POST /api/cases/:caseId/final-releases authorizes final release for an approved review outcome", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const { caseId, packetId } = await createBoardPacketReadyHttpCase(app);
 
     const reviewResponse = await request(app)
@@ -925,16 +973,12 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
 
   it("POST /api/cases/:caseId/review-outcomes is idempotent for exact replay and rejects conflicting replay", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const { caseId, packetId } = await createBoardPacketReadyHttpCase(app);
     const body = buildReviewOutcomeInput(packetId);
 
-    const firstResponse = await request(app)
-      .post(`/api/cases/${caseId}/review-outcomes`)
-      .send(body);
-    const secondResponse = await request(app)
-      .post(`/api/cases/${caseId}/review-outcomes`)
-      .send(body);
+    const firstResponse = await request(app).post(`/api/cases/${caseId}/review-outcomes`).send(body);
+    const secondResponse = await request(app).post(`/api/cases/${caseId}/review-outcomes`).send(body);
     const conflictingResponse = await request(app)
       .post(`/api/cases/${caseId}/review-outcomes`)
       .send(buildReviewOutcomeInput(packetId, { rationale: "Conflicting rationale" }));
@@ -949,7 +993,7 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
 
   it("POST /api/cases/:caseId/handoff-packets creates a bounded handoff packet from an approved review", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const { caseId, constructId, packetId } = await createBoardPacketReadyHttpCase(app);
 
     const reviewResponse = await request(app)
@@ -995,15 +1039,17 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
 
   it("POST /api/cases/:caseId/handoff-packets rejects non-approved review outcomes", async () => {
     const store = new MemoryCaseStore();
-    const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+    const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
     const { caseId, packetId } = await createBoardPacketReadyHttpCase(app);
 
     const reviewResponse = await request(app)
       .post(`/api/cases/${caseId}/review-outcomes`)
-      .send(buildReviewOutcomeInput(packetId, {
-        reviewDisposition: "revision-requested",
-        rationale: "Need an updated payload before approval.",
-      }));
+      .send(
+        buildReviewOutcomeInput(packetId, {
+          reviewDisposition: "revision-requested",
+          rationale: "Need an updated payload before approval.",
+        }),
+      );
     assert.equal(reviewResponse.status, 201);
 
     const handoffResponse = await request(app)
@@ -1018,7 +1064,7 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
     const { pool, store } = await createPgCaseStore();
 
     try {
-      const app = createApp({ store , rbacAllowAll: true, consentGateEnabled: false });
+      const app = createApp({ store, rbacAllowAll: true, consentGateEnabled: false });
       const { caseId, packetId } = await createBoardPacketReadyHttpCase(app);
 
       const reviewResponse = await request(app)
@@ -1041,7 +1087,7 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
       const reloadedStore = new PostgresCaseStore(pool);
       await reloadedStore.initialize();
 
-      const reloadedCase = await reloadedStore.getCase(caseId) as unknown as {
+      const reloadedCase = (await reloadedStore.getCase(caseId)) as unknown as {
         reviewOutcomes: Array<{ reviewId: string }>;
         handoffPackets: Array<{ handoffId: string }>;
       };
@@ -1050,7 +1096,7 @@ describe("Wave 15 вЂ” Review outcome and manufacturing handoff", () => {
       assert.equal(reloadedCase.handoffPackets.length, 1);
       assert.equal(reloadedCase.handoffPackets[0].handoffId, handoffId);
 
-      const traceability = await reloadedStore.getFullTraceability(caseId) as unknown as {
+      const traceability = (await reloadedStore.getFullTraceability(caseId)) as unknown as {
         reviewOutcomes: Array<{ reviewId: string }>;
         handoffPackets: Array<{ handoffId: string }>;
       };

@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type {
-  IFhirExporter,
   FhirBundle,
+  FhirDiagnosticReport,
   FhirObservation,
   FhirPatient,
-  FhirDiagnosticReport,
+  IFhirExporter,
 } from "../ports/IFhirExporter";
 import type { CaseRecord, HlaConsensusRecord } from "../types";
 
@@ -38,9 +38,7 @@ export class InMemoryFhirExporter implements IFhirExporter {
 
     const observations: FhirObservation[] = [];
     if (caseRecord.hlaConsensus) {
-      observations.push(
-        ...this.buildHlaObservations(caseRecord.caseId, caseRecord.hlaConsensus, patientId),
-      );
+      observations.push(...this.buildHlaObservations(caseRecord.caseId, caseRecord.hlaConsensus, patientId));
     }
 
     const report: FhirDiagnosticReport = {
@@ -90,9 +88,7 @@ export class InMemoryFhirExporter implements IFhirExporter {
       resourceType: "Observation",
       id: `hla-genotype-${randomUUID()}`,
       meta: {
-        profile: [
-          "http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genotype",
-        ],
+        profile: ["http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genotype"],
       },
       status: "final",
       code: {

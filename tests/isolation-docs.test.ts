@@ -1,7 +1,7 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import test from "node:test";
 
 function readRootDoc(fileName: string): string {
   return readFileSync(path.resolve(__dirname, `../${fileName}`), "utf8");
@@ -14,7 +14,8 @@ test("bundled documentation surfaces do not link outside the standalone reposito
     const content = readRootDoc(fileName);
     const markdownLinks = [...content.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)].map((match) => match[1]);
     const escapingLinks = markdownLinks.filter(
-      (target) => !target.startsWith("http://") && !target.startsWith("https://") && target.replace(/\\/g, "/").startsWith("../"),
+      (target) =>
+        !target.startsWith("http://") && !target.startsWith("https://") && target.replace(/\\/g, "/").startsWith("../"),
     );
 
     assert.deepEqual(

@@ -1,4 +1,4 @@
-import type { IConsentTracker, ConsentEvent } from "../ports/IConsentTracker";
+import type { ConsentEvent, IConsentTracker } from "../ports/IConsentTracker";
 
 /**
  * In-memory consent event log per case.

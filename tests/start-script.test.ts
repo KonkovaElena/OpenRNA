@@ -1,7 +1,7 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import path from "node:path";
 import { readFileSync } from "node:fs";
+import path from "node:path";
+import test from "node:test";
 
 type PackageJson = {
   scripts?: {

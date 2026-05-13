@@ -1,8 +1,8 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import request from "supertest";
-import { createApp } from "../src/app";
 import { InMemoryConsentTracker } from "../src/adapters/InMemoryConsentTracker";
+import { createApp } from "../src/app";
 import type { CaseRecord } from "../src/types";
 
 /**
@@ -45,8 +45,20 @@ function buildBundleInput(bundleId = "GRCh38-compliance") {
 
 const sampleSet = [
   { sampleId: "s-tumor-dna", sampleType: "TUMOR_DNA", assayType: "WES", accessionId: "acc-1", sourceSite: "site-001" },
-  { sampleId: "s-normal-dna", sampleType: "NORMAL_DNA", assayType: "WES", accessionId: "acc-2", sourceSite: "site-001" },
-  { sampleId: "s-tumor-rna", sampleType: "TUMOR_RNA", assayType: "RNA_SEQ", accessionId: "acc-3", sourceSite: "site-001" },
+  {
+    sampleId: "s-normal-dna",
+    sampleType: "NORMAL_DNA",
+    assayType: "WES",
+    accessionId: "acc-2",
+    sourceSite: "site-001",
+  },
+  {
+    sampleId: "s-tumor-rna",
+    sampleType: "TUMOR_RNA",
+    assayType: "RNA_SEQ",
+    accessionId: "acc-3",
+    sourceSite: "site-001",
+  },
 ];
 
 const artifactSet = [
@@ -55,7 +67,10 @@ const artifactSet = [
   { sampleId: "s-tumor-rna", semanticType: "tumor-rna-fastq", schemaVersion: 1, artifactHash: "sha256:ccc" },
 ];
 
-async function createReadyCase(app: ReturnType<typeof createApp>, caseInputOverrides: Record<string, unknown> = {}): Promise<CaseRecord> {
+async function createReadyCase(
+  app: ReturnType<typeof createApp>,
+  caseInputOverrides: Record<string, unknown> = {},
+): Promise<CaseRecord> {
   const createRes = await request(app).post("/api/cases").send(buildCaseInput(caseInputOverrides));
   assert.strictEqual(createRes.status, 201, `Case creation failed: ${JSON.stringify(createRes.body)}`);
   const caseId = createRes.body.case.caseId;
@@ -96,13 +111,11 @@ test("Consent Interlock", async (t) => {
     assert.strictEqual(bundleRes.status, 201, `Bundle registration failed: ${JSON.stringify(bundleRes.body)}`);
 
     // Attempt workflow without consent — must be rejected
-    const res = await request(app)
-      .post(`/api/cases/${rec.caseId}/workflows`)
-      .send({
-        workflowName: "somatic-variant-calling",
-        referenceBundleId: "GRCh38-compliance",
-        executionProfile: "default",
-      });
+    const res = await request(app).post(`/api/cases/${rec.caseId}/workflows`).send({
+      workflowName: "somatic-variant-calling",
+      referenceBundleId: "GRCh38-compliance",
+      executionProfile: "default",
+    });
 
     assert.strictEqual(res.status, 403);
     assert.strictEqual(res.body.code, "consent_required");
@@ -122,13 +135,11 @@ test("Consent Interlock", async (t) => {
     // Register a reference bundle
     await request(app).post("/api/reference-bundles").send(buildBundleInput());
 
-    const res = await request(app)
-      .post(`/api/cases/${rec.caseId}/workflows`)
-      .send({
-        workflowName: "somatic-variant-calling",
-        referenceBundleId: "GRCh38-compliance",
-        executionProfile: "default",
-      });
+    const res = await request(app).post(`/api/cases/${rec.caseId}/workflows`).send({
+      workflowName: "somatic-variant-calling",
+      referenceBundleId: "GRCh38-compliance",
+      executionProfile: "default",
+    });
 
     assert.strictEqual(res.status, 200);
     assert.ok(res.body.case);
@@ -150,13 +161,11 @@ test("Consent Interlock", async (t) => {
 
     await request(app).post("/api/reference-bundles").send(buildBundleInput());
 
-    const res = await request(app)
-      .post(`/api/cases/${rec.caseId}/workflows`)
-      .send({
-        workflowName: "somatic-variant-calling",
-        referenceBundleId: "GRCh38-compliance",
-        executionProfile: "default",
-      });
+    const res = await request(app).post(`/api/cases/${rec.caseId}/workflows`).send({
+      workflowName: "somatic-variant-calling",
+      referenceBundleId: "GRCh38-compliance",
+      executionProfile: "default",
+    });
 
     assert.strictEqual(res.status, 403);
     assert.strictEqual(res.body.code, "consent_required");
@@ -169,30 +178,49 @@ test("Consent Interlock", async (t) => {
 async function advanceThroughReview(app: ReturnType<typeof createApp>, caseId: string) {
   // Consent
   await request(app).post(`/api/cases/${caseId}/consent`).send({
-    type: "granted", scope: "genomic-analysis", version: "1.0",
+    type: "granted",
+    scope: "genomic-analysis",
+    version: "1.0",
   });
   // Bundle
   await request(app).post("/api/reference-bundles").send(buildBundleInput());
   // Workflow request
   await request(app).post(`/api/cases/${caseId}/workflows`).send({
-    workflowName: "somatic-variant-calling", referenceBundleId: "GRCh38-compliance", executionProfile: "default",
+    workflowName: "somatic-variant-calling",
+    referenceBundleId: "GRCh38-compliance",
+    executionProfile: "default",
   });
   // Start + complete run (runId is caller-provided, per platform convention)
   const runId = `run-compliance-${Date.now()}`;
   await request(app).post(`/api/cases/${caseId}/runs/${runId}/start`).send({});
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/complete`).send({
-    derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:d1", producingStep: "mutect2" }],
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/complete`)
+    .send({
+      derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:d1", producingStep: "mutect2" }],
+    });
   // HLA consensus
-  await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-    alleles: ["HLA-A*01:01", "HLA-B*08:01"],
-    perToolEvidence: [{ toolName: "optitype", alleles: ["HLA-A*01:01", "HLA-B*08:01"], confidence: 0.99 }],
-    confidenceScore: 0.99, referenceVersion: "IPD-IMGT/HLA 3.55.0",
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/hla-consensus`)
+    .send({
+      alleles: ["HLA-A*01:01", "HLA-B*08:01"],
+      perToolEvidence: [{ toolName: "optitype", alleles: ["HLA-A*01:01", "HLA-B*08:01"], confidence: 0.99 }],
+      confidenceScore: 0.99,
+      referenceVersion: "IPD-IMGT/HLA 3.55.0",
+    });
   // QC gate
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({
-    results: [{ metric: "callable_region_coverage", metricCategory: "callable_region_coverage", value: 120, threshold: 80, pass: true }],
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/qc`)
+    .send({
+      results: [
+        {
+          metric: "callable_region_coverage",
+          metricCategory: "callable_region_coverage",
+          value: 120,
+          threshold: 80,
+          pass: true,
+        },
+      ],
+    });
   // Board packet
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`).send({});
   assert.strictEqual(packetRes.status, 201, `Board packet creation failed: ${JSON.stringify(packetRes.body)}`);
@@ -264,23 +292,28 @@ test("Part 11 Signature Manifestation", async (t) => {
     });
     assert.strictEqual(reviewRes.status, 201);
 
-    const releaseRes = await request(app).post(`/api/cases/${rec.caseId}/final-releases`).send({
-      reviewId: reviewRes.body.reviewOutcome.reviewId,
-      releaserId: "qp-001",
-      releaserRole: "quality-person",
-      rationale: "Independent quality release authorization.",
-      signatureManifestation: {
-        meaning: "release",
-        signedBy: "qp-001",
-        signedAt: new Date().toISOString(),
-        signatureHash: "release-abc123",
-        signatureMethod: "hmac-sha256",
-      },
-    });
+    const releaseRes = await request(app)
+      .post(`/api/cases/${rec.caseId}/final-releases`)
+      .send({
+        reviewId: reviewRes.body.reviewOutcome.reviewId,
+        releaserId: "qp-001",
+        releaserRole: "quality-person",
+        rationale: "Independent quality release authorization.",
+        signatureManifestation: {
+          meaning: "release",
+          signedBy: "qp-001",
+          signedAt: new Date().toISOString(),
+          signatureHash: "release-abc123",
+          signatureMethod: "hmac-sha256",
+        },
+      });
 
     assert.strictEqual(releaseRes.status, 201, `Release failed: ${JSON.stringify(releaseRes.body)}`);
     assert.ok(releaseRes.body.finalRelease);
-    assert.strictEqual(releaseRes.body.finalRelease.meaning ?? releaseRes.body.finalRelease.signatureManifestation.meaning, "release");
+    assert.strictEqual(
+      releaseRes.body.finalRelease.meaning ?? releaseRes.body.finalRelease.signatureManifestation.meaning,
+      "release",
+    );
     assert.strictEqual(releaseRes.body.reviewOutcome.finalRelease.signatureManifestation.signedBy, "qp-001");
   });
 });
@@ -298,15 +331,21 @@ test("Two-Person Release Control", async (t) => {
     const packetId = await advanceThroughReview(app, caseId);
 
     // Construct design (needed for handoff)
-    await request(app).post(`/api/cases/${caseId}/construct-design`).send({
-      rankedCandidates: [{
-        candidateId: "neo-1", rank: 1, compositeScore: 0.95,
-        featureWeights: { binding: 0.5, expression: 0.5 },
-        featureScores: { binding: 0.9, expression: 1.0 },
-        uncertaintyContribution: 0.05,
-        explanation: "Top candidate by composite score.",
-      }],
-    });
+    await request(app)
+      .post(`/api/cases/${caseId}/construct-design`)
+      .send({
+        rankedCandidates: [
+          {
+            candidateId: "neo-1",
+            rank: 1,
+            compositeScore: 0.95,
+            featureWeights: { binding: 0.5, expression: 0.5 },
+            featureScores: { binding: 0.9, expression: 1.0 },
+            uncertaintyContribution: 0.05,
+            explanation: "Top candidate by composite score.",
+          },
+        ],
+      });
 
     const reviewRes = await request(app).post(`/api/cases/${caseId}/review-outcomes`).send({
       packetId,

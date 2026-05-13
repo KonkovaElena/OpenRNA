@@ -1,4 +1,4 @@
-import { type NextFunction, type Request, type Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { ApiError } from "../errors";
 import type { ICaseAccessStore } from "../ports/ICaseAccessStore";
 import type { CasePermission, IRbacProvider } from "../ports/IRbacProvider";
@@ -20,17 +20,9 @@ function requiredCasePermissionForRequest(req: Request): CasePermission {
   return "MUTATE_CASE";
 }
 
-export function caseAccessAuth(
-  caseAccessStore: ICaseAccessStore,
-  rbacProvider: IRbacProvider,
-) {
-  return async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    const caseId =
-      typeof req.params.caseId === "string" ? req.params.caseId : undefined;
+export function caseAccessAuth(caseAccessStore: ICaseAccessStore, rbacProvider: IRbacProvider) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const caseId = typeof req.params.caseId === "string" ? req.params.caseId : undefined;
     if (!caseId) {
       next();
       return;
@@ -46,15 +38,8 @@ export function caseAccessAuth(
       }
 
       const requiredPermission = requiredCasePermissionForRequest(req);
-      const allowedByCaseAccessStore = await caseAccessStore.canAccess(
-        caseId,
-        principalId,
-      );
-      const allowedByRbacCaseScope = await rbacProvider.canAccessCase(
-        principalId,
-        caseId,
-        requiredPermission,
-      );
+      const allowedByCaseAccessStore = await caseAccessStore.canAccess(caseId, principalId);
+      const allowedByRbacCaseScope = await rbacProvider.canAccessCase(principalId, caseId, requiredPermission);
       if (!allowedByCaseAccessStore && !allowedByRbacCaseScope) {
         next(
           new ApiError(

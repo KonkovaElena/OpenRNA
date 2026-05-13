@@ -39,11 +39,19 @@ type ReviewTransitionStatus =
   | "REVIEW_REJECTED"
   | "REVISION_REQUESTED"
   | "HANDOFF_PENDING";
-type ReviewEventType = "board.packet.generated" | "review.outcome.recorded" | "final.release.authorized" | "handoff.packet.generated";
+type ReviewEventType =
+  | "board.packet.generated"
+  | "review.outcome.recorded"
+  | "final.release.authorized"
+  | "handoff.packet.generated";
 
 export interface ReviewStoreMutationContext {
   clock: { nowIso(): string };
-  applyTransition: (record: CaseRecord, nextStatus: ReviewTransitionStatus, correlationId?: AuditContextInput) => Promise<void>;
+  applyTransition: (
+    record: CaseRecord,
+    nextStatus: ReviewTransitionStatus,
+    correlationId?: AuditContextInput,
+  ) => Promise<void>;
   createCaseEvent: (
     caseId: string,
     type: ReviewEventType,
@@ -100,9 +108,8 @@ function buildBoardPacketSnapshot(
     derivedArtifacts: structuredClone(record.derivedArtifacts),
     hlaConsensus: structuredClone(hlaConsensus),
     latestQcGate: structuredClone(latestQcGate),
-    hlaToolBreakdown: hlaConsensus.perToolEvidence.length > 0
-      ? structuredClone(hlaConsensus.perToolEvidence)
-      : undefined,
+    hlaToolBreakdown:
+      hlaConsensus.perToolEvidence.length > 0 ? structuredClone(hlaConsensus.perToolEvidence) : undefined,
     hlaDisagreements: hlaConsensus.disagreements,
     bundleRetrievalProvenance: getBundleRetrievalProvenance(pinnedReferenceBundles),
     evidenceLineage: (() => {
@@ -135,7 +142,13 @@ export async function generateBoardPacketForCase(
   const latestQcGate = record.qcGates[record.qcGates.length - 1];
   const completedRuns = record.workflowRuns.filter((run) => run.status === "COMPLETED");
 
-  if (!record.hlaConsensus || !latestQcGate || latestQcGate.outcome === "FAILED" || completedRuns.length === 0 || record.derivedArtifacts.length === 0) {
+  if (
+    !record.hlaConsensus ||
+    !latestQcGate ||
+    latestQcGate.outcome === "FAILED" ||
+    completedRuns.length === 0 ||
+    record.derivedArtifacts.length === 0
+  ) {
     throw new ApiError(
       409,
       "board_packet_not_ready",
@@ -173,9 +186,20 @@ export async function generateBoardPacketForCase(
     ? "HLA_REVIEW_REQUIRED"
     : "AWAITING_REVIEW";
   await context.applyTransition(record, nextReviewStatus, correlationId);
-  record.timeline.push(timelineEvent(context.clock, "board_packet_generated", `Board packet ${packet.packetId} generated for ${boardRoute}.`));
+  record.timeline.push(
+    timelineEvent(
+      context.clock,
+      "board_packet_generated",
+      `Board packet ${packet.packetId} generated for ${boardRoute}.`,
+    ),
+  );
   record.auditEvents.push(
-    auditEvent(context.clock, "board.packet.generated", `Board packet ${packet.packetId} generated for ${boardRoute}.`, correlationId),
+    auditEvent(
+      context.clock,
+      "board.packet.generated",
+      `Board packet ${packet.packetId} generated for ${boardRoute}.`,
+      correlationId,
+    ),
   );
   record.updatedAt = createdAt;
 
@@ -209,7 +233,12 @@ export async function recordReviewOutcomeForCase(
 ): Promise<ReviewOutcomeResult> {
   const packet = record.boardPackets.find((candidate) => candidate.packetId === input.packetId);
   if (!packet) {
-    throw new ApiError(404, "board_packet_not_found", "Board packet was not found for this case.", "Use a valid packetId from the board packet list endpoint.");
+    throw new ApiError(
+      404,
+      "board_packet_not_found",
+      "Board packet was not found for this case.",
+      "Use a valid packetId from the board packet list endpoint.",
+    );
   }
 
   const existingOutcome = record.reviewOutcomes.find((candidate) => candidate.packetId === input.packetId);
@@ -245,11 +274,12 @@ export async function recordReviewOutcomeForCase(
   };
 
   record.reviewOutcomes.push(reviewOutcome);
-  const reviewTargetStatus = input.reviewDisposition === "approved"
-    ? "AWAITING_FINAL_RELEASE"
-    : input.reviewDisposition === "rejected"
-      ? "REVIEW_REJECTED"
-      : "REVISION_REQUESTED";
+  const reviewTargetStatus =
+    input.reviewDisposition === "approved"
+      ? "AWAITING_FINAL_RELEASE"
+      : input.reviewDisposition === "rejected"
+        ? "REVIEW_REJECTED"
+        : "REVISION_REQUESTED";
   await context.applyTransition(record, reviewTargetStatus, correlationId);
   record.timeline.push(
     timelineEvent(
@@ -300,7 +330,12 @@ export async function authorizeFinalReleaseForCase(
 ): Promise<FinalReleaseAuthorizationResult> {
   const reviewOutcome = record.reviewOutcomes.find((candidate) => candidate.reviewId === input.reviewId);
   if (!reviewOutcome) {
-    throw new ApiError(404, "review_outcome_not_found", "Review outcome was not found for this case.", "Use a valid reviewId from the review outcome list endpoint.");
+    throw new ApiError(
+      404,
+      "review_outcome_not_found",
+      "Review outcome was not found for this case.",
+      "Use a valid reviewId from the review outcome list endpoint.",
+    );
   }
 
   if (reviewOutcome.reviewDisposition !== "approved") {
@@ -407,7 +442,12 @@ export async function generateHandoffPacketForCase(
 ): Promise<HandoffPacketGenerationResult> {
   const reviewOutcome = record.reviewOutcomes.find((candidate) => candidate.reviewId === input.reviewId);
   if (!reviewOutcome) {
-    throw new ApiError(404, "review_outcome_not_found", "Review outcome was not found for this case.", "Use a valid reviewId from the review outcome list endpoint.");
+    throw new ApiError(
+      404,
+      "review_outcome_not_found",
+      "Review outcome was not found for this case.",
+      "Use a valid reviewId from the review outcome list endpoint.",
+    );
   }
 
   if (reviewOutcome.reviewDisposition !== "approved") {
@@ -439,7 +479,12 @@ export async function generateHandoffPacketForCase(
 
   const boardPacket = record.boardPackets.find((candidate) => candidate.packetId === reviewOutcome.packetId);
   if (!boardPacket) {
-    throw new ApiError(404, "board_packet_not_found", "Board packet was not found for this case.", "Use a valid packetId from the board packet list endpoint.");
+    throw new ApiError(
+      404,
+      "board_packet_not_found",
+      "Board packet was not found for this case.",
+      "Use a valid packetId from the board packet list endpoint.",
+    );
   }
 
   if (!record.constructDesign) {

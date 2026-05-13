@@ -1,19 +1,16 @@
 import { createHmac } from "node:crypto";
 import type { Express, RequestHandler } from "express";
+import { rbacAuth } from "../middleware/rbac-auth";
+import type { IRbacProvider } from "../ports/IRbacProvider";
+import type { CaseStore } from "../store";
 import {
   parseAuthorizeFinalReleaseInput,
   parseGenerateHandoffPacketInput,
   parseRecordReviewOutcomeInput,
 } from "../store";
-import { rbacAuth } from "../middleware/rbac-auth";
-import type { IRbacProvider } from "../ports/IRbacProvider";
-import type { CaseStore } from "../store";
 import type { SignatureManifestation } from "../types";
 
-type RouteParamResolver = (
-  req: Parameters<RequestHandler>[0],
-  name: string,
-) => string;
+type RouteParamResolver = (req: Parameters<RequestHandler>[0], name: string) => string;
 
 interface ReviewRouteDependencies {
   store: CaseStore;
@@ -51,13 +48,7 @@ function computeServerSeal(
     signedAt: string;
   },
 ): string {
-  const payload = [
-    params.caseId,
-    params.recordId,
-    params.signedBy,
-    params.meaning,
-    params.signedAt,
-  ].join("|");
+  const payload = [params.caseId, params.recordId, params.signedBy, params.meaning, params.signedAt].join("|");
   return createHmac("sha256", sealKey).update(payload, "utf8").digest("hex");
 }
 
@@ -173,33 +164,22 @@ export function registerReviewRoutes(
         const caseId = getRequiredRouteParam(req, "caseId");
         const correlationId = String(res.locals.correlationId ?? "");
         const rawInput = parseRecordReviewOutcomeInput(req.body);
-        const principalId = String(
-          res.locals.principalId ?? "system:anonymous",
-        );
+        const principalId = String(res.locals.principalId ?? "system:anonymous");
         const principalName = String(res.locals.principalName ?? principalId);
         const reviewId = `review_pending_${correlationId}`; // placeholder for seal; actual reviewId assigned by store
-        const inputWithIdentity = enforceIdentityBoundSignatures
-          ? { ...rawInput, reviewerId: principalId }
-          : rawInput;
+        const inputWithIdentity = enforceIdentityBoundSignatures ? { ...rawInput, reviewerId: principalId } : rawInput;
         const inputWithSeal = {
           ...inputWithIdentity,
-          signatureManifestation: applyIdentityBinding(
-            rawInput.signatureManifestation,
-            {
-              enforceIdentityBoundSignatures,
-              signatureSealKey,
-              principalId,
-              principalName,
-              caseId,
-              recordId: reviewId,
-            },
-          ),
+          signatureManifestation: applyIdentityBinding(rawInput.signatureManifestation, {
+            enforceIdentityBoundSignatures,
+            signatureSealKey,
+            principalId,
+            principalName,
+            caseId,
+            recordId: reviewId,
+          }),
         };
-        const result = await store.recordReviewOutcome(
-          caseId,
-          inputWithSeal,
-          correlationId,
-        );
+        const result = await store.recordReviewOutcome(caseId, inputWithSeal, correlationId);
         res.status(result.created ? 201 : 200).json({
           case: result.case,
           reviewOutcome: result.reviewOutcome,
@@ -257,32 +237,21 @@ export function registerReviewRoutes(
         const caseId = getRequiredRouteParam(req, "caseId");
         const correlationId = String(res.locals.correlationId ?? "");
         const rawInput = parseAuthorizeFinalReleaseInput(req.body);
-        const principalId = String(
-          res.locals.principalId ?? "system:anonymous",
-        );
+        const principalId = String(res.locals.principalId ?? "system:anonymous");
         const principalName = String(res.locals.principalName ?? principalId);
-        const inputWithIdentity = enforceIdentityBoundSignatures
-          ? { ...rawInput, releaserId: principalId }
-          : rawInput;
+        const inputWithIdentity = enforceIdentityBoundSignatures ? { ...rawInput, releaserId: principalId } : rawInput;
         const inputWithSeal = {
           ...inputWithIdentity,
-          signatureManifestation: applyIdentityBinding(
-            rawInput.signatureManifestation,
-            {
-              enforceIdentityBoundSignatures,
-              signatureSealKey,
-              principalId,
-              principalName,
-              caseId,
-              recordId: rawInput.reviewId, // seals against the review record being released
-            },
-          ),
+          signatureManifestation: applyIdentityBinding(rawInput.signatureManifestation, {
+            enforceIdentityBoundSignatures,
+            signatureSealKey,
+            principalId,
+            principalName,
+            caseId,
+            recordId: rawInput.reviewId, // seals against the review record being released
+          }),
         };
-        const result = await store.authorizeFinalRelease(
-          caseId,
-          inputWithSeal,
-          correlationId,
-        );
+        const result = await store.authorizeFinalRelease(caseId, inputWithSeal, correlationId);
         res.status(result.created ? 201 : 200).json({
           case: result.case,
           reviewOutcome: result.reviewOutcome,
@@ -307,11 +276,7 @@ export function registerReviewRoutes(
         const caseId = getRequiredRouteParam(req, "caseId");
         const correlationId = String(res.locals.correlationId ?? "");
         const input = parseGenerateHandoffPacketInput(req.body);
-        const result = await store.generateHandoffPacket(
-          caseId,
-          input,
-          correlationId,
-        );
+        const result = await store.generateHandoffPacket(caseId, input, correlationId);
         res.status(result.created ? 201 : 200).json({
           case: result.case,
           handoff: result.handoff,

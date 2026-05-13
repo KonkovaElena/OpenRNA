@@ -1,10 +1,7 @@
 import { createServer } from "node:http";
 import { createApp } from "./app";
+import { createDurableRuntimeDependencies, createWorkflowDispatchDependency } from "./bootstrap/runtime-dependencies";
 import { loadConfig } from "./config";
-import {
-  createDurableRuntimeDependencies,
-  createWorkflowDispatchDependency,
-} from "./bootstrap/runtime-dependencies";
 import { closeServerAndResources } from "./runtime-shutdown";
 
 async function bootstrap() {

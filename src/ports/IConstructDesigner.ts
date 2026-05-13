@@ -1,4 +1,4 @@
-import type { RankingRationale, ConstructDesignPackage, DeliveryModality, EpitopeLinkerStrategy } from "../types";
+import type { ConstructDesignPackage, DeliveryModality, EpitopeLinkerStrategy, RankingRationale } from "../types";
 
 export interface ConstructDesignRequest {
   caseId: string;

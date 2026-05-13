@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { InMemoryStateMachineGuard } from "../src/adapters/InMemoryStateMachineGuard";
 
 const guard = new InMemoryStateMachineGuard();
@@ -79,24 +79,27 @@ test("State Machine Guard", async (t) => {
     assert.strictEqual(allowed.length, 0);
   });
 
-  await t.test("full lifecycle: INTAKING → READY_FOR_WORKFLOW → WORKFLOW_REQUESTED → WORKFLOW_RUNNING → COMPLETED → QC → BOARD → REVIEW → HANDOFF", async () => {
-    const lifecycle = [
-      ["INTAKING", "READY_FOR_WORKFLOW"],
-      ["READY_FOR_WORKFLOW", "WORKFLOW_REQUESTED"],
-      ["WORKFLOW_REQUESTED", "WORKFLOW_RUNNING"],
-      ["WORKFLOW_RUNNING", "WORKFLOW_COMPLETED"],
-      ["WORKFLOW_COMPLETED", "QC_PASSED"],
-      ["QC_PASSED", "AWAITING_REVIEW"],
-      ["AWAITING_REVIEW", "AWAITING_FINAL_RELEASE"],
-      ["AWAITING_FINAL_RELEASE", "APPROVED_FOR_HANDOFF"],
-      ["APPROVED_FOR_HANDOFF", "HANDOFF_PENDING"],
-    ] as const;
+  await t.test(
+    "full lifecycle: INTAKING → READY_FOR_WORKFLOW → WORKFLOW_REQUESTED → WORKFLOW_RUNNING → COMPLETED → QC → BOARD → REVIEW → HANDOFF",
+    async () => {
+      const lifecycle = [
+        ["INTAKING", "READY_FOR_WORKFLOW"],
+        ["READY_FOR_WORKFLOW", "WORKFLOW_REQUESTED"],
+        ["WORKFLOW_REQUESTED", "WORKFLOW_RUNNING"],
+        ["WORKFLOW_RUNNING", "WORKFLOW_COMPLETED"],
+        ["WORKFLOW_COMPLETED", "QC_PASSED"],
+        ["QC_PASSED", "AWAITING_REVIEW"],
+        ["AWAITING_REVIEW", "AWAITING_FINAL_RELEASE"],
+        ["AWAITING_FINAL_RELEASE", "APPROVED_FOR_HANDOFF"],
+        ["APPROVED_FOR_HANDOFF", "HANDOFF_PENDING"],
+      ] as const;
 
-    for (const [from, to] of lifecycle) {
-      const result = await guard.validateTransition("case-lifecycle", from, to);
-      assert.strictEqual(result.allowed, true, `Expected ${from} → ${to} to be allowed`);
-    }
-  });
+      for (const [from, to] of lifecycle) {
+        const result = await guard.validateTransition("case-lifecycle", from, to);
+        assert.strictEqual(result.allowed, true, `Expected ${from} → ${to} to be allowed`);
+      }
+    },
+  );
 
   await t.test("allows QC_PASSED → HLA_REVIEW_REQUIRED transition", async () => {
     const result = await guard.validateTransition("case-1", "QC_PASSED", "HLA_REVIEW_REQUIRED");
@@ -119,23 +122,26 @@ test("State Machine Guard", async (t) => {
     assert.ok(allowed.includes("HLA_REVIEW_REQUIRED"));
   });
 
-  await t.test("full lifecycle with HLA review gate: QC_PASSED → HLA_REVIEW_REQUIRED → AWAITING_REVIEW → HANDOFF", async () => {
-    const lifecycle = [
-      ["INTAKING", "READY_FOR_WORKFLOW"],
-      ["READY_FOR_WORKFLOW", "WORKFLOW_REQUESTED"],
-      ["WORKFLOW_REQUESTED", "WORKFLOW_RUNNING"],
-      ["WORKFLOW_RUNNING", "WORKFLOW_COMPLETED"],
-      ["WORKFLOW_COMPLETED", "QC_PASSED"],
-      ["QC_PASSED", "HLA_REVIEW_REQUIRED"],
-      ["HLA_REVIEW_REQUIRED", "AWAITING_REVIEW"],
-      ["AWAITING_REVIEW", "AWAITING_FINAL_RELEASE"],
-      ["AWAITING_FINAL_RELEASE", "APPROVED_FOR_HANDOFF"],
-      ["APPROVED_FOR_HANDOFF", "HANDOFF_PENDING"],
-    ] as const;
+  await t.test(
+    "full lifecycle with HLA review gate: QC_PASSED → HLA_REVIEW_REQUIRED → AWAITING_REVIEW → HANDOFF",
+    async () => {
+      const lifecycle = [
+        ["INTAKING", "READY_FOR_WORKFLOW"],
+        ["READY_FOR_WORKFLOW", "WORKFLOW_REQUESTED"],
+        ["WORKFLOW_REQUESTED", "WORKFLOW_RUNNING"],
+        ["WORKFLOW_RUNNING", "WORKFLOW_COMPLETED"],
+        ["WORKFLOW_COMPLETED", "QC_PASSED"],
+        ["QC_PASSED", "HLA_REVIEW_REQUIRED"],
+        ["HLA_REVIEW_REQUIRED", "AWAITING_REVIEW"],
+        ["AWAITING_REVIEW", "AWAITING_FINAL_RELEASE"],
+        ["AWAITING_FINAL_RELEASE", "APPROVED_FOR_HANDOFF"],
+        ["APPROVED_FOR_HANDOFF", "HANDOFF_PENDING"],
+      ] as const;
 
-    for (const [from, to] of lifecycle) {
-      const result = await guard.validateTransition("case-hla-gate", from, to);
-      assert.strictEqual(result.allowed, true, `Expected ${from} → ${to} to be allowed`);
-    }
-  });
+      for (const [from, to] of lifecycle) {
+        const result = await guard.validateTransition("case-hla-gate", from, to);
+        assert.strictEqual(result.allowed, true, `Expected ${from} → ${to} to be allowed`);
+      }
+    },
+  );
 });

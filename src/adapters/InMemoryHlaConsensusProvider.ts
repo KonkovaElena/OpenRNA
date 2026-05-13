@@ -1,5 +1,5 @@
+import type { HlaTypingInput, IHlaConsensusProvider } from "../ports/IHlaConsensusProvider";
 import type { HlaConsensusRecord, HlaDisagreementRecord } from "../types";
-import type { IHlaConsensusProvider, HlaTypingInput } from "../ports/IHlaConsensusProvider";
 
 /**
  * @sota-stub Stub implementation of IHlaConsensusProvider providing local math consensus resolution.
@@ -30,14 +30,13 @@ export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
       }
     }
 
-    const avgConfidence =
-      validInputs > 0
-        ? sumConfidence / validInputs
-        : 0;
+    const avgConfidence = validInputs > 0 ? sumConfidence / validInputs : 0;
 
     // Detect disagreements: compare alleles across tool pairs per locus
     const disagreements = this.detectDisagreements(inputs);
-    const unresolvedDisagreementCount = disagreements.filter((candidate) => candidate.resolution === "unresolved").length;
+    const unresolvedDisagreementCount = disagreements.filter(
+      (candidate) => candidate.resolution === "unresolved",
+    ).length;
     const manualReviewRequired = unresolvedDisagreementCount > operatorReviewThreshold;
 
     // Per-tool confidence decomposition
@@ -62,8 +61,7 @@ export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
       referenceVersion,
       producedAt: new Date().toISOString(),
       disagreements: disagreements.length > 0 ? disagreements : undefined,
-      confidenceDecomposition:
-        Object.keys(confidenceDecomposition).length > 0 ? confidenceDecomposition : undefined,
+      confidenceDecomposition: Object.keys(confidenceDecomposition).length > 0 ? confidenceDecomposition : undefined,
     };
 
     this.records.set(caseId, record);
@@ -114,12 +112,8 @@ export class InMemoryHlaConsensusProvider implements IHlaConsensusProvider {
             // Resolve: majority wins if ≥3 tools, else unresolved for 2 tools
             let resolution: HlaDisagreementRecord["resolution"] = "unresolved";
             if (inputs.length >= 3) {
-              const countA = [...toolLoci.values()].filter(
-                (m) => m.get(locus) === alleleA,
-              ).length;
-              const countB = [...toolLoci.values()].filter(
-                (m) => m.get(locus) === alleleB,
-              ).length;
+              const countA = [...toolLoci.values()].filter((m) => m.get(locus) === alleleA).length;
+              const countB = [...toolLoci.values()].filter((m) => m.get(locus) === alleleB).length;
               if (countA > countB) resolution = "majority";
               else if (countB > countA) resolution = "majority";
             }

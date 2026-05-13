@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { newDb } from "pg-mem";
 import { PostgresWorkflowDispatchSink } from "../src/adapters/PostgresWorkflowDispatchSink";
 

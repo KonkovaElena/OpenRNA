@@ -8,19 +8,17 @@
  *   - PostgresCaseStore.verifyAuditChain (pg-mem Postgres path)
  *   - HTTP GET /api/cases/:caseId/audit-chain/verify endpoint
  */
-import test from "node:test";
+
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import test from "node:test";
 import { newDb } from "pg-mem";
 import request from "supertest";
+import { PostgresCaseStore } from "../src/adapters/PostgresCaseStore";
 import { createApp } from "../src/app";
 import { MemoryCaseStore } from "../src/store";
-import { PostgresCaseStore } from "../src/adapters/PostgresCaseStore";
-import {
-  computeAuditEventRecordHash,
-  verifyAuditChainIntegrity,
-} from "../src/store-helpers";
+import { computeAuditEventRecordHash, verifyAuditChainIntegrity } from "../src/store-helpers";
 import type { CaseAuditEventRecord, CaseRecord } from "../src/types";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -54,10 +52,7 @@ function buildSampleInput(sampleType: string, assayType: string) {
 /**
  * Constructs a minimal CaseAuditEventRecord for testing.
  */
-function makeEvent(
-  id: string,
-  overrides: Partial<CaseAuditEventRecord> = {},
-): CaseAuditEventRecord {
+function makeEvent(id: string, overrides: Partial<CaseAuditEventRecord> = {}): CaseAuditEventRecord {
   return {
     eventId: id,
     type: "case.created",
@@ -73,10 +68,7 @@ function makeEvent(
 /**
  * Builds a minimal CaseRecord suitable for MemoryCaseStore initialRecords.
  */
-function makeMinimalCaseRecord(
-  caseId: string,
-  auditEvents: CaseAuditEventRecord[],
-): CaseRecord {
+function makeMinimalCaseRecord(caseId: string, auditEvents: CaseAuditEventRecord[]): CaseRecord {
   return {
     caseId,
     status: "INTAKING",
@@ -111,13 +103,8 @@ async function createPgStoreWithAuditColumns() {
   const pool = new Pool();
 
   // Run the normalized migration (pg-mem doesn't support BEGIN/COMMIT)
-  const migrationSql = readFileSync(
-    join(__dirname, "..", "src", "migrations", "001_full_schema.sql"),
-    "utf8",
-  );
-  const cleanSql = migrationSql
-    .replace(/^BEGIN;/m, "")
-    .replace(/^COMMIT;/m, "");
+  const migrationSql = readFileSync(join(__dirname, "..", "src", "migrations", "001_full_schema.sql"), "utf8");
+  const cleanSql = migrationSql.replace(/^BEGIN;/m, "").replace(/^COMMIT;/m, "");
   await pool.query(cleanSql);
 
   // Add audit hash-chain columns (migration 004, simplified for pg-mem)
@@ -280,23 +267,12 @@ test("MemoryCaseStore.verifyAuditChain: fresh case with multiple mutations retur
   const caseId = created.caseId;
 
   // Two more mutations → produces additional audit events
-  await store.registerSample(
-    caseId,
-    buildSampleInput("TUMOR_DNA", "WES"),
-    "corr-sample-1",
-  );
-  await store.registerSample(
-    caseId,
-    buildSampleInput("NORMAL_DNA", "WES"),
-    "corr-sample-2",
-  );
+  await store.registerSample(caseId, buildSampleInput("TUMOR_DNA", "WES"), "corr-sample-1");
+  await store.registerSample(caseId, buildSampleInput("NORMAL_DNA", "WES"), "corr-sample-2");
 
   const result = await store.verifyAuditChain(caseId);
   assert.equal(result.valid, true, "chain should be valid for in-memory events");
-  assert.ok(
-    result.eventCount >= 3,
-    `expected at least 3 audit events, got ${result.eventCount}`,
-  );
+  assert.ok(result.eventCount >= 3, `expected at least 3 audit events, got ${result.eventCount}`);
 });
 
 test("MemoryCaseStore.verifyAuditChain: corrupted recordHash is detected", async () => {
@@ -308,17 +284,11 @@ test("MemoryCaseStore.verifyAuditChain: corrupted recordHash is detected", async
     prevHash: undefined,
   });
 
-  const store = new MemoryCaseStore(fixedClock, undefined, [
-    makeMinimalCaseRecord(caseId, [corruptedEvent]),
-  ]);
+  const store = new MemoryCaseStore(fixedClock, undefined, [makeMinimalCaseRecord(caseId, [corruptedEvent])]);
 
   const result = await store.verifyAuditChain(caseId);
   assert.equal(result.valid, false, "corrupted recordHash must be detected");
-  assert.equal(
-    result.firstBreakAt,
-    "event-corrupt-1",
-    "firstBreakAt should identify the corrupted event",
-  );
+  assert.equal(result.firstBreakAt, "event-corrupt-1", "firstBreakAt should identify the corrupted event");
 });
 
 test("MemoryCaseStore.verifyAuditChain: non-existent case throws 404-style error", async () => {
@@ -345,18 +315,11 @@ test("PostgresCaseStore.verifyAuditChain: valid chain after create + mutation", 
     const caseId = created.caseId;
 
     // Second mutation adds another audit event
-    await store.registerSample(
-      caseId,
-      buildSampleInput("TUMOR_DNA", "WES"),
-      "corr-pg-sample",
-    );
+    await store.registerSample(caseId, buildSampleInput("TUMOR_DNA", "WES"), "corr-pg-sample");
 
     const result = await store.verifyAuditChain(caseId);
     assert.equal(result.valid, true, "Postgres hash chain should be valid");
-    assert.ok(
-      result.eventCount >= 2,
-      `expected at least 2 events, got ${result.eventCount}`,
-    );
+    assert.ok(result.eventCount >= 2, `expected at least 2 events, got ${result.eventCount}`);
   } finally {
     await pool.end();
   }
@@ -401,10 +364,9 @@ test("PostgresCaseStore.verifyAuditChain: corrupted record_hash in DB is detecte
     const caseId = created.caseId;
 
     // Directly corrupt the record_hash in the database
-    await pool.query(
-      "UPDATE audit_events SET record_hash = 'deliberately-corrupted-hash' WHERE case_id = $1",
-      [caseId],
-    );
+    await pool.query("UPDATE audit_events SET record_hash = 'deliberately-corrupted-hash' WHERE case_id = $1", [
+      caseId,
+    ]);
 
     const result = await store.verifyAuditChain(caseId);
     assert.equal(result.valid, false, "corrupted record_hash must be detected");
@@ -419,15 +381,11 @@ test("PostgresCaseStore.verifyAuditChain: corrupted record_hash in DB is detecte
 test("GET /api/cases/:caseId/audit-chain/verify returns 200 with valid:true for clean chain", async () => {
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
-  const createRes = await request(app)
-    .post("/api/cases")
-    .send(buildCaseInput());
+  const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   assert.equal(createRes.status, 201, "case should be created");
   const caseId = String(createRes.body.case.caseId);
 
-  const verifyRes = await request(app).get(
-    `/api/cases/${caseId}/audit-chain/verify`,
-  );
+  const verifyRes = await request(app).get(`/api/cases/${caseId}/audit-chain/verify`);
   assert.equal(verifyRes.status, 200, "should return 200 for valid chain");
   assert.equal(verifyRes.body.valid, true, "chain should be valid");
   assert.equal(verifyRes.body.caseId, caseId, "response should include caseId");
@@ -440,32 +398,21 @@ test("GET /api/cases/:caseId/audit-chain/verify returns 200 with valid:true for 
 test("GET /api/cases/:caseId/audit-chain/verify returns 404 for unknown case", async () => {
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
-  const verifyRes = await request(app).get(
-    "/api/cases/case-does-not-exist-xyz/audit-chain/verify",
-  );
+  const verifyRes = await request(app).get("/api/cases/case-does-not-exist-xyz/audit-chain/verify");
   assert.equal(verifyRes.status, 404, "should return 404 for unknown case");
 });
 
 test("GET /api/cases/:caseId/audit-chain/verify includes eventCount in response", async () => {
   const app = createApp({ rbacAllowAll: true, consentGateEnabled: false });
 
-  const createRes = await request(app)
-    .post("/api/cases")
-    .send(buildCaseInput());
+  const createRes = await request(app).post("/api/cases").send(buildCaseInput());
   assert.equal(createRes.status, 201);
   const caseId = String(createRes.body.case.caseId);
 
   // Add a mutation to accumulate more audit events
-  await request(app)
-    .post(`/api/cases/${caseId}/samples`)
-    .send(buildSampleInput("TUMOR_DNA", "WES"));
+  await request(app).post(`/api/cases/${caseId}/samples`).send(buildSampleInput("TUMOR_DNA", "WES"));
 
-  const verifyRes = await request(app).get(
-    `/api/cases/${caseId}/audit-chain/verify`,
-  );
+  const verifyRes = await request(app).get(`/api/cases/${caseId}/audit-chain/verify`);
   assert.equal(verifyRes.status, 200);
-  assert.ok(
-    verifyRes.body.eventCount >= 2,
-    `expected at least 2 events, got ${verifyRes.body.eventCount}`,
-  );
+  assert.ok(verifyRes.body.eventCount >= 2, `expected at least 2 events, got ${verifyRes.body.eventCount}`);
 });

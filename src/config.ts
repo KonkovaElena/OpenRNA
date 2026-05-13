@@ -56,8 +56,7 @@ function optionalEnvBoolean(defaultValue: boolean) {
 
 const configSchema = z.object({
   PORT: z.preprocess(
-    (value) =>
-      value === undefined || value === null || value === "" ? undefined : value,
+    (value) => (value === undefined || value === null || value === "" ? undefined : value),
     z.coerce
       .number({ error: "PORT must be a number." })
       .int()
@@ -84,8 +83,7 @@ const configSchema = z.object({
   RBAC_ALLOW_ALL: optionalEnvBoolean(false),
   RATE_LIMIT_ENABLED: optionalEnvBoolean(true),
   RATE_LIMIT_MAX_TOKENS: z.preprocess(
-    (value) =>
-      value === undefined || value === null || value === "" ? undefined : value,
+    (value) => (value === undefined || value === null || value === "" ? undefined : value),
     z.coerce
       .number({ error: "RATE_LIMIT_MAX_TOKENS must be a number." })
       .int()
@@ -93,8 +91,7 @@ const configSchema = z.object({
       .default(100),
   ),
   RATE_LIMIT_REFILL_RATE: z.preprocess(
-    (value) =>
-      value === undefined || value === null || value === "" ? undefined : value,
+    (value) => (value === undefined || value === null || value === "" ? undefined : value),
     z.coerce
       .number({ error: "RATE_LIMIT_REFILL_RATE must be a number." })
       .min(0, "RATE_LIMIT_REFILL_RATE must be >= 0.")
@@ -115,8 +112,7 @@ const configSchema = z.object({
   JWT_JWKS_URI: optionalEnvText(),
   /** TTL in seconds for cached JWKS keys (default 300). */
   JWT_JWKS_CACHE_TTL_SEC: z.preprocess(
-    (value) =>
-      value === undefined || value === null || value === "" ? undefined : value,
+    (value) => (value === undefined || value === null || value === "" ? undefined : value),
     z.coerce
       .number({ error: "JWT_JWKS_CACHE_TTL_SEC must be a number." })
       .int()
@@ -141,16 +137,12 @@ const configSchema = z.object({
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const result = configSchema.safeParse(env);
   if (!result.success) {
-    const message = result.error.issues
-      .map((issue) => issue.message)
-      .join("; ");
+    const message = result.error.issues.map((issue) => issue.message).join("; ");
     throw new Error(`Invalid environment configuration: ${message}`);
   }
 
   const jwt =
-    result.data.JWT_SHARED_SECRET ||
-    result.data.JWT_PUBLIC_KEY_PEM ||
-    result.data.JWT_JWKS_URI
+    result.data.JWT_SHARED_SECRET || result.data.JWT_PUBLIC_KEY_PEM || result.data.JWT_JWKS_URI
       ? {
           sharedSecret: result.data.JWT_SHARED_SECRET,
           publicKeyPem: result.data.JWT_PUBLIC_KEY_PEM,
@@ -181,12 +173,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
 
   // Production advisory: shared API-key without OIDC does not satisfy
   // 21 CFR Part 11 §11.10(d) per-user identity requirements.
-  if (
-    env.NODE_ENV === "production" &&
-    config.apiKey &&
-    !config.jwt?.jwksUri &&
-    !config.jwt?.publicKeyPem
-  ) {
+  if (env.NODE_ENV === "production" && config.apiKey && !config.jwt?.jwksUri && !config.jwt?.publicKeyPem) {
     process.stderr.write(
       "[OpenRNA] WARNING: Shared API key auth without OIDC (JWT_JWKS_URI) is not recommended " +
         "for production. Set JWT_JWKS_URI to satisfy 21 CFR Part 11 §11.10(d) per-user identity.\n",

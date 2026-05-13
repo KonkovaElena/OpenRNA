@@ -35,7 +35,12 @@ export class InMemoryModalityRegistry implements IModalityRegistry {
   async getModality(modality: DeliveryModality): Promise<HorizonModality> {
     const record = this.modalities.get(modality);
     if (!record) {
-      throw new ApiError(404, "modality_not_found", `Modality ${modality} is not registered.`, "Use a registered delivery modality.");
+      throw new ApiError(
+        404,
+        "modality_not_found",
+        `Modality ${modality} is not registered.`,
+        "Use a registered delivery modality.",
+      );
     }
 
     return structuredClone(record);

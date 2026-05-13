@@ -1,5 +1,5 @@
-import type { ReferenceBundleManifest } from "../types";
 import type { IReferenceBundleRegistry } from "../ports/IReferenceBundleRegistry";
+import type { ReferenceBundleManifest } from "../types";
 
 const DEFAULT_BUNDLES: ReferenceBundleManifest[] = [
   {

@@ -1,4 +1,4 @@
-import type { HlaConsensusRecord, CaseRecord } from "../types";
+import type { CaseRecord, HlaConsensusRecord } from "../types";
 
 /**
  * FHIR R4 resource type stubs based on HL7 FHIR Genomics Reporting IG v4.0.0.

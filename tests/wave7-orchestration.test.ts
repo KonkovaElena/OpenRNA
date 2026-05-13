@@ -1,22 +1,12 @@
-﻿import test from "node:test";
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
+import test from "node:test";
 import request from "supertest";
-import { createApp } from "../src/app";
-import { MemoryCaseStore, buildEvidenceLineage } from "../src/store";
-
 import { InMemoryWorkflowOrchestrator } from "../src/adapters/InMemoryWorkflowOrchestrator";
+import { createApp } from "../src/app";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
-import type {
-  DerivedArtifactSemanticType,
-  RunArtifact,
-  WellKnownWorkflowName,
-  WorkflowRunRecord,
-} from "../src/types";
-import {
-  wellKnownWorkflowNames,
-  workflowArtifactContract,
-  workflowDependencies,
-} from "../src/types";
+import { buildEvidenceLineage, MemoryCaseStore } from "../src/store";
+import type { DerivedArtifactSemanticType, RunArtifact, WellKnownWorkflowName, WorkflowRunRecord } from "../src/types";
+import { wellKnownWorkflowNames, workflowArtifactContract, workflowDependencies } from "../src/types";
 
 // в”Ђв”Ђв”Ђ FakeWorkflowRunner в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
@@ -52,7 +42,11 @@ class FakeWorkflowRunner implements IWorkflowRunner {
 
   completeRun(
     runId: string,
-    derivedArtifacts?: Array<{ semanticType: DerivedArtifactSemanticType; artifactHash: string; producingStep: string }>,
+    derivedArtifacts?: Array<{
+      semanticType: DerivedArtifactSemanticType;
+      artifactHash: string;
+      producingStep: string;
+    }>,
   ): Promise<WorkflowRunRecord> {
     const r = this.runs.get(runId);
     if (!r) throw new Error(`Run ${runId} not found`);
@@ -145,23 +139,14 @@ test("Wave 7.A: well-known workflow names", async (t) => {
 
   await t.test("every well-known workflow has an artifact contract", () => {
     for (const wf of wellKnownWorkflowNames) {
-      assert.ok(
-        Array.isArray(workflowArtifactContract[wf]),
-        `Missing artifact contract for ${wf}`,
-      );
-      assert.ok(
-        workflowArtifactContract[wf].length > 0,
-        `Empty artifact contract for ${wf}`,
-      );
+      assert.ok(Array.isArray(workflowArtifactContract[wf]), `Missing artifact contract for ${wf}`);
+      assert.ok(workflowArtifactContract[wf].length > 0, `Empty artifact contract for ${wf}`);
     }
   });
 
   await t.test("every well-known workflow has a dependency entry", () => {
     for (const wf of wellKnownWorkflowNames) {
-      assert.ok(
-        Array.isArray(workflowDependencies[wf]),
-        `Missing dependency entry for ${wf}`,
-      );
+      assert.ok(Array.isArray(workflowDependencies[wf]), `Missing dependency entry for ${wf}`);
     }
   });
 
@@ -409,9 +394,7 @@ test("Wave 7.C: buildEvidenceLineage with dependency chain", async (t) => {
 
   await t.test("builds edges from dna-qc to somatic-calling", () => {
     const lineage = buildEvidenceLineage([dnaQcRun, somaticRun], artifacts.slice(0, 2));
-    const edge = lineage.edges.find(
-      (e) => e.producerWorkflow === "dna-qc" && e.consumerWorkflow === "somatic-calling",
-    );
+    const edge = lineage.edges.find((e) => e.producerWorkflow === "dna-qc" && e.consumerWorkflow === "somatic-calling");
     assert.ok(edge, "should have edge from dna-qc to somatic-calling");
     assert.equal(edge.producerRunId, "run-dna-qc");
     assert.equal(edge.consumerRunId, "run-somatic");
@@ -459,15 +442,17 @@ test("Wave 7.C: buildEvidenceLineage with dependency chain", async (t) => {
       startedAt: "2026-01-01T00:00:00Z",
       completedAt: "2026-01-01T01:00:00Z",
     };
-    const customArtifacts: RunArtifact[] = [{
-      artifactId: "art-c-1",
-      runId: "run-custom",
-      artifactClass: "DERIVED" as const,
-      semanticType: "somatic-vcf",
-      artifactHash: "sha256:c1",
-      producingStep: "custom-step",
-      registeredAt: "2026-01-01T01:00:00Z",
-    }];
+    const customArtifacts: RunArtifact[] = [
+      {
+        artifactId: "art-c-1",
+        runId: "run-custom",
+        artifactClass: "DERIVED" as const,
+        semanticType: "somatic-vcf",
+        artifactHash: "sha256:c1",
+        producingStep: "custom-step",
+        registeredAt: "2026-01-01T01:00:00Z",
+      },
+    ];
     const lineage = buildEvidenceLineage([customRun], customArtifacts);
     assert.equal(lineage.edges.length, 0);
     assert.deepStrictEqual(lineage.roots, ["run-custom"]);
@@ -534,9 +519,7 @@ test("Wave 7.C: board packet with single workflow has no evidence lineage", asyn
     assert.equal(wfRes.status, 200, "workflow request");
 
     const runId = "run-custom-lineage-1";
-    const startRes = await request(app)
-      .post(`/api/cases/${caseId}/runs/${runId}/start`)
-      .send({});
+    const startRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/start`).send({});
     assert.equal(startRes.status, 200, "start run");
 
     const completeRes = await request(app)
@@ -548,17 +531,21 @@ test("Wave 7.C: board packet with single workflow has no evidence lineage", asyn
       });
     assert.equal(completeRes.status, 200, "complete run");
 
-    const hlaRes = await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-      alleles: ["A*02:01"],
-      perToolEvidence: [{ toolName: "optitype", alleles: ["A*02:01"], confidence: 0.95 }],
-      confidenceScore: 0.95,
-      referenceVersion: "IMGT/HLA 3.55.0",
-    });
+    const hlaRes = await request(app)
+      .post(`/api/cases/${caseId}/hla-consensus`)
+      .send({
+        alleles: ["A*02:01"],
+        perToolEvidence: [{ toolName: "optitype", alleles: ["A*02:01"], confidence: 0.95 }],
+        confidenceScore: 0.95,
+        referenceVersion: "IMGT/HLA 3.55.0",
+      });
     assert.equal(hlaRes.status, 200, "hla consensus");
 
-    const qcRes = await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({
-      results: [{ metric: "tumor_purity", value: 0.55, threshold: 0.20, pass: true }],
-    });
+    const qcRes = await request(app)
+      .post(`/api/cases/${caseId}/runs/${runId}/qc`)
+      .send({
+        results: [{ metric: "tumor_purity", value: 0.55, threshold: 0.2, pass: true }],
+      });
     assert.equal(qcRes.status, 200, "qc gate");
 
     const packetRes = await request(app)

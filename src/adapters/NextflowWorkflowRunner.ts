@@ -1,8 +1,14 @@
-import type { DerivedArtifactSemanticType, NextflowPollResult, NextflowTerminalMetadata, WorkflowFailureCategory, WorkflowRunRecord } from "../types";
-import { nextflowExitCodeMapping } from "../types";
-import type { IWorkflowRunner, WorkflowRunRequest } from "../ports/IWorkflowRunner";
-import type { INextflowClient } from "../ports/INextflowClient";
 import { ApiError } from "../errors";
+import type { INextflowClient } from "../ports/INextflowClient";
+import type { IWorkflowRunner, WorkflowRunRequest } from "../ports/IWorkflowRunner";
+import type {
+  DerivedArtifactSemanticType,
+  NextflowPollResult,
+  NextflowTerminalMetadata,
+  WorkflowFailureCategory,
+  WorkflowRunRecord,
+} from "../types";
+import { nextflowExitCodeMapping } from "../types";
 
 interface TrackedRun {
   record: WorkflowRunRecord;
@@ -95,7 +101,12 @@ export class NextflowWorkflowRunner implements IWorkflowRunner {
       return structuredClone(tracked.record);
     }
     if (tracked.record.status !== "RUNNING" && tracked.record.status !== "PENDING") {
-      throw new ApiError(409, "invalid_transition", "Only running/pending runs can be cancelled.", "Check status first.");
+      throw new ApiError(
+        409,
+        "invalid_transition",
+        "Only running/pending runs can be cancelled.",
+        "Check status first.",
+      );
     }
 
     await this.client.cancel(tracked.sessionId);
@@ -109,14 +120,16 @@ export class NextflowWorkflowRunner implements IWorkflowRunner {
   }
 
   async listRunsByCaseId(caseId: string): Promise<WorkflowRunRecord[]> {
-    return [...this.runs.values()]
-      .filter((t) => t.record.caseId === caseId)
-      .map((t) => structuredClone(t.record));
+    return [...this.runs.values()].filter((t) => t.record.caseId === caseId).map((t) => structuredClone(t.record));
   }
 
   async completeRun(
     runId: string,
-    _derivedArtifacts?: Array<{ semanticType: DerivedArtifactSemanticType; artifactHash: string; producingStep: string }>,
+    _derivedArtifacts?: Array<{
+      semanticType: DerivedArtifactSemanticType;
+      artifactHash: string;
+      producingStep: string;
+    }>,
   ): Promise<WorkflowRunRecord> {
     const tracked = this.runs.get(runId);
     if (!tracked) {

@@ -1,7 +1,7 @@
-import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import test from "node:test";
 import { newDb } from "pg-mem";
 import { PostgresCaseStore } from "../src/adapters/PostgresCaseStore";
 import { PostgresWorkflowRunner } from "../src/adapters/PostgresWorkflowRunner";
@@ -17,10 +17,7 @@ function createPgPool() {
   const { Pool } = db.adapters.createPg();
   const pool = new Pool();
 
-  const migrationSql = readFileSync(
-    join(__dirname, "..", "src", "migrations", "001_full_schema.sql"),
-    "utf-8",
-  )
+  const migrationSql = readFileSync(join(__dirname, "..", "src", "migrations", "001_full_schema.sql"), "utf-8")
     .replace(/BEGIN;/g, "")
     .replace(/COMMIT;/g, "");
 

@@ -1,10 +1,10 @@
 import type { INeoantigenRankingEngine } from "../ports/INeoantigenRankingEngine.js";
 import type {
+  ConfidenceInterval,
   NeoantigenCandidate,
   RankingEngineMetadata,
-  RankingResult,
   RankingRationale,
-  ConfidenceInterval,
+  RankingResult,
 } from "../types.js";
 
 const FEATURE_WEIGHTS = {
@@ -24,10 +24,7 @@ function scoreBinding(c: NeoantigenCandidate): number {
 function scoreExpression(c: NeoantigenCandidate): number {
   // Higher TPM + higher VAF = better. Normalize TPM [0,100]→[0,1], VAF already [0,1]
   const tpmNorm = Math.max(0, Math.min(c.expressionSupport.tpm / 100, 1));
-  const vafNorm = Math.max(
-    0,
-    Math.min(c.expressionSupport.variantAlleleFraction, 1),
-  );
+  const vafNorm = Math.max(0, Math.min(c.expressionSupport.variantAlleleFraction, 1));
   return (tpmNorm + vafNorm) / 2;
 }
 
@@ -42,11 +39,7 @@ function scoreManufacturability(c: NeoantigenCandidate): number {
   // GC content near 0.5 is ideal; low folding risk preferred
   const gcScore = 1 - Math.abs(c.manufacturability.gcContent - 0.5) * 2;
   const foldScore =
-    c.manufacturability.selfFoldingRisk === "low"
-      ? 1
-      : c.manufacturability.selfFoldingRisk === "medium"
-        ? 0.5
-        : 0.2;
+    c.manufacturability.selfFoldingRisk === "low" ? 1 : c.manufacturability.selfFoldingRisk === "medium" ? 0.5 : 0.2;
   return (gcScore + foldScore) / 2;
 }
 
@@ -54,18 +47,11 @@ function scoreTolerance(c: NeoantigenCandidate): number {
   // Higher edit distance + lower tolerance risk = better
   const distScore = Math.min(c.selfSimilarity.editDistance / 5, 1);
   const riskScore =
-    c.selfSimilarity.toleranceRisk === "low"
-      ? 1
-      : c.selfSimilarity.toleranceRisk === "medium"
-        ? 0.5
-        : 0.1;
+    c.selfSimilarity.toleranceRisk === "low" ? 1 : c.selfSimilarity.toleranceRisk === "medium" ? 0.5 : 0.1;
   return (distScore + riskScore) / 2;
 }
 
-function buildExplanation(
-  featureScores: Record<string, number>,
-  c: NeoantigenCandidate,
-): string {
+function buildExplanation(featureScores: Record<string, number>, c: NeoantigenCandidate): string {
   const parts: string[] = [];
   if (featureScores.bindingAffinity > 0.7) parts.push("strong binding");
   else if (featureScores.bindingAffinity < 0.3) parts.push("weak binding");
@@ -101,10 +87,7 @@ export class InMemoryNeoantigenRankingEngine implements INeoantigenRankingEngine
       "Not validated for clinical or regulatory use. Replace with a pVACtools " +
       "or NetMHCpan adapter before any regulated workflow execution.",
   };
-  async rank(
-    caseId: string,
-    candidates: NeoantigenCandidate[],
-  ): Promise<RankingResult> {
+  async rank(caseId: string, candidates: NeoantigenCandidate[]): Promise<RankingResult> {
     if (candidates.length === 0) {
       return {
         caseId,
@@ -174,10 +157,7 @@ export class InMemoryNeoantigenRankingEngine implements INeoantigenRankingEngine
     };
   }
 
-  private computeConfidenceInterval(
-    scores: number[],
-    n: number,
-  ): ConfidenceInterval {
+  private computeConfidenceInterval(scores: number[], n: number): ConfidenceInterval {
     if (n === 0) return { lower: 0, upper: 0 };
     const mean = scores.reduce((a, b) => a + b, 0) / n;
     // Simple uncertainty: halve spread with more candidates (1/sqrt(n) scaling)

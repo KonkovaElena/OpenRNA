@@ -1,5 +1,5 @@
-import test from "node:test";
 import assert from "node:assert/strict";
+import test from "node:test";
 import { InMemoryFhirExporter } from "../src/adapters/InMemoryFhirExporter";
 import type { CaseRecord, HlaConsensusRecord } from "../src/types";
 
@@ -70,9 +70,7 @@ test("FHIR Exporter", async (t) => {
     const caseRecord = buildMinimalCase();
     const bundle = await exporter.exportCase(caseRecord);
 
-    const patient = bundle.entry!.find(
-      (e) => e.resource.resourceType === "Patient",
-    );
+    const patient = bundle.entry!.find((e) => e.resource.resourceType === "Patient");
     assert.ok(patient, "Bundle must contain a Patient resource");
     const patientRes = patient.resource as { identifier?: Array<{ system: string; value: string }> };
     assert.ok(patientRes.identifier);
@@ -84,9 +82,7 @@ test("FHIR Exporter", async (t) => {
     const caseRecord = buildMinimalCase();
     const bundle = await exporter.exportCase(caseRecord);
 
-    const report = bundle.entry!.find(
-      (e) => e.resource.resourceType === "DiagnosticReport",
-    );
+    const report = bundle.entry!.find((e) => e.resource.resourceType === "DiagnosticReport");
     assert.ok(report, "Bundle must contain a DiagnosticReport");
     const reportRes = report.resource as unknown as { status: string; subject?: { reference: string } };
     assert.strictEqual(reportRes.status, "final"); // APPROVED_FOR_HANDOFF → final
@@ -97,9 +93,7 @@ test("FHIR Exporter", async (t) => {
     const caseRecord = buildMinimalCase({ status: "WORKFLOW_RUNNING" });
     const bundle = await exporter.exportCase(caseRecord);
 
-    const report = bundle.entry!.find(
-      (e) => e.resource.resourceType === "DiagnosticReport",
-    );
+    const report = bundle.entry!.find((e) => e.resource.resourceType === "DiagnosticReport");
     const reportRes = report!.resource as unknown as { status: string };
     assert.strictEqual(reportRes.status, "preliminary");
   });
@@ -109,9 +103,7 @@ test("FHIR Exporter", async (t) => {
     const caseRecord = buildMinimalCase({ hlaConsensus: consensus });
     const bundle = await exporter.exportCase(caseRecord);
 
-    const observations = bundle.entry!.filter(
-      (e) => e.resource.resourceType === "Observation",
-    );
+    const observations = bundle.entry!.filter((e) => e.resource.resourceType === "Observation");
     assert.ok(observations.length >= 1, "should have HLA genotype observation(s)");
 
     // First observation should be a genotype observation with HLA alleles as components
@@ -119,9 +111,10 @@ test("FHIR Exporter", async (t) => {
       component?: Array<{ valueCodeableConcept?: { coding: Array<{ display: string }> }; valueString?: string }>;
       meta?: { profile?: string[] };
     };
-    assert.ok(genotypeObs.meta?.profile?.includes(
-      "http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genotype",
-    ), "should use FHIR Genomics Reporting genotype profile");
+    assert.ok(
+      genotypeObs.meta?.profile?.includes("http://hl7.org/fhir/uv/genomics-reporting/StructureDefinition/genotype"),
+      "should use FHIR Genomics Reporting genotype profile",
+    );
     assert.ok(genotypeObs.component, "genotype observation must have allele components");
     assert.strictEqual(genotypeObs.component!.length, 4, "should have 4 allele components");
   });
@@ -150,9 +143,7 @@ test("FHIR Exporter", async (t) => {
     const caseRecord = buildMinimalCase({ hlaConsensus: undefined });
     const bundle = await exporter.exportCase(caseRecord);
 
-    const observations = bundle.entry!.filter(
-      (e) => e.resource.resourceType === "Observation",
-    );
+    const observations = bundle.entry!.filter((e) => e.resource.resourceType === "Observation");
     assert.strictEqual(observations.length, 0, "no observations without HLA consensus");
   });
 });

@@ -1,7 +1,7 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import { MemoryCaseStore } from "../src/store.js";
+import test from "node:test";
 import { replayCaseEvents } from "../src/queries/CaseProjection.js";
+import { MemoryCaseStore } from "../src/store.js";
 import { buildFullTraceability } from "../src/traceability.js";
 import type {
   AdministrationRecord,
@@ -435,7 +435,11 @@ test("event journal replays cancelled and failed workflow runs exactly", async (
   const auditContext = buildAuditContext("corr-event-journal-terminal-runs");
 
   const cancelledCase = await createRequestedCase(store, auditContext);
-  const cancelledStartedRun = buildStartedRun(cancelledCase.caseId, cancelledCase.requestId, "run-event-journal-cancelled");
+  const cancelledStartedRun = buildStartedRun(
+    cancelledCase.caseId,
+    cancelledCase.requestId,
+    "run-event-journal-cancelled",
+  );
   await store.startWorkflowRun(cancelledCase.caseId, cancelledStartedRun, auditContext);
   await store.cancelWorkflowRun(
     cancelledCase.caseId,
@@ -541,12 +545,10 @@ test("event journal replays board review and handoff state exactly", async () =>
   const events = await store.listCaseEvents(caseId);
   const replayed = replayCaseEvents(events);
 
-  assert.deepEqual(events.slice(-4).map((event) => event.type), [
-    "board.packet.generated",
-    "review.outcome.recorded",
-    "final.release.authorized",
-    "handoff.packet.generated",
-  ]);
+  assert.deepEqual(
+    events.slice(-4).map((event) => event.type),
+    ["board.packet.generated", "review.outcome.recorded", "final.release.authorized", "handoff.packet.generated"],
+  );
   assert.deepEqual(replayed.boardPackets, live.boardPackets);
   assert.deepEqual(replayed.reviewOutcomes, live.reviewOutcomes);
   assert.deepEqual(replayed.handoffPackets, live.handoffPackets);

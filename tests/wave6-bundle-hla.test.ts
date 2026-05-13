@@ -1,18 +1,17 @@
-﻿import test from "node:test";
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
+import test from "node:test";
 import request from "supertest";
-import { createApp } from "../src/app";
-import { MemoryCaseStore } from "../src/store";
-import { InMemoryReferenceBundleRegistry } from "../src/adapters/InMemoryReferenceBundleRegistry";
 import { InMemoryHlaConsensusProvider } from "../src/adapters/InMemoryHlaConsensusProvider";
+import { InMemoryReferenceBundleRegistry } from "../src/adapters/InMemoryReferenceBundleRegistry";
+import { createApp } from "../src/app";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
+import { MemoryCaseStore, parseRegisterBundleInput } from "../src/store";
 import type {
   DerivedArtifactSemanticType,
   HlaDisagreementRecord,
   ReferenceBundleManifest,
   WorkflowRunRecord,
 } from "../src/types";
-import { parseRegisterBundleInput } from "../src/store";
 
 // в”Ђв”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
@@ -81,7 +80,14 @@ class FakeWorkflowRunner implements IWorkflowRunner {
   listRunsByCaseId(caseId: string): Promise<WorkflowRunRecord[]> {
     return Promise.resolve([...this.runs.values()].filter((r) => r.caseId === caseId));
   }
-  completeRun(runId: string, derivedArtifacts?: Array<{ semanticType: DerivedArtifactSemanticType; artifactHash: string; producingStep: string }>): Promise<WorkflowRunRecord> {
+  completeRun(
+    runId: string,
+    derivedArtifacts?: Array<{
+      semanticType: DerivedArtifactSemanticType;
+      artifactHash: string;
+      producingStep: string;
+    }>,
+  ): Promise<WorkflowRunRecord> {
     const r = this.runs.get(runId);
     if (!r) throw new Error(`Run ${runId} not found`);
     r.status = "COMPLETED";
@@ -131,29 +137,21 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>, caseId?:
   const latestRequest = caseAfterReq.body.case.workflowRequests.at(-1);
   const runId = `run-wave6-${Date.now()}`;
 
-  await request(app)
-    .post(`/api/cases/${id}/runs/${runId}/start`)
-    .send({ runId, manifest: undefined });
+  await request(app).post(`/api/cases/${id}/runs/${runId}/start`).send({ runId, manifest: undefined });
 
   const derivedArtifacts: Array<{
     semanticType: DerivedArtifactSemanticType;
     artifactHash: string;
     producingStep: string;
-  }> = [
-    { semanticType: "somatic-vcf", artifactHash: "sha256:derived1", producingStep: "variant-calling" },
-  ];
+  }> = [{ semanticType: "somatic-vcf", artifactHash: "sha256:derived1", producingStep: "variant-calling" }];
 
-  await request(app)
-    .post(`/api/cases/${id}/runs/${runId}/complete`)
-    .send({ derivedArtifacts });
+  await request(app).post(`/api/cases/${id}/runs/${runId}/complete`).send({ derivedArtifacts });
 
   await request(app)
     .post(`/api/cases/${id}/hla-consensus`)
     .send({
       alleles: ["HLA-A*02:01", "HLA-B*07:02"],
-      perToolEvidence: [
-        { toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 },
-      ],
+      perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01", "HLA-B*07:02"], confidence: 0.95 }],
       confidenceScore: 0.95,
       referenceVersion: "IMGT/HLA 3.55.0",
     });
@@ -161,9 +159,7 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>, caseId?:
   await request(app)
     .post(`/api/cases/${id}/runs/${runId}/qc`)
     .send({
-      results: [
-        { metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "Clean" },
-      ],
+      results: [{ metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "Clean" }],
     });
 
   return id;
@@ -172,7 +168,7 @@ async function createReviewReadyCase(app: ReturnType<typeof createApp>, caseId?:
 // в”Ђв”Ђв”Ђ 6.A: Rich reference bundle model в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("6.A registerBundle registers a new bundle via POST /api/reference-bundles", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   const bundle = {
     bundleId: "GRCh38-custom",
     genomeAssembly: "GRCh38",
@@ -194,7 +190,7 @@ test("6.A registerBundle registers a new bundle via POST /api/reference-bundles"
 });
 
 test("6.A registerBundle with retrievalProvenance stores provenance", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   const bundle = {
     bundleId: "GRCh38-provenance",
     genomeAssembly: "GRCh38",
@@ -215,7 +211,7 @@ test("6.A registerBundle with retrievalProvenance stores provenance", async () =
 });
 
 test("6.A registerBundle rejects duplicate bundleId", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   // GRCh38-2026a is a default bundle
   const duplicate = {
     bundleId: "GRCh38-2026a",
@@ -231,13 +227,13 @@ test("6.A registerBundle rejects duplicate bundleId", async () => {
 });
 
 test("6.A registerBundle validates required fields", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   const res = await request(app).post("/api/reference-bundles").send({ bundleId: "incomplete" });
   assert.ok(res.status >= 400 && res.status < 500);
 });
 
 test("6.A registered bundle appears in GET /api/reference-bundles", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   await request(app).post("/api/reference-bundles").send({
     bundleId: "GRCh38-new",
     genomeAssembly: "GRCh38",
@@ -271,7 +267,7 @@ test("6.A parseRegisterBundleInput rejects extra fields (strict mode)", () => {
 });
 
 test("6.A ReferenceBundleManifest new optional fields default to undefined", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   const getRes = await request(app).get("/api/reference-bundles/GRCh38-2026a");
   assert.equal(getRes.status, 200);
   // Default bundles don't have the new fields
@@ -380,7 +376,7 @@ test("6.B confidenceDecomposition reflects per-tool confidence", async () => {
     "case-decomp",
     [
       { toolName: "OptiType", alleles: ["HLA-A*02:01"], confidence: 0.95 },
-      { toolName: "HLA-HD", alleles: ["HLA-A*02:01"], confidence: 0.80 },
+      { toolName: "HLA-HD", alleles: ["HLA-A*02:01"], confidence: 0.8 },
       { toolName: "xHLA", alleles: ["HLA-A*02:01"], confidence: 0.88 },
     ],
     "IMGT/HLA 3.55.0",
@@ -388,7 +384,7 @@ test("6.B confidenceDecomposition reflects per-tool confidence", async () => {
 
   assert.deepEqual(result.confidenceDecomposition, {
     OptiType: 0.95,
-    "HLA-HD": 0.80,
+    "HLA-HD": 0.8,
     xHLA: 0.88,
   });
   // Average confidence check
@@ -396,7 +392,7 @@ test("6.B confidenceDecomposition reflects per-tool confidence", async () => {
 });
 
 test("6.B consensus via HTTP roundtrip preserves disagreements", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   // Record multi-tool consensus with disagreement via HTTP
@@ -433,7 +429,7 @@ test("6.B consensus via HTTP roundtrip preserves disagreements", async () => {
 // в”Ђв”Ђв”Ђ 6.C: Board packet bundle & HLA audit в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 test("6.C board packet includes hlaToolBreakdown when evidence exists", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
@@ -447,7 +443,7 @@ test("6.C board packet includes hlaToolBreakdown when evidence exists", async ()
 });
 
 test("6.C board packet hlaDisagreements is undefined when tools agree", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
@@ -459,7 +455,7 @@ test("6.C board packet hlaDisagreements is undefined when tools agree", async ()
 });
 
 test("6.C board packet bundleRetrievalProvenance is undefined when bundles lack provenance", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
@@ -489,7 +485,8 @@ test("6.C board packet includes bundleRetrievalProvenance when bundle has proven
   const app = createApp({
     workflowRunner: new FakeWorkflowRunner(),
     referenceBundleRegistry: registry,
-    rbacAllowAll: true, consentGateEnabled: false,
+    rbacAllowAll: true,
+    consentGateEnabled: false,
   });
 
   // Create case and use the provenance-enabled bundle
@@ -517,22 +514,26 @@ test("6.C board packet includes bundleRetrievalProvenance when bundle has proven
   const runId = `run-prov-${Date.now()}`;
   await request(app).post(`/api/cases/${caseId}/runs/${runId}/start`).send({ runId });
 
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/complete`).send({
-    derivedArtifacts: [
-      { semanticType: "somatic-vcf", artifactHash: "sha256:d1", producingStep: "vc" },
-    ],
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/complete`)
+    .send({
+      derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:d1", producingStep: "vc" }],
+    });
 
-  await request(app).post(`/api/cases/${caseId}/hla-consensus`).send({
-    alleles: ["HLA-A*02:01"],
-    perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01"], confidence: 0.95 }],
-    confidenceScore: 0.95,
-    referenceVersion: "IMGT/HLA 3.55.0",
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/hla-consensus`)
+    .send({
+      alleles: ["HLA-A*02:01"],
+      perToolEvidence: [{ toolName: "OptiType", alleles: ["HLA-A*02:01"], confidence: 0.95 }],
+      confidenceScore: 0.95,
+      referenceVersion: "IMGT/HLA 3.55.0",
+    });
 
-  await request(app).post(`/api/cases/${caseId}/runs/${runId}/qc`).send({
-    results: [{ metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true }],
-  });
+  await request(app)
+    .post(`/api/cases/${caseId}/runs/${runId}/qc`)
+    .send({
+      results: [{ metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true }],
+    });
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
   assert.equal(packetRes.status, 201);
@@ -545,7 +546,7 @@ test("6.C board packet includes bundleRetrievalProvenance when bundle has proven
 });
 
 test("6.C existing board packet tests still pass (backward compat check)", async () => {
-  const app = createApp({ workflowRunner: new FakeWorkflowRunner() , rbacAllowAll: true, consentGateEnabled: false });
+  const app = createApp({ workflowRunner: new FakeWorkflowRunner(), rbacAllowAll: true, consentGateEnabled: false });
   const caseId = await createReviewReadyCase(app);
 
   const packetRes = await request(app).post(`/api/cases/${caseId}/board-packets`);
@@ -644,25 +645,31 @@ async function createCaseWithHighDisagreement(app: ReturnType<typeof createApp>)
   const runId = `run-hla-gate-${Date.now()}`;
 
   await request(app).post(`/api/cases/${id}/runs/${runId}/start`).send({ runId });
-  await request(app).post(`/api/cases/${id}/runs/${runId}/complete`).send({
-    derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:d1", producingStep: "vc" }],
-  });
+  await request(app)
+    .post(`/api/cases/${id}/runs/${runId}/complete`)
+    .send({
+      derivedArtifacts: [{ semanticType: "somatic-vcf", artifactHash: "sha256:d1", producingStep: "vc" }],
+    });
 
   // Two tools that disagree → manualReviewRequired with threshold 0
-  await request(app).post(`/api/cases/${id}/hla-consensus`).send({
-    alleles: ["HLA-A*02:01"],
-    perToolEvidence: [
-      { toolName: "OptiType", alleles: ["HLA-A*02:01"], confidence: 0.95 },
-      { toolName: "HLA-HD", alleles: ["HLA-A*03:01"], confidence: 0.90 },
-    ],
-    confidenceScore: 0.85,
-    referenceVersion: "IMGT/HLA 3.55.0",
-    operatorReviewThreshold: 0,
-  });
+  await request(app)
+    .post(`/api/cases/${id}/hla-consensus`)
+    .send({
+      alleles: ["HLA-A*02:01"],
+      perToolEvidence: [
+        { toolName: "OptiType", alleles: ["HLA-A*02:01"], confidence: 0.95 },
+        { toolName: "HLA-HD", alleles: ["HLA-A*03:01"], confidence: 0.9 },
+      ],
+      confidenceScore: 0.85,
+      referenceVersion: "IMGT/HLA 3.55.0",
+      operatorReviewThreshold: 0,
+    });
 
-  await request(app).post(`/api/cases/${id}/runs/${runId}/qc`).send({
-    results: [{ metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "OK" }],
-  });
+  await request(app)
+    .post(`/api/cases/${id}/runs/${runId}/qc`)
+    .send({
+      results: [{ metric: "tumor_purity", value: 0.65, threshold: 0.2, pass: true, notes: "OK" }],
+    });
 
   return id;
 }
@@ -713,9 +720,7 @@ test("6.D resolveHlaReview requires rationale", async () => {
   const caseId = await createCaseWithHighDisagreement(app);
   await request(app).post(`/api/cases/${caseId}/board-packets`);
 
-  const resolveRes = await request(app)
-    .post(`/api/cases/${caseId}/resolve-hla-review`)
-    .send({});
+  const resolveRes = await request(app).post(`/api/cases/${caseId}/resolve-hla-review`).send({});
   assert.equal(resolveRes.status, 400);
   assert.equal(resolveRes.body.code, "missing_field");
 });
