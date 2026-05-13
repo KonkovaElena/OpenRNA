@@ -66,8 +66,10 @@ describe("OpenAPI 3.1 spec", () => {
         if (method === "parameters") continue;
         const operation = op as Record<string, unknown>;
         assert.ok(operation.operationId, `Path ${path} ${method} must have operationId`);
-        assert.ok(Array.isArray(operation.tags) && operation.tags.length > 0,
-          `Path ${path} ${method} must have at least one tag`);
+        assert.ok(
+          Array.isArray(operation.tags) && operation.tags.length > 0,
+          `Path ${path} ${method} must have at least one tag`,
+        );
       }
     }
   });
@@ -76,6 +78,10 @@ describe("OpenAPI 3.1 spec", () => {
     const spec = JSON.parse(readFileSync(OPENAPI_PATH, "utf8"));
     assert.ok(spec.paths?.["/healthz"], "Must have /healthz");
     assert.ok(spec.paths?.["/readyz"], "Must have /readyz");
-    assert.strictEqual(spec.paths["/healthz"].get.security, undefined, "/healthz should have no explicit security (public)");
+    assert.strictEqual(
+      spec.paths["/healthz"].get.security,
+      undefined,
+      "/healthz should have no explicit security (public)",
+    );
   });
 });

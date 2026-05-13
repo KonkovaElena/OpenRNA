@@ -15,3 +15,9 @@ docs/archive/*
 
 # Keep audit reports and generated root markdown local-only
 /AUDIT_REPORT_*.md
+
+# Temporary lint/test output files
+biome_*.txt
+lint_*.txt
+tests_output*.txt
+tests_final.txt
