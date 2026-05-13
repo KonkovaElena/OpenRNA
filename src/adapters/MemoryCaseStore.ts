@@ -5,6 +5,11 @@ import type { IEventStore } from "../ports/IEventStore";
 import type { IStateMachineGuard } from "../ports/IStateMachineGuard";
 import type { IWorkflowDispatchSink } from "../ports/IWorkflowDispatchSink";
 import { replayCaseEvents } from "../queries/CaseProjection";
+import {
+  resolveHlaReviewForCase,
+  restartFromRevisionForCase,
+  syncConsentStatusForCase,
+} from "../store-consent-revision";
 import type { AuditContextInput } from "../store-helpers";
 import {
   auditEvent,
@@ -277,6 +282,15 @@ export class MemoryCaseStore implements ICaseStore {
   private getScientificMutationContext() {
     return {
       clock: this.clock,
+      createCaseEvent: this.createCaseEvent.bind(this),
+      appendCaseEvent: this.appendCaseEvent.bind(this),
+    };
+  }
+
+  private getConsentRevisionMutationContext() {
+    return {
+      clock: this.clock,
+      applyTransition: this.applyTransition.bind(this),
       createCaseEvent: this.createCaseEvent.bind(this),
       appendCaseEvent: this.appendCaseEvent.bind(this),
     };
@@ -1000,32 +1014,12 @@ export class MemoryCaseStore implements ICaseStore {
     correlationId: AuditContextInput,
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
-    if (record.status === "CONSENT_WITHDRAWN" && consentStatus !== "withdrawn") {
-      throw new ApiError(
-        409,
-        "new_case_required_after_consent_withdrawal",
-        "Renewed consent cannot reopen a terminal consent-withdrawn case.",
-        "Create a new case linked to the renewed consent record rather than mutating the withdrawn case.",
-      );
-    }
-
-    record.caseProfile = { ...record.caseProfile, consentStatus };
-    const nextStatus = deriveCaseStatus(
+    await syncConsentStatusForCase(
+      this.getConsentRevisionMutationContext(),
+      record,
+      caseId,
       consentStatus,
-      record.samples,
-      record.artifacts,
-      record.workflowRequests.length > 0,
-    );
-    await this.applyTransition(record, nextStatus, correlationId);
-    record.timeline.push(
-      timelineEvent(this.clock, "consent_updated", `Consent status synchronized to '${consentStatus}'.`),
-    );
-    record.auditEvents.push(
-      auditEvent(this.clock, "consent.updated", `Consent status changed to '${consentStatus}'.`, correlationId),
-    );
-    record.updatedAt = this.clock.nowIso();
-    await this.appendCaseEvent(
-      this.createCaseEvent(caseId, "consent.updated", { consentStatus, nextStatus }, correlationId),
+      correlationId,
     );
     return this.rebuildCaseProjection(caseId);
   }
@@ -1033,25 +1027,7 @@ export class MemoryCaseStore implements ICaseStore {
   async restartFromRevision(caseId: string, correlationId: AuditContextInput): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-    if (record.status !== "REVISION_REQUESTED") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        `restartFromRevision requires REVISION_REQUESTED status, current: ${record.status}.`,
-        "Only cases in REVISION_REQUESTED status can be restarted.",
-      );
-    }
-    await this.applyTransition(record, "READY_FOR_WORKFLOW", correlationId);
-    record.timeline.push(
-      timelineEvent(this.clock, "revision_restarted", "Case restarted from board revision for a new workflow cycle."),
-    );
-    record.auditEvents.push(
-      auditEvent(this.clock, "revision.restarted", "Pipeline restarted after board revision request.", correlationId),
-    );
-    record.updatedAt = this.clock.nowIso();
-    await this.appendCaseEvent(
-      this.createCaseEvent(caseId, "revision.restarted", { nextStatus: record.status }, correlationId),
-    );
+    await restartFromRevisionForCase(this.getConsentRevisionMutationContext(), record, caseId, correlationId);
     return this.rebuildCaseProjection(caseId);
   }
 
@@ -1062,35 +1038,7 @@ export class MemoryCaseStore implements ICaseStore {
   ): Promise<CaseRecord> {
     const record = this.getMutableRecord(caseId);
     this.assertConsentMutable(record);
-    if (record.status !== "HLA_REVIEW_REQUIRED") {
-      throw new ApiError(
-        409,
-        "invalid_transition",
-        `resolveHlaReview requires HLA_REVIEW_REQUIRED status, current: ${record.status}.`,
-        "Only cases in HLA_REVIEW_REQUIRED status can have their HLA review resolved.",
-      );
-    }
-    await this.applyTransition(record, "AWAITING_REVIEW", correlationId);
-    record.timeline.push(
-      timelineEvent(this.clock, "hla_review_resolved", `HLA review resolved: ${resolution.rationale}`),
-    );
-    record.auditEvents.push(
-      auditEvent(
-        this.clock,
-        "hla.review.resolved",
-        `Operator resolved HLA review: ${resolution.rationale}`,
-        correlationId,
-      ),
-    );
-    record.updatedAt = this.clock.nowIso();
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "hla.review.resolved",
-        { rationale: resolution.rationale, nextStatus: record.status },
-        correlationId,
-      ),
-    );
+    await resolveHlaReviewForCase(this.getConsentRevisionMutationContext(), record, caseId, resolution, correlationId);
     return this.rebuildCaseProjection(caseId);
   }
 
