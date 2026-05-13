@@ -36,6 +36,18 @@ export interface JwtAuthOptions {
 // ─── JWKS key cache ───────────────────────────────────────────────────────────
 // kid → { key: CryptoKey, expiresAt: millisecond timestamp }
 const jwksKeyCache = new Map<string, { key: CryptoKey; expiresAt: number }>();
+const MAX_JWKS_CACHE_ENTRIES = 50;
+
+function setJwksCacheEntry(cacheKey: string, entry: { key: CryptoKey; expiresAt: number }): void {
+  if (jwksKeyCache.size >= MAX_JWKS_CACHE_ENTRIES && !jwksKeyCache.has(cacheKey)) {
+    // Evict the oldest entry by insertion order
+    const firstKey = jwksKeyCache.keys().next().value;
+    if (firstKey !== undefined) {
+      jwksKeyCache.delete(firstKey);
+    }
+  }
+  jwksKeyCache.set(cacheKey, entry);
+}
 
 async function fetchJwkForKid(jwksUri: string, kid: string | undefined, ttlSec: number): Promise<CryptoKey> {
   const cacheKey = `${jwksUri}#${kid ?? ""}`;
@@ -72,7 +84,7 @@ async function fetchJwkForKid(jwksUri: string, kid: string | undefined, ttlSec: 
     throw new AuthResolutionError(403, "invalid_token", "Failed to import JWK public key.");
   }
 
-  jwksKeyCache.set(cacheKey, {
+  setJwksCacheEntry(cacheKey, {
     key: cryptoKey,
     expiresAt: Date.now() + ttlSec * 1000,
   });

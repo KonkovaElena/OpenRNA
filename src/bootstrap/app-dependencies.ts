@@ -58,6 +58,11 @@ export interface AppDependencies {
   readinessCheck?: () => Promise<boolean>;
   enforceServerDerivedConsentOnCreate?: boolean;
   /**
+   * Express `trust proxy` setting. Set to `true` or a number (proxy hop count)
+   * when running behind a load balancer (ALB, nginx, etc.).
+   */
+  trustProxy?: boolean | number;
+  /**
    * When true, the `reviewerId` (review-outcomes) and `releaserId` (final-releases)
    * fields are derived from the verified JWT `sub` claim rather than from the request
    * body. Satisfies 21 CFR Part 11 §11.50: "electronic signature includes printed

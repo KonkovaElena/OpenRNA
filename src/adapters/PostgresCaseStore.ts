@@ -38,6 +38,7 @@ import type {
   WorkflowRunRecord,
   WorkflowTerminalMetadata,
 } from "../types";
+import { caseStatuses } from "../types-core";
 import { InMemoryWorkflowDispatchSink } from "./InMemoryWorkflowDispatchSink";
 
 interface QueryResult<T> {
@@ -62,26 +63,7 @@ interface StatusCountRow {
   count: string | number;
 }
 
-const caseStatuses: readonly CaseStatus[] = [
-  "INTAKING",
-  "AWAITING_CONSENT",
-  "READY_FOR_WORKFLOW",
-  "WORKFLOW_REQUESTED",
-  "WORKFLOW_RUNNING",
-  "WORKFLOW_COMPLETED",
-  "WORKFLOW_CANCELLED",
-  "WORKFLOW_FAILED",
-  "QC_PASSED",
-  "QC_FAILED",
-  "AWAITING_REVIEW",
-  "HLA_REVIEW_REQUIRED",
-  "AWAITING_FINAL_RELEASE",
-  "APPROVED_FOR_HANDOFF",
-  "REVISION_REQUESTED",
-  "REVIEW_REJECTED",
-  "HANDOFF_PENDING",
-  "CONSENT_WITHDRAWN",
-];
+// caseStatuses imported from ../types-core via ../types barrel
 
 // ── JSONB / timestamp helpers ────────────────────────────────────────
 

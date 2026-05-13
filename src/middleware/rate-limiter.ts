@@ -12,6 +12,7 @@ export interface RateLimiterOptions {
   maxTokens?: number; // default: 100
   refillRate?: number; // tokens per second, default: 10
   windowMs?: number; // cleanup interval for stale buckets, default: 60_000
+  maxBuckets?: number; // default: 10_000 — memory-exhaustion guard
 }
 
 interface TokenBucket {
@@ -23,8 +24,21 @@ export function rateLimiter(options: RateLimiterOptions = {}) {
   const maxTokens = options.maxTokens ?? 100;
   const refillRate = options.refillRate ?? 10;
   const windowMs = options.windowMs ?? 60_000;
+  const maxBuckets = options.maxBuckets ?? 10_000;
 
   const buckets = new Map<string, TokenBucket>();
+
+  function evictOldestIfNeeded(): void {
+    if (buckets.size <= maxBuckets) return;
+    // Evict the oldest 10 % of entries (FIFO over insertion order)
+    const evictCount = Math.ceil(maxBuckets * 0.1);
+    let removed = 0;
+    for (const key of buckets.keys()) {
+      if (removed >= evictCount) break;
+      buckets.delete(key);
+      removed++;
+    }
+  }
 
   // Periodic cleanup of stale buckets to prevent memory leak
   const cleanup = setInterval(() => {
@@ -43,6 +57,7 @@ export function rateLimiter(options: RateLimiterOptions = {}) {
 
     let bucket = buckets.get(clientKey);
     if (!bucket) {
+      evictOldestIfNeeded();
       bucket = { tokens: maxTokens, lastRefill: now };
       buckets.set(clientKey, bucket);
     }

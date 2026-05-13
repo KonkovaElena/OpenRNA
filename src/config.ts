@@ -1,6 +1,20 @@
 import { z } from "zod";
 import type { JwtAuthOptions } from "./auth";
 
+/**
+ * Structured error emitted when environment configuration fails schema validation.
+ * Carries Zod issue details for human-readable bootstrap diagnostics.
+ */
+export class ConfigValidationError extends Error {
+  constructor(
+    message: string,
+    public readonly issues: ReadonlyArray<{ path: PropertyKey[]; message: string }>,
+  ) {
+    super(message);
+    this.name = "ConfigValidationError";
+  }
+}
+
 export interface AppConfig {
   port: number;
   caseStoreDatabaseUrl?: string;
@@ -20,6 +34,13 @@ export interface AppConfig {
    * Minimum 32 bytes when provided.
    */
   signatureSealKey?: string;
+  /**
+   * Express `trust proxy` setting. Set to `true` or a number (proxy hop count)
+   * when running behind a load balancer (ALB, nginx, etc.) so that `req.ip`
+   * reflects the client address rather than the balancer's. Required for
+   * accurate per-IP rate limiting and request logging.
+   */
+  trustProxy?: boolean | number;
 }
 
 function optionalEnvText() {
@@ -132,13 +153,20 @@ const configSchema = z.object({
     (value) => value === undefined || Buffer.byteLength(value, "utf-8") >= 32,
     "SIGNATURE_SEAL_KEY must be at least 32 bytes when provided.",
   ),
+  TRUST_PROXY: optionalEnvBoolean(false),
 });
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const result = configSchema.safeParse(env);
   if (!result.success) {
-    const message = result.error.issues.map((issue) => issue.message).join("; ");
-    throw new Error(`Invalid environment configuration: ${message}`);
+    const issues = result.error.issues.map((issue) => ({
+      path: issue.path,
+      message: issue.message,
+    }));
+    throw new ConfigValidationError(
+      `Invalid environment configuration: ${issues.map((i) => i.message).join("; ")}`,
+      issues,
+    );
   }
 
   const jwt =
@@ -169,6 +197,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     rateLimitRefillRate: result.data.RATE_LIMIT_REFILL_RATE,
     jwt,
     signatureSealKey: result.data.SIGNATURE_SEAL_KEY,
+    trustProxy: result.data.TRUST_PROXY,
   };
 
   // Production advisory: shared API-key without OIDC does not satisfy

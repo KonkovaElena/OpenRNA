@@ -77,6 +77,9 @@ export function createApp(dependencies: AppDependencies = {}) {
   } = resolveAppDependencies(dependencies);
 
   app.disable("x-powered-by");
+  if (dependencies.trustProxy) {
+    app.set("trust proxy", dependencies.trustProxy);
+  }
   app.use(securityHeaders());
   app.use(express.json({ limit: "1mb" }));
   if (dependencies.enableRateLimiting) {

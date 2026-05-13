@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { createApp } from "./app";
 import { createDurableRuntimeDependencies, createWorkflowDispatchDependency } from "./bootstrap/runtime-dependencies";
-import { loadConfig } from "./config";
+import { ConfigValidationError, loadConfig } from "./config";
 import { closeServerAndResources } from "./runtime-shutdown";
 
 function writeFatal(message: string): void {
@@ -29,6 +29,7 @@ async function bootstrap() {
       maxTokens: config.rateLimitMaxTokens,
       refillRate: config.rateLimitRefillRate,
     },
+    trustProxy: config.trustProxy,
     enforceServerDerivedConsentOnCreate: true,
   });
   const server = createServer(app);
@@ -74,6 +75,15 @@ async function bootstrap() {
 }
 
 void bootstrap().catch((error) => {
+  if (error instanceof ConfigValidationError) {
+    writeFatal("Configuration validation failed. Fix the following environment variables:");
+    for (const issue of error.issues) {
+      const variable = issue.path.length > 0 ? String(issue.path[0]) : "unknown";
+      writeFatal(`  - ${variable}: ${issue.message}`);
+    }
+    process.exitCode = 78; // EX_CONFIG — configuration error
+    return;
+  }
   const message = error instanceof Error ? error.message : String(error);
   writeFatal(`Bootstrap failed: ${message}`);
   process.exitCode = 1;
