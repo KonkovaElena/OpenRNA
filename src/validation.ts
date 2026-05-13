@@ -1,5 +1,4 @@
-import { type ZodError, z } from "zod";
-import { ApiError } from "./errors";
+import { z } from "zod";
 import {
   type AdministrationRecord,
   type AssayType,
@@ -29,7 +28,6 @@ import {
   type RankingRationale,
   type RecordHlaConsensusInput,
   type RecordReviewOutcomeInput,
-  type ReferenceBundleManifest,
   type RegisterArtifactInput,
   type RegisterSampleInput,
   type RequestWorkflowInput,
@@ -45,99 +43,17 @@ import {
   wellKnownQcMetrics,
   workflowFailureCategories,
 } from "./types";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function requiredText(fieldName: string) {
-  return z
-    .string({ error: `${fieldName} is required.` })
-    .trim()
-    .min(1, `${fieldName} is required.`);
-}
-
-function optionalText(fieldName: string) {
-  return z.preprocess(
-    (value) => {
-      if (value === undefined || value === null) {
-        return undefined;
-      }
-
-      if (typeof value !== "string") {
-        return value;
-      }
-
-      const trimmed = value.trim();
-      return trimmed.length === 0 ? undefined : trimmed;
-    },
-    z
-      .string({ error: `${fieldName} must be a string.` })
-      .trim()
-      .optional(),
-  );
-}
-
-function positiveInteger(fieldName: string) {
-  return z
-    .number({ error: `${fieldName} must be a positive integer.` })
-    .int()
-    .min(1, `${fieldName} must be a positive integer.`);
-}
-
-function numberField(fieldName: string) {
-  return z.number({ error: `${fieldName} must be a number.` });
-}
-
-function isoTimestamp(fieldName: string) {
-  return z
-    .string({ error: `${fieldName} is required.` })
-    .trim()
-    .min(1, `${fieldName} is required.`)
-    .datetime({ message: `${fieldName} must be a valid ISO 8601 timestamp.` });
-}
-
-function booleanField(fieldName: string) {
-  return z.boolean({ error: `${fieldName} must be a boolean.` });
-}
-
-function enumText<const TValues extends readonly [string, ...string[]]>(
-  values: TValues,
-  fieldName: string,
-  unsupportedMessage: string,
-) {
-  return requiredText(fieldName).refine(
-    (value): value is TValues[number] => values.includes(value as TValues[number]),
-    {
-      message: unsupportedMessage,
-    },
-  );
-}
-
-function nonEmptyStringArray(fieldName: string, itemFieldName: string) {
-  return z
-    .array(requiredText(itemFieldName), {
-      error: `${fieldName} must be a non-empty array of strings.`,
-    })
-    .min(1, `${fieldName} must be a non-empty array of strings.`);
-}
-
-function firstIssueMessage(error: ZodError): string {
-  return error.issues[0]?.message ?? "Invalid input.";
-}
-
-function parseObjectWithSchema<T>(value: unknown, schema: z.ZodType<T>, nextStep: string): T {
-  if (!isRecord(value)) {
-    throw new ApiError(400, "invalid_input", "Request body must be an object.", nextStep);
-  }
-
-  const result = schema.safeParse(value);
-  if (!result.success) {
-    throw new ApiError(400, "invalid_input", firstIssueMessage(result.error), nextStep);
-  }
-
-  return result.data;
-}
+import {
+  booleanField,
+  enumText,
+  isoTimestamp,
+  nonEmptyStringArray,
+  numberField,
+  optionalText,
+  parseObjectWithSchema,
+  positiveInteger,
+  requiredText,
+} from "./validation-helpers";
 
 const caseProfileSchema = z
   .object({
@@ -223,7 +139,7 @@ const failWorkflowRunInputSchema = z
     reason: requiredText("reason"),
     failureCategory: z
       .enum(workflowFailureCategories, {
-        error: "failureCategory must be one of: " + workflowFailureCategories.join(", "),
+        error: `failureCategory must be one of: ${workflowFailureCategories.join(", ")}`,
       })
       .optional(),
   })
@@ -393,12 +309,12 @@ const designConstructInputSchema = z
     }),
     deliveryModality: z
       .enum(deliveryModalities, {
-        error: "deliveryModality must be one of: " + deliveryModalities.join(", ") + ".",
+        error: `deliveryModality must be one of: ${deliveryModalities.join(", ")}.`,
       })
       .optional(),
     linkerStrategy: z
       .enum(epitopeLinkerStrategies, {
-        error: "linkerStrategy must be one of: " + epitopeLinkerStrategies.join(", ") + ".",
+        error: `linkerStrategy must be one of: ${epitopeLinkerStrategies.join(", ")}.`,
       })
       .optional(),
   })
@@ -446,8 +362,7 @@ const neoantigenCandidateSchema = z
           .min(0, "candidates[].manufacturability.gcContent must be between 0 and 1.")
           .max(1, "candidates[].manufacturability.gcContent must be between 0 and 1."),
         selfFoldingRisk: z.enum(selfFoldingRiskLevels, {
-          error:
-            "candidates[].manufacturability.selfFoldingRisk must be one of: " + selfFoldingRiskLevels.join(", ") + ".",
+          error: `candidates[].manufacturability.selfFoldingRisk must be one of: ${selfFoldingRiskLevels.join(", ")}.`,
         }),
       })
       .strict(),
@@ -459,7 +374,7 @@ const neoantigenCandidateSchema = z
           .int()
           .min(0, "candidates[].selfSimilarity.editDistance must be a non-negative integer."),
         toleranceRisk: z.enum(toleranceRiskLevels, {
-          error: "candidates[].selfSimilarity.toleranceRisk must be one of: " + toleranceRiskLevels.join(", ") + ".",
+          error: `candidates[].selfSimilarity.toleranceRisk must be one of: ${toleranceRiskLevels.join(", ")}.`,
         }),
       })
       .strict(),
@@ -515,7 +430,7 @@ const recordReviewOutcomeInputSchema = z
     reviewerId: requiredText("reviewerId"),
     reviewerRole: optionalText("reviewerRole"),
     reviewDisposition: z.enum(reviewDispositions, {
-      error: "reviewDisposition must be one of: " + reviewDispositions.join(", ") + ".",
+      error: `reviewDisposition must be one of: ${reviewDispositions.join(", ")}.`,
     }),
     rationale: requiredText("rationale"),
     comments: optionalText("comments"),
@@ -730,7 +645,7 @@ const outputManifestDerivedArtifactSchema = z
 const outputManifestQcSummarySchema = z
   .object({
     outcome: z.enum(qcGateOutcomes, {
-      error: "qcSummary.outcome must be " + qcGateOutcomes.join(", ") + ".",
+      error: `qcSummary.outcome must be ${qcGateOutcomes.join(", ")}.`,
     }),
     results: z.array(
       z
@@ -792,106 +707,14 @@ export function parseWorkflowOutputManifest(value: unknown): WorkflowOutputManif
   );
 }
 
-// ─── Register Reference Bundle (Wave 6) ─────────────────────────────
+// ─── Governance validation (re-exported from validation-governance.ts) ───────
 
-const retrievalProvenanceSchema = z
-  .object({
-    uri: requiredText("retrievalProvenance.uri"),
-    retrievedAt: isoTimestamp("retrievalProvenance.retrievedAt"),
-    integrityHash: requiredText("retrievalProvenance.integrityHash"),
-  })
-  .strict();
-
-const registerBundleSchema = z
-  .object({
-    bundleId: requiredText("bundleId"),
-    genomeAssembly: requiredText("genomeAssembly"),
-    annotationVersion: requiredText("annotationVersion"),
-    knownSitesVersion: requiredText("knownSitesVersion"),
-    hlaDatabaseVersion: requiredText("hlaDatabaseVersion"),
-    frozenAt: isoTimestamp("frozenAt"),
-    transcriptSet: optionalText("transcriptSet"),
-    callerBundleVersion: optionalText("callerBundleVersion"),
-    pipelineRevision: optionalText("pipelineRevision"),
-    retrievalProvenance: z.preprocess(
-      (v) => (v === null || v === undefined ? undefined : v),
-      retrievalProvenanceSchema.optional(),
-    ),
-  })
-  .strict() satisfies z.ZodType<ReferenceBundleManifest>;
-
-export function parseRegisterBundleInput(value: unknown): ReferenceBundleManifest {
-  return parseObjectWithSchema(value, registerBundleSchema, "Submit a JSON object describing the reference bundle.");
-}
-
-// ─── Consent Event (HD-004: replace inline validation) ───────────────
-
-const consentTypes = ["granted", "withdrawn", "renewed"] as const;
-
-const consentEventSchema = z
-  .object({
-    type: z.enum(consentTypes, { error: "type must be one of: granted, withdrawn, renewed." }),
-    timestamp: isoTimestamp("timestamp").optional(),
-    scope: requiredText("scope"),
-    version: requiredText("version"),
-    witnessId: optionalText("witnessId"),
-    notes: optionalText("notes"),
-  })
-  .strict();
-
-export interface ConsentEventInput {
-  type: "granted" | "withdrawn" | "renewed";
-  timestamp?: string;
-  scope: string;
-  version: string;
-  witnessId?: string;
-  notes?: string;
-}
-
-export function parseConsentEventInput(value: unknown): ConsentEventInput {
-  return parseObjectWithSchema(
-    value,
-    consentEventSchema,
-    "Submit a JSON object with type (granted|withdrawn|renewed), scope, and version.",
-  );
-}
-
-// ─── Audit Sign / Verify (HD-004: replace inline validation) ─────────
-
-const auditSignInputSchema = z
-  .object({
-    entry: z.record(z.string(), z.unknown(), { error: "entry is required." }),
-    principal: requiredText("principal"),
-  })
-  .strict();
-
-export interface AuditSignInput {
-  entry: Record<string, unknown>;
-  principal: string;
-}
-
-export function parseAuditSignInput(value: unknown): AuditSignInput {
-  return parseObjectWithSchema(
-    value,
-    auditSignInputSchema,
-    "Submit a JSON object with an audit entry and signing principal.",
-  );
-}
-
-const auditVerifyInputSchema = z
-  .object({
-    entry: z.record(z.string(), z.unknown(), { error: "entry is required." }),
-  })
-  .strict();
-
-export interface AuditVerifyInput {
-  entry: Record<string, unknown>;
-}
-
-export function parseAuditVerifyInput(value: unknown): AuditVerifyInput {
-  return parseObjectWithSchema(
-    value,
-    auditVerifyInputSchema,
-    "Submit a JSON object with a signed audit entry to verify.",
-  );
-}
+export {
+  type AuditSignInput,
+  type AuditVerifyInput,
+  type ConsentEventInput,
+  parseAuditSignInput,
+  parseAuditVerifyInput,
+  parseConsentEventInput,
+  parseRegisterBundleInput,
+} from "./validation-governance";
