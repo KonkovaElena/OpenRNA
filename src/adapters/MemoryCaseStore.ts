@@ -10,6 +10,7 @@ import {
   restartFromRevisionForCase,
   syncConsentStatusForCase,
 } from "../store-consent-revision";
+import { createCaseRecord } from "../store-create-case";
 import type { AuditContextInput } from "../store-helpers";
 import {
   auditEvent,
@@ -296,55 +297,20 @@ export class MemoryCaseStore implements ICaseStore {
     };
   }
 
+  private getCreateCaseMutationContext() {
+    return {
+      clock: this.clock,
+      generateId: randomUUID,
+      deriveCaseStatus,
+      createCaseEvent: this.createCaseEvent.bind(this),
+      appendCaseEvent: this.appendCaseEvent.bind(this),
+    };
+  }
+
   async createCase(rawInput: unknown, correlationId: AuditContextInput): Promise<CaseRecord> {
     const input = parseCreateCaseInput(rawInput);
-    const createdAt = this.clock.nowIso();
-    const caseId = `case_${randomUUID()}`;
-    const status = deriveCaseStatus(input.caseProfile.consentStatus, [], [], false);
-    const timeline: TimelineEvent[] = [timelineEvent(this.clock, "case_created", "Human oncology case was created.")];
-
-    if (status === "AWAITING_CONSENT") {
-      timeline.push(timelineEvent(this.clock, "consent_missing", "Case is waiting for required consent artifacts."));
-    }
-
-    const record: CaseRecord = {
-      caseId,
-      status,
-      createdAt,
-      updatedAt: createdAt,
-      caseProfile: input.caseProfile,
-      samples: [],
-      artifacts: [],
-      workflowRequests: [],
-      timeline,
-      auditEvents: [],
-      workflowRuns: [],
-      derivedArtifacts: [],
-      qcGates: [],
-      boardPackets: [],
-      reviewOutcomes: [],
-      handoffPackets: [],
-      outcomeTimeline: [],
-    };
-
-    record.auditEvents.push(auditEvent(this.clock, "case.created", "Human oncology case was created.", correlationId));
-
-    await this.appendCaseEvent(
-      this.createCaseEvent(
-        caseId,
-        "case.created",
-        {
-          createdAt,
-          status,
-          caseProfile: structuredClone(input.caseProfile),
-        },
-        correlationId,
-        createdAt,
-        createdAt,
-      ),
-    );
-
-    return this.rebuildCaseProjection(caseId);
+    const record = await createCaseRecord(this.getCreateCaseMutationContext(), input, correlationId);
+    return this.rebuildCaseProjection(record.caseId);
   }
 
   async listCases(options?: { limit?: number; offset?: number }): Promise<{ cases: CaseRecord[]; totalCount: number }> {
