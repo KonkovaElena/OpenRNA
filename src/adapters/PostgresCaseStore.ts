@@ -395,11 +395,11 @@ export class PostgresCaseStore implements CaseStore {
       `SELECT case_id FROM cases ORDER BY created_at ASC, case_id ASC LIMIT $1 OFFSET $2`,
       [limit, offset],
     );
-    const records: CaseRecord[] = [];
-    for (const row of result.rows) {
-      const record = await this.loadCaseRecord(this.pool, String(row.case_id));
-      if (record) records.push(record);
-    }
+    // TODO: Replace N+1 hydration with a batched CTE or lightweight projection.
+    // Each loadCaseRecord fires ~15 child queries; for limit=50 this exceeds 750 round-trips.
+    const records = (
+      await Promise.all(result.rows.map((row) => this.loadCaseRecord(this.pool, String(row.case_id))))
+    ).filter((record): record is CaseRecord => record !== null);
     return { cases: records, totalCount };
   }
 

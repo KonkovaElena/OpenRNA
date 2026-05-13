@@ -180,6 +180,10 @@ export class PostgresWorkflowRunner implements IWorkflowRunner {
       failureCategory: category,
     };
   }
+
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
 }
 
 // ── Row mapper ────────────────────────────────────────────────────────

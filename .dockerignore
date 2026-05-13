@@ -9,4 +9,3 @@ tests
 *.log
 .env*
 biome.json
-tsconfig.json

@@ -1,7 +1,7 @@
 import { ApiError } from "./errors";
 import type { AuditContextInput } from "./store-helpers";
 import { auditEvent, timelineEvent } from "./store-helpers";
-import type { CaseDomainEventInput, CaseRecord, HlaConsensusRecord, QcGateRecord, WorkflowRunRecord } from "./types";
+import type { CaseDomainEventInput, CaseRecord, HlaConsensusRecord, QcGateRecord } from "./types";
 
 type ClockLike = { nowIso(): string };
 

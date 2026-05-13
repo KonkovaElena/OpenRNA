@@ -17,7 +17,34 @@ It is intentionally scoped to the standalone OpenRNA repository and excludes pri
 Academic audit and workflow-store decomposition pass: formal FSM specification, evidence-based
 assessment, and architectural modularization.
 
+Hyper-deep audit pass: 2 critical, 8 high, 8 medium, and 4 low findings documented in
+`docs/archive/HYPER_DEEP_AUDIT_2026_05_13.md`. Remediated in this release.
+
 ### Added
+
+- **`docs/archive/HYPER_DEEP_AUDIT_2026_05_13.md`** — comprehensive security, performance,
+  reliability, maintainability, DevOps, and compliance audit applying OWASP ASVS 4.0 L2,
+  NIST SSDF, ISO/IEC 25010, and 21 CFR Part 11. Includes phased remediation roadmap.
+- **`COOP` and `CORP` security headers** (`Cross-Origin-Opener-Policy: same-origin`,
+  `Cross-Origin-Resource-Policy: same-origin`) in `securityHeaders()` middleware.
+- **RBAC protection** on `GET /metrics` (`ADMIN_OPERATIONS` gate) to prevent operational
+  metadata leakage.
+- **Global exception/rejection handlers** (`uncaughtException`, `unhandledRejection`) in
+  `src/index.ts` with fatal logging and graceful shutdown triggers.
+- **Server hardening timeouts**: `headersTimeout = 30s` and `requestTimeout = 120s` on the
+  Node.js HTTP server (Slowloris / long-request mitigation).
+- **Parallel N+1 mitigation** in `PostgresCaseStore.listCases` — record hydration now runs
+  via `Promise.all` instead of sequential `for...of`.
+
+### Fixed
+
+- **Docker build failure** — removed `tsconfig.json` from `.dockerignore` so the multi-stage
+  `Dockerfile` can copy it into the build context.
+- **`.env.example` drift** — synchronized with full `config.ts` schema (JWT variables,
+  `RBAC_ALLOW_ALL`, `RATE_LIMIT_*`, `SIGNATURE_SEAL_KEY`).
+- **Runtime shutdown incompleteness** — `createDurableRuntimeDependencies` now explicitly
+  attempts to close `runner`, `consentTracker`, and `caseAccessStore` before closing the
+  main store pool.
 
 - **`docs/archive/ACADEMIC_AUDIT_2026-05-13.md`** — peer-review-ready audit report applying
   Evidence-Based Software Engineering (EBSE), Goal-Question-Metric (GQM), and ISO/IEC 25010 to

@@ -101,4 +101,8 @@ export class PostgresConsentTracker implements IConsentTracker {
 
     return latest.type === "granted" || latest.type === "renewed";
   }
+
+  async close(): Promise<void> {
+    // Pool lifecycle is managed by the caller (PostgresCaseStore); this is a no-op.
+  }
 }

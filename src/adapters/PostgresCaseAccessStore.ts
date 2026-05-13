@@ -115,4 +115,8 @@ export class PostgresCaseAccessStore implements ICaseAccessStore {
 
     return result.rows.map((row) => String(row.case_id));
   }
+
+  async close(): Promise<void> {
+    // Pool lifecycle is managed by the caller (PostgresCaseStore); this is a no-op.
+  }
 }

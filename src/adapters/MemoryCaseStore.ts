@@ -50,7 +50,6 @@ import type {
   BoardPacketRecord,
   CaseDomainEventInput,
   CaseDomainEventRecord,
-  CaseDomainEventType,
   CaseRecord,
   CaseStatus,
   ClinicalFollowUpRecord,
@@ -72,7 +71,6 @@ import type {
   ReviewOutcomeRecord,
   ReviewOutcomeResult,
   RunArtifact,
-  SampleRecord,
   WorkflowRunManifest,
   WorkflowRunRecord,
 } from "../types";

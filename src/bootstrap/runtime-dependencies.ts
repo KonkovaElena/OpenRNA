@@ -70,11 +70,18 @@ export async function createDurableRuntimeDependencies(
   await consentTracker.initialize();
   await caseAccessStore.initialize();
 
+  const runner = new PostgresWorkflowRunner(pool);
+
   return {
     store,
-    runner: new PostgresWorkflowRunner(pool),
+    runner,
     consentTracker,
     caseAccessStore,
-    shutdown: async () => store.close(),
+    shutdown: async () => {
+      await runner.close?.();
+      await consentTracker.close?.();
+      await caseAccessStore.close?.();
+      await store.close();
+    },
   };
 }

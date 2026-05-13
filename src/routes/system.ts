@@ -1,4 +1,6 @@
 import type { Express, NextFunction, Request, Response } from "express";
+import { rbacAuth } from "../middleware/rbac-auth";
+import type { IRbacProvider } from "../ports/IRbacProvider";
 import type { CaseStore } from "../store";
 
 const API_SURFACE = [
@@ -60,7 +62,12 @@ const API_SURFACE = [
   "GET /metrics",
 ];
 
-export function registerSystemRoutes(app: Express, store: CaseStore, readinessCheck: () => Promise<boolean>): void {
+export function registerSystemRoutes(
+  app: Express,
+  store: CaseStore,
+  readinessCheck: () => Promise<boolean>,
+  rbacProvider?: IRbacProvider,
+): void {
   app.get("/", (_req, res) => {
     res.json({
       name: "OpenRNA",
@@ -84,23 +91,27 @@ export function registerSystemRoutes(app: Express, store: CaseStore, readinessCh
     }
   });
 
-  app.get("/metrics", async (_req: Request, res: Response, next: NextFunction) => {
-    try {
-      const summary = await store.getOperationsSummary();
-      const lines = [
-        "# HELP openrna_cases_total Total cases in the workflow store",
-        "# TYPE openrna_cases_total gauge",
-        `openrna_cases_total ${summary.totalCases}`,
-        "# HELP openrna_cases_by_status Cases by control-plane status",
-        "# TYPE openrna_cases_by_status gauge",
-        ...Object.entries(summary.statusCounts).map(
-          ([status, count]) => `openrna_cases_by_status{status=\"${status}\"} ${count}`,
-        ),
-      ];
+  app.get(
+    "/metrics",
+    rbacAuth(rbacProvider, "ADMIN_OPERATIONS"),
+    async (_req: Request, res: Response, next: NextFunction) => {
+      try {
+        const summary = await store.getOperationsSummary();
+        const lines = [
+          "# HELP openrna_cases_total Total cases in the workflow store",
+          "# TYPE openrna_cases_total gauge",
+          `openrna_cases_total ${summary.totalCases}`,
+          "# HELP openrna_cases_by_status Cases by control-plane status",
+          "# TYPE openrna_cases_by_status gauge",
+          ...Object.entries(summary.statusCounts).map(
+            ([status, count]) => `openrna_cases_by_status{status=\"${status}\"} ${count}`,
+          ),
+        ];
 
-      res.type("text/plain").send(`${lines.join("\n")}\n`);
-    } catch (error) {
-      next(error);
-    }
-  });
+        res.type("text/plain").send(`${lines.join("\n")}\n`);
+      } catch (error) {
+        next(error);
+      }
+    },
+  );
 }

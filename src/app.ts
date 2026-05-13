@@ -100,7 +100,7 @@ export function createApp(dependencies: AppDependencies = {}) {
 
   app.use("/api/cases/:caseId", caseAccessAuth(caseAccessStore, rbacProvider));
 
-  registerSystemRoutes(app, store, readinessCheck);
+  registerSystemRoutes(app, store, readinessCheck, rbacProvider);
   registerModalityRoutes(app, modalityRegistry);
   registerFhirRoutes(app, {
     store,

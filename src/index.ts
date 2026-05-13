@@ -4,6 +4,10 @@ import { createDurableRuntimeDependencies, createWorkflowDispatchDependency } fr
 import { loadConfig } from "./config";
 import { closeServerAndResources } from "./runtime-shutdown";
 
+function writeFatal(message: string): void {
+  process.stderr.write(`[FATAL] ${message}\n`);
+}
+
 async function bootstrap() {
   const config = loadConfig();
   const dispatch = await createWorkflowDispatchDependency(config);
@@ -28,6 +32,8 @@ async function bootstrap() {
     enforceServerDerivedConsentOnCreate: true,
   });
   const server = createServer(app);
+  server.headersTimeout = 30_000;
+  server.requestTimeout = 120_000;
   let shutdownPromise: Promise<void> | undefined;
 
   const shutdown = async () => {
@@ -41,7 +47,7 @@ async function bootstrap() {
   const handleShutdownSignal = () => {
     void shutdown().catch((error) => {
       const message = error instanceof Error ? error.message : String(error);
-      process.stderr.write(`${message}\n`);
+      writeFatal(`Graceful shutdown failed: ${message}`);
       process.exitCode = 1;
     });
   };
@@ -53,6 +59,15 @@ async function bootstrap() {
     handleShutdownSignal();
   });
 
+  process.on("uncaughtException", (error) => {
+    writeFatal(`Uncaught exception: ${error instanceof Error ? error.message : String(error)}`);
+    handleShutdownSignal();
+  });
+
+  process.on("unhandledRejection", (reason) => {
+    writeFatal(`Unhandled rejection: ${reason instanceof Error ? reason.message : String(reason)}`);
+  });
+
   server.listen(config.port, () => {
     process.stdout.write(`OpenRNA listening on http://localhost:${config.port}\n`);
   });
@@ -60,6 +75,6 @@ async function bootstrap() {
 
 void bootstrap().catch((error) => {
   const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
+  writeFatal(`Bootstrap failed: ${message}`);
   process.exitCode = 1;
 });
