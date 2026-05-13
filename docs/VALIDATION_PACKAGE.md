@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA Computer System Validation Package"
 status: "draft"
-version: "0.1.0"
-last_updated: "2026-05-02"
+version: "0.1.1"
+last_updated: "2026-05-13"
 tags: [validation, iq, oq, pq, part-11, gxp, regulatory]
 regulatory_basis: "21 CFR Part 11 §11.10(a); FDA General Principles of Software Validation (2002)"
 ---
@@ -131,7 +131,7 @@ maps to one or more URS requirements.
 
 | OQ-ID | Test Suite | URS | Description | Current Status |
 |-------|-----------|-----|-------------|----------------|
-| OQ-001 | `tests/api.test.ts` | URS-001, URS-007 | Full case lifecycle HTTP round-trip including input validation | 546 tests pass (2026-05-08) |
+| OQ-001 | `tests/api.test.ts` | URS-001, URS-007 | Full case lifecycle HTTP round-trip including input validation | 555 tests pass (2026-05-13) |
 | OQ-002 | `tests/state-machine-guard.test.ts` | URS-004 | FSM transition validation including `CONSENT_WITHDRAWN` terminal state | ✅ |
 | OQ-003 | `tests/consent-gate.test.ts` | URS-002 | Consent gate middleware — grant, withdraw, terminal withdrawal, new-case pattern | ✅ |
 | OQ-004 | `tests/lifecycle-controls.test.ts` | URS-002, URS-004 | Consent status synchronization with CONSENT_WITHDRAWN; restart-from-revision | ✅ |
@@ -162,7 +162,7 @@ maps to one or more URS requirements.
 
 ### 5.3 OQ Acceptance Criteria
 
-- All 546+ tests pass with exit code 0.
+- All 555+ tests pass with exit code 0.
 - `npm audit --omit=dev --audit-level=high` reports zero vulnerabilities.
 - Code coverage (line ≥ 90%, branch ≥ 80%, function ≥ 90%) reported by `npm run test:coverage`.
 - No `[SKIP]` or `[TODO]` test markers introduced without a documented rationale.

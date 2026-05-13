@@ -67,6 +67,28 @@ Tier-маркеры указаны в квадратных скобках: **[T1
 - **Full traceability**: machine-readable audit events on every case mutation, end-to-end evidence lineage graph from samples through construct to outcomes.
 - **Operations and health**: `/healthz`, `/readyz`, `/metrics`, `/api/operations/summary`.
 
+### Formal FSM Specification
+
+The case lifecycle is modeled as a deterministic finite-state machine (DFSM) over an alphabet of domain events. Below is the mathematical specification used to derive the implementation in `InMemoryStateMachineGuard` and the integration-test corpus.
+
+**Definition 1 (Case Lifecycle FSM).** Let `M = (Q, Σ, δ, q₀, F)` where:
+
+- `Q` = {`INTAKING`, `AWAITING_CONSENT`, `READY_FOR_WORKFLOW`, `WORKFLOW_REQUESTED`, `WORKFLOW_RUNNING`, `WORKFLOW_COMPLETED`, `WORKFLOW_CANCELLED`, `WORKFLOW_FAILED`, `QC_PASSED`, `QC_FAILED`, `AWAITING_REVIEW`, `HLA_REVIEW_REQUIRED`, `AWAITING_FINAL_RELEASE`, `APPROVED_FOR_HANDOFF`, `REVISION_REQUESTED`, `REVIEW_REJECTED`, `HANDOFF_PENDING`, `CONSENT_WITHDRAWN`}
+- `Σ` = {`case.created`, `consent.granted`, `sample.registered`, `artifact.registered`, `workflow.requested`, `workflow.started`, `workflow.completed`, `workflow.failed`, `workflow.cancelled`, `qc.passed`, `qc.failed`, `hla.review.resolved`, `review.outcome_recorded`, `final.release_authorized`, `handoff.generated`, `review.rejected`, `consent.withdrawn`, `revision.restarted`}
+- `q₀` = `INTAKING`
+- `F` = {`HANDOFF_PENDING`, `REVIEW_REJECTED`, `CONSENT_WITHDRAWN`}
+- `δ: Q × Σ → Q` is a partial function encoded in `getAllowedTransitions()`.
+
+**Invariant I (No Escape from Terminal States).** `∀ q ∈ F, ∀ e ∈ Σ: δ(q, e)` is undefined. Implemented by `STRICTLY_TERMINAL_STATES` in `InMemoryStateMachineGuard`.
+
+**Invariant II (Consent Withdrawal Absorption).** `∀ q ∈ Q \ F, δ(q, consent.withdrawn) = CONSENT_WITHDRAWN` if `consentStatus = "withdrawn"`. Implemented by `deriveCaseStatus()`.
+
+**Invariant III (No Dead States).** Every non-terminal state has at least one outgoing transition to another state. Verified by static analysis of `getAllowedTransitions()` and coverage in `tests/lifecycle-controls.test.ts`.
+
+**Property P (Determinism).** For every reachable state `q` and every event `e`, at most one next state `q'` is defined. This holds because `getAllowedTransitions()` returns a set of allowed target states; the store layer selects one based on payload semantics, but the FSM guard never permits ambiguous transitions.
+
+*Academic note:* This specification is currently validated by testing. A future TLA+ or Event-B model would provide machine-checked proofs of Invariants I–III and reachability properties.
+
 ### Architecture
 
 - **19 interfaces under `src/ports`**: 11 workflow/scientific seams (`IConstructDesigner`, `IHlaConsensusProvider`, `IModalityRegistry`, `INeoantigenRankingEngine`, `INextflowClient`, `IOutcomeRegistry`, `IQcGateEvaluator`, `IReferenceBundleRegistry`, `IWorkflowDispatchSink`, `IWorkflowOrchestrator`, `IWorkflowRunner`), 5 governance/compliance seams (`IAuditSignatureProvider`, `IConsentTracker`, `IFhirExporter`, `IRbacProvider`, `IStateMachineGuard`), plus `IEventStore` for domain-event replay semantics, and **`ICaseStore`** — extracted from `src/store.ts` to `src/ports/ICaseStore.ts` in May 2026, completing the hexagonal boundary for the primary case aggregate. `CaseStore` in `store.ts` is now a type alias for backward compatibility.

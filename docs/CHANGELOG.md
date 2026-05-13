@@ -2,7 +2,7 @@
 title: "OpenRNA Changelog"
 status: "active"
 version: "1.1.0"
-last_updated: "2026-05-08"
+last_updated: "2026-05-13"
 tags: [changelog, releases, public-export]
 ---
 
@@ -11,6 +11,36 @@ tags: [changelog, releases, public-export]
 This changelog tracks public repository changes that matter to release consumers and technical-diligence readers.
 
 It is intentionally scoped to the standalone OpenRNA repository and excludes private investor annex material.
+
+## [Unreleased] - 2026-05-13
+
+Academic audit and workflow-store decomposition pass: formal FSM specification, evidence-based
+assessment, and architectural modularization.
+
+### Added
+
+- **`docs/archive/ACADEMIC_AUDIT_2026-05-13.md`** — peer-review-ready audit report applying
+  Evidence-Based Software Engineering (EBSE), Goal-Question-Metric (GQM), and ISO/IEC 25010 to
+  OpenRNA v0.1.4. Includes formal-methods gap analysis and a prioritized roadmap.
+- **Formal FSM specification** in `docs/design.md` — mathematical definition of the 18-state case
+  lifecycle as a deterministic finite-state machine `(Q, Σ, δ, q₀, F)` with three invariants and
+  determinism property. Closes the documentation gap identified in GAP-VAL-006 toward a
+  formal Functional Specification.
+
+### Changed
+
+- **`src/store-workflow-lifecycle.ts`** decomposed into five focused modules:
+  `store-request-workflow.ts`, `store-start-workflow.ts`, `store-complete-workflow.ts`,
+  `store-fail-workflow.ts`, `store-cancel-workflow.ts`. The original file is now a barrel
+  re-export. No API or behavioral changes; all 555 tests continue to pass.
+- `docs/VALIDATION_PACKAGE.md` updated to v0.1.1: test count refreshed to 555, evidence date
+  updated to 2026-05-13.
+
+### Tests
+
+- Total: **555 tests (23 suites), 0 failures**.
+
+---
 
 ## [0.1.4] - 2026-05-08
 
