@@ -1,10 +1,10 @@
 ---
 title: "OpenRNA Platform Design"
 status: active
-version: "3.2.0"
-last_updated: "2026-05-02"
+version: "3.2.1"
+last_updated: "2026-05-14"
 tags: [oncology, mrna, circRNA, saRNA, neoantigen, platform-design]
-evidence_cutoff: "2026-05-02"
+evidence_cutoff: "2026-05-14"
 ---
 
 # Design: OpenRNA Platform
@@ -91,8 +91,8 @@ The case lifecycle is modeled as a deterministic finite-state machine (DFSM) ove
 
 ### Architecture
 
-- **19 interfaces under `src/ports`**: 11 workflow/scientific seams (`IConstructDesigner`, `IHlaConsensusProvider`, `IModalityRegistry`, `INeoantigenRankingEngine`, `INextflowClient`, `IOutcomeRegistry`, `IQcGateEvaluator`, `IReferenceBundleRegistry`, `IWorkflowDispatchSink`, `IWorkflowOrchestrator`, `IWorkflowRunner`), 5 governance/compliance seams (`IAuditSignatureProvider`, `IConsentTracker`, `IFhirExporter`, `IRbacProvider`, `IStateMachineGuard`), plus `IEventStore` for domain-event replay semantics, and **`ICaseStore`** — extracted from `src/store.ts` to `src/ports/ICaseStore.ts` in May 2026, completing the hexagonal boundary for the primary case aggregate. `CaseStore` in `store.ts` is now a type alias for backward compatibility.
-- **Dual adapter strategy**: in-memory adapters for local development and testing, PostgreSQL adapters for durable persistence (`PostgresCaseStore`, `PostgresWorkflowDispatchSink`, `PostgresWorkflowRunner`).
+- **22 interfaces under `src/ports`**: 11 workflow/scientific seams (`IConstructDesigner`, `IHlaConsensusProvider`, `IModalityRegistry`, `INeoantigenRankingEngine`, `INextflowClient`, `IOutcomeRegistry`, `IQcGateEvaluator`, `IReferenceBundleRegistry`, `IWorkflowDispatchSink`, `IWorkflowOrchestrator`, `IWorkflowRunner`), 5 governance/compliance seams (`IAuditSignatureProvider`, `IConsentTracker`, `IFhirExporter`, `IRbacProvider`, `IStateMachineGuard`), `IEventStore` for domain-event replay semantics, **`ICaseStore`** (extracted to `src/ports/ICaseStore.ts` in May 2026), **`IMetricsCollector`** (Prometheus metrics facade, May 2026), **`IPlatformAdapter`** (cross-platform abstraction, May 2026), and **`IToolExecutionPolicy`** (scientific tool execution firewall, May 2026). `CaseStore` in `store.ts` is a type alias for backward compatibility.
+- **Dual adapter strategy**: in-memory adapters for local development and testing, PostgreSQL adapters for durable persistence (`PostgresCaseStore`, `PostgresWorkflowDispatchSink`, `PostgresWorkflowRunner`), plus Prometheus metrics adapter (`PrometheusMetricsCollector`), Node platform adapter (`NodePlatformAdapter`), and default tool-execution policy (`DefaultToolExecutionPolicy`).
 - **Dependency injection**: all adapters injected through `AppDependencies` factory interface; no runtime coupling to specific implementations.
 - **Validation**: Zod runtime schemas for all API inputs.
 - **Auth**: optional API-key middleware with constant-time comparison.
@@ -109,6 +109,7 @@ The case lifecycle is modeled as a deterministic finite-state machine (DFSM) ove
 | Zod | 4.x | Runtime validation |
 | pg | 8.x | PostgreSQL client |
 | pg-mem | 3.x | In-memory Postgres for testing |
+| prom-client | 15.x | Prometheus metrics registry |
 | tsx | 4.x | TypeScript test runner |
 | node:test | built-in | Test framework |
 | supertest | 7.x | HTTP assertion library |

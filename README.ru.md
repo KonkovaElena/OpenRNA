@@ -8,8 +8,8 @@
 
 ## Кратко
 
-- Повторно проверено 2026-05-08: 546 тестов, 22 набора тестов, все проходят; `npm audit --omit=dev --audit-level=high` проходит без high-уязвимостей; `npm run sbom:cyclonedx:file` обновлён.
-- Архитектурный базис: 19 портов (`ICaseStore` вынесен в `src/ports/`), 23 адаптера, 18 состояний жизненного цикла кейса.
+- Повторно проверено 2026-05-14: **555 тестов**, 23 набора тестов, все проходят; `npm audit --omit=dev --audit-level=high` чисто; lint и format gates проходят с **0 ошибок / 0 предупреждений**.
+- Архитектурный базис: **22 порта**, 24 адаптера, 18 состояний жизненного цикла кейса.
 - v0.1.3 hardening: запись и проверка audit hash-chain, identity-bound signatures через JWT `sub` и HMAC seal, поддержка OIDC JWKS URI, пакет IQ/OQ/PQ validation (`docs/VALIDATION_PACKAGE.md`).
 - Репозиторий готов к инженерной и исследовательской проверке, но не заявляет клиническую эксплуатацию и не заявляет завершённое IQ/OQ/PQ execution на целевой регулируемой среде.
 
@@ -69,6 +69,10 @@
 | Электронные подписи — identity-bound через JWT `sub` + HMAC seal | ✅ Реализованы (v0.1.3) |
 | Per-user OIDC / JWKS URI | ✅ Поддерживается (v0.1.3); требуется настройка IdP |
 | Ресурсно-ограниченная авторизация | ✅ Реализована для case-scoped routes; legacy records без ACL остаются переходным режимом |
+| Prometheus-метрики (кейсы, HTTP-запросы, длительности) | ✅ Реализовано (v0.1.5) |
+| `IPlatformAdapter` + `IToolExecutionPolicy` порты | ✅ Реализовано (v0.1.5) |
+| Ограниченный rate-limiter + вытеснение JWKS-кэша | ✅ Реализовано (v0.1.5) |
+| Express `trust proxy` + graceful shutdown с таймаутами | ✅ Реализовано (v0.1.5) |
 | IQ/OQ/PQ validation package | ✅ Документ создан; исполнение протокола pending |
 
 Детали по ограничениям и плану усиления: [docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md](docs/archive/reports/OPENRNA_HARDENING_ROADMAP_2026.md).
@@ -112,6 +116,7 @@ npm run ci
 | `JWT_PRINCIPAL_CLAIM` | `sub` | Имя claim с идентификатором субъекта |
 | `JWT_ROLE_CLAIM` | `roles` | Имя claim с ролями |
 | `SIGNATURE_SEAL_KEY` | unset | HMAC-SHA256 seal key ≥32 байта для identity-bound signature flows |
+| `TRUST_PROXY` | `false` | Настройка Express `trust proxy` (`true` или число хопов за load balancer) |
 
 ## Качество и безопасность цепочки поставок
 
@@ -125,9 +130,22 @@ npm audit --omit=dev --audit-level=high
 npm run sbom:cyclonedx:file
 ```
 
+Docker:
+
+```bash
+docker build -t openrna .
+docker run -p 3000:3000 -e API_KEY=dev-key openrna
+```
+
+Локальный стек разработки с PostgreSQL 16 и pgAdmin (см. `docker-compose.dev.yml`):
+
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+```
+
 Контроль на GitHub:
 
-- [.github/workflows/ci.yml](.github/workflows/ci.yml) — сборка, тесты, покрытие, аудит зависимостей и проверка health endpoints;
+- [.github/workflows/ci.yml](.github/workflows/ci.yml) — сборка, тесты, lint, проверка форматирования, аудит зависимостей и проверка health endpoints;
 - [.github/workflows/codeql.yml](.github/workflows/codeql.yml) — статический анализ безопасности;
 - [.github/workflows/dependency-review.yml](.github/workflows/dependency-review.yml) — проверка риска зависимостей в pull request;
 - [.github/workflows/supply-chain-provenance.yml](.github/workflows/supply-chain-provenance.yml) — SBOM, контрольные суммы, attestations и release assets.

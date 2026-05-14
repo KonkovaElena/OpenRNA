@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA Public Architecture Index"
 status: "active"
-version: "1.1.0"
-last_updated: "2026-04-21"
+version: "1.1.1"
+last_updated: "2026-05-14"
 tags: [navigation, architecture, evidence, public-export]
 ---
 

@@ -1,8 +1,8 @@
 ---
 title: "OpenRNA Operations And Failure Modes"
 status: "active"
-version: "1.0.0"
-last_updated: "2026-05-08"
+version: "1.1.0"
+last_updated: "2026-05-14"
 tags: [operations, runtime, health, troubleshooting]
 ---
 
@@ -40,6 +40,7 @@ Key environment variables are validated by [src/config.ts](../src/config.ts).
 | `JWT_PRINCIPAL_CLAIM` | `sub` | JWT claim used as principal id |
 | `JWT_ROLE_CLAIM` | `roles` | JWT claim used as role source |
 | `SIGNATURE_SEAL_KEY` | unset | HMAC-SHA256 key for server-side signature seals; minimum 32 bytes when supplied |
+| `TRUST_PROXY` | `false` | Express `trust proxy` setting (`true` or proxy hop count) |
 
 ## Basic Verification Path
 
@@ -79,12 +80,18 @@ Expected success signals:
 
 ### Metrics
 
-`GET /metrics` currently emits:
+`GET /metrics` (RBAC-gated: `ADMIN_OPERATIONS`) emits Prometheus exposition format:
 
-- `openrna_cases_total`
-- `openrna_cases_by_status{status="..."}`
+- `openrna_cases_total` — total cases in the workflow store.
+- `openrna_cases_by_status{status="..."}` — cases grouped by control-plane status.
+- `openrna_http_requests_total{method, route, status_code}` — HTTP request counter.
+- `openrna_http_request_duration_seconds{method, route}` — HTTP request duration histogram
+  (buckets: 5ms–10s).
 
-Those values are built from `store.getOperationsSummary()` in [src/routes/system.ts](../src/routes/system.ts).
+Metrics are collected via the `IMetricsCollector` port. The default implementation is
+`PrometheusMetricsCollector` (`prom-client`). All metric emission in `src/` must go through
+`src/monitoring/index.ts`; direct `prom-client` imports outside the infrastructure layer
+are prohibited by the architecture contract.
 
 ## Auth, RBAC, And Consent Behavior
 
@@ -117,9 +124,26 @@ Important limitation: these controls improve operator discipline, but clinical/r
 ## Operational Notes
 
 - Request bodies are limited to 1 MB.
-- Security headers are enabled by default.
-- Rate limiting exists as an optional app-level dependency toggle, not as a fixed external contract.
+- Security headers are enabled by default (including `COOP` and `CORP`).
+- Rate limiting exists as an optional app-level dependency toggle with bounded memory
+  (`maxBuckets: 10_000`, FIFO eviction on overflow).
 - `/metrics` depends on store access. If the active persistence path is unavailable, this endpoint can fail even when the process is still alive.
+- Graceful shutdown enforces a 10-second timeout per resource closer to avoid indefinite hangs.
+- Server hardening timeouts: `headersTimeout = 30s`, `requestTimeout = 120s`.
+
+## Local Development Stack
+
+A `docker-compose.dev.yml` is provided for local development with PostgreSQL 16 and pgAdmin:
+
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+Services:
+- `postgres` — PostgreSQL 16 on port `5432`.
+- `pgadmin` — pgAdmin 4 web UI on port `5050`.
+
+Database credentials and volume paths are documented in the compose file.
 
 ## Source Surfaces
 

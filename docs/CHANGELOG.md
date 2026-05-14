@@ -2,7 +2,7 @@
 title: "OpenRNA Changelog"
 status: "active"
 version: "1.1.0"
-last_updated: "2026-05-13"
+last_updated: "2026-05-14"
 tags: [changelog, releases, public-export]
 ---
 
@@ -12,56 +12,50 @@ This changelog tracks public repository changes that matter to release consumers
 
 It is intentionally scoped to the standalone OpenRNA repository and excludes private investor annex material.
 
-## [Unreleased] - 2026-05-13
+## [0.1.5] - 2026-05-14
 
-Academic audit and workflow-store decomposition pass: formal FSM specification, evidence-based
-assessment, and architectural modularization.
-
-Hyper-deep audit pass: 2 critical, 8 high, 8 medium, and 4 low findings documented in
-`docs/archive/HYPER_DEEP_AUDIT_2026_05_13.md`. Remediated in this release.
+Production-hardening pass (Phase 5) and CI hygiene closure: Prometheus metrics,
+cross-platform abstraction, tool-execution firewall, and lint/format gate cleanup.
 
 ### Added
 
-- **`docs/archive/HYPER_DEEP_AUDIT_2026_05_13.md`** — comprehensive security, performance,
-  reliability, maintainability, DevOps, and compliance audit applying OWASP ASVS 4.0 L2,
-  NIST SSDF, ISO/IEC 25010, and 21 CFR Part 11. Includes phased remediation roadmap.
-- **`COOP` and `CORP` security headers** (`Cross-Origin-Opener-Policy: same-origin`,
-  `Cross-Origin-Resource-Policy: same-origin`) in `securityHeaders()` middleware.
-- **RBAC protection** on `GET /metrics` (`ADMIN_OPERATIONS` gate) to prevent operational
-  metadata leakage.
-- **Global exception/rejection handlers** (`uncaughtException`, `unhandledRejection`) in
-  `src/index.ts` with fatal logging and graceful shutdown triggers.
-- **Server hardening timeouts**: `headersTimeout = 30s` and `requestTimeout = 120s` on the
-  Node.js HTTP server (Slowloris / long-request mitigation).
-- **Parallel N+1 mitigation** in `PostgresCaseStore.listCases` — record hydration now runs
-  via `Promise.all` instead of sequential `for...of`.
+- **Prometheus metrics** (`prom-client`) via `IMetricsCollector` domain port:
+  `openrna_cases_total`, `openrna_cases_by_status`, `openrna_http_requests_total`,
+  `openrna_http_request_duration_seconds`. Metrics facade enforced through `src/monitoring/index.ts`.
+- **HTTP request metrics middleware** in `src/app.ts` — counts and duration histograms
+  collected on every response via `res.on("finish")`.
+- **`IPlatformAdapter`** domain port + `NodePlatformAdapter` infrastructure implementation
+  for cross-platform abstraction (tmpdir, signals, path separators, Unix-domain socket support).
+- **`IToolExecutionPolicy`** domain port + `DefaultToolExecutionPolicy` infrastructure
+  implementation with anonymous-deny, CPU budget (5 min), and memory budget (4 GiB) guards.
+- **`docker-compose.dev.yml`** — local development stack with PostgreSQL 16 and pgAdmin.
+- **Bounded rate-limiter eviction** (`maxBuckets: 10_000`, FIFO 10% eviction) to prevent
+  memory exhaustion from unbounded token-bucket growth.
+- **Capped JWKS cache** (50 entries, FIFO eviction) to prevent unbounded memory growth
+  on frequent key rotations.
+- **Express `trust proxy`** support via `TRUST_PROXY` environment variable for correct
+  client-IP detection behind load balancers.
+- **Graceful shutdown timeouts** — 10-second per-resource timeout wrapper in
+  `runtime-shutdown.ts` to prevent indefinite hangs.
+- **`ConfigValidationError`** with structured Zod issue diagnostics and exit code 78
+  for bootstrap configuration failures.
 
 ### Fixed
 
-- **Docker build failure** — removed `tsconfig.json` from `.dockerignore` so the multi-stage
-  `Dockerfile` can copy it into the build context.
-- **`.env.example` drift** — synchronized with full `config.ts` schema (JWT variables,
-  `RBAC_ALLOW_ALL`, `RATE_LIMIT_*`, `SIGNATURE_SEAL_KEY`).
-- **Runtime shutdown incompleteness** — `createDurableRuntimeDependencies` now explicitly
-  attempts to close `runner`, `consentTracker`, and `caseAccessStore` before closing the
-  main store pool.
-
-- **`docs/archive/ACADEMIC_AUDIT_2026-05-13.md`** — peer-review-ready audit report applying
-  Evidence-Based Software Engineering (EBSE), Goal-Question-Metric (GQM), and ISO/IEC 25010 to
-  OpenRNA v0.1.4. Includes formal-methods gap analysis and a prioritized roadmap.
-- **Formal FSM specification** in `docs/design.md` — mathematical definition of the 18-state case
-  lifecycle as a deterministic finite-state machine `(Q, Σ, δ, q₀, F)` with three invariants and
-  determinism property. Closes the documentation gap identified in GAP-VAL-006 toward a
-  formal Functional Specification.
+- **`biome format --check`** removed from `format:check` script (Biome 2.0 does not support
+  `--check` on `format`); `npm run format:check` now works correctly.
+- **All 20 `noExplicitAny` warnings** in tests eliminated by replacing `err: any` with
+  `err: unknown` + `instanceof` guards, and by replacing `as any` casts with
+  `as unknown as` + explicit record types where type-safe.
 
 ### Changed
 
-- **`src/store-workflow-lifecycle.ts`** decomposed into five focused modules:
-  `store-request-workflow.ts`, `store-start-workflow.ts`, `store-complete-workflow.ts`,
-  `store-fail-workflow.ts`, `store-cancel-workflow.ts`. The original file is now a barrel
-  re-export. No API or behavioral changes; all 555 tests continue to pass.
-- `docs/VALIDATION_PACKAGE.md` updated to v0.1.1: test count refreshed to 555, evidence date
-  updated to 2026-05-13.
+- **Lint severity** — `noUnusedVariables` and `noUnusedImports` promoted from `warn` to `error`.
+- **CI workflows merged** — duplicate `.github/workflows/node-ci.yml` removed;
+  single canonical `.github/workflows/ci.yml` covers build, test, lint, format check,
+  audit, and smoke health checks.
+- **`caseStatuses`** centralized in `src/types-core.ts` to eliminate duplication across
+  `PostgresCaseStore` and other consumers.
 
 ### Tests
 
@@ -70,6 +64,9 @@ Hyper-deep audit pass: 2 critical, 8 high, 8 medium, and 4 low findings document
 ---
 
 ## [0.1.4] - 2026-05-08
+
+Regulatory readiness and authorization hardening pass: README/validation drift closure, explicit
+resource-scoped RBAC contract, and execution-evidence rails for IQ/OQ/PQ.
 
 Regulatory readiness and authorization hardening pass: README/validation drift closure, explicit
 resource-scoped RBAC contract, and execution-evidence rails for IQ/OQ/PQ.

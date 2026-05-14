@@ -34,9 +34,11 @@ Minimum verification:
 
 1. `npm run build`
 2. `npm test`
-3. `npm run test:coverage` for non-trivial changes
-4. `npm audit --omit=dev --audit-level=high` if dependency or lockfile state changed
-5. `npm run sbom:cyclonedx -- > openrna-runtime-sbom.cdx.json` when changing dependency or supply-chain surfaces
+3. `npm run lint` (must pass with 0 errors and 0 warnings)
+4. `npm run format:check` (must pass with 0 fixes needed)
+5. `npm run test:coverage` for non-trivial changes
+6. `npm audit --omit=dev --audit-level=high` if dependency or lockfile state changed
+7. `npm run sbom:cyclonedx -- > openrna-runtime-sbom.cdx.json` when changing dependency or supply-chain surfaces
 
 ### Docs lane
 

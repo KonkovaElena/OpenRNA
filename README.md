@@ -8,8 +8,9 @@ A control plane for personalized neoantigen RNA vaccine workflows.
 
 ## At a glance
 
-- Re-verified on 2026-05-13: 546 tests (44 files), all passing, `npm audit --omit=dev --audit-level=high` clean, `npm run sbom:cyclonedx:file` refreshed.
-- Architecture baseline: **19 port interfaces** (`ICaseStore` extracted as a canonical port), 23 adapters (18 in-memory + 5 integration), **18 case lifecycle states**.
+- Re-verified on 2026-05-14: **555 tests** (23 suites), all passing, `npm audit --omit=dev --audit-level=high` clean, lint and format gates pass with **0 errors / 0 warnings**.
+- Architecture baseline: **22 port interfaces**, 24 adapters (18 in-memory + 6 integration), **18 case lifecycle states**.
+- v0.1.5 hardening: Prometheus metrics (`prom-client`), cross-platform abstraction (`IPlatformAdapter`), tool-execution firewall (`IToolExecutionPolicy`), bounded rate-limiter eviction, capped JWKS cache, Express `trust proxy`, graceful shutdown timeouts, `docker-compose.dev.yml` local stack.
 - v0.1.4: store.ts and validation.ts modularization, Biome 2.0 linting, Dockerfile, OpenAPI 3.1 spec generator (`docs/openapi.json`).
 - v0.1.3 hardening: audit hash-chain write wiring and verify endpoint, identity-bound signatures (HMAC-SHA256 seal, JWT `sub`), OIDC JWKS URI support, and IQ/OQ/PQ validation package (`docs/VALIDATION_PACKAGE.md`).
 - The repository is ready for engineering diligence, but it does not claim clinical deployment readiness and does not claim completed IQ/OQ/PQ execution on a target regulated environment.
@@ -68,8 +69,12 @@ Architecture authority document: [`docs/design.md`](docs/design.md).
 | Clinical deployment | Not claimed |
 | Consent withdrawal as FSM-native absorbing state (ICH E6(R2) §4.8.2) | Implemented (May 2026) |
 | `ICaseStore` domain port extracted to `src/ports/` | Implemented (May 2026) |
+| Prometheus metrics (cases, HTTP requests, durations) | ✅ Implemented (v0.1.5) |
+| `IPlatformAdapter` + `IToolExecutionPolicy` ports | ✅ Implemented (v0.1.5) |
+| Bounded rate-limiter + JWKS cache eviction | ✅ Implemented (v0.1.5) |
+| Express `trust proxy` + graceful shutdown timeouts | ✅ Implemented (v0.1.5) |
 | `store.ts` / `validation.ts` modularization | ✅ Implemented (v0.1.4) |
-| Biome 2.0 linting + CI gate | ✅ Implemented (v0.1.4) |
+| Biome 2.0 linting + CI gate (0 errors, 0 warnings) | ✅ Implemented (v0.1.4/v0.1.5) |
 | OpenAPI 3.1 spec generation | ✅ Implemented (v0.1.4) |
 | Production Dockerfile | ✅ Implemented (v0.1.4) |
 | Audit hash-chain (schema + write wiring + verify endpoint) | ✅ Implemented (v0.1.3) |
@@ -106,6 +111,12 @@ docker build -t openrna .
 docker run -p 3000:3000 -e API_KEY=dev-key openrna
 ```
 
+Local development stack with PostgreSQL 16 and pgAdmin (see `docker-compose.dev.yml`):
+
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+```
+
 ## Environment variables
 
 Source of truth: [`src/config.ts`](src/config.ts).
@@ -128,6 +139,7 @@ Source of truth: [`src/config.ts`](src/config.ts).
 | `JWT_PRINCIPAL_CLAIM` | `sub` | Claim containing principal id |
 | `JWT_ROLE_CLAIM` | `roles` | Claim containing roles |
 | `SIGNATURE_SEAL_KEY` | unset | HMAC-SHA256 seal key ≥32 bytes (required in production identity-bound signature flows) |
+| `TRUST_PROXY` | `false` | Express `trust proxy` setting (set to `true` or a hop count behind a load balancer) |
 
 ## Quality and supply-chain security
 
@@ -143,7 +155,7 @@ npm run sbom:cyclonedx:file
 
 GitHub controls:
 
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) - build, tests, coverage, audit, smoke health checks.
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) - build, tests, lint, format check, audit, smoke health checks.
 - [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) - SAST.
 - [`.github/workflows/dependency-review.yml`](.github/workflows/dependency-review.yml) - dependency risk gate for PRs.
 - [`.github/workflows/supply-chain-provenance.yml`](.github/workflows/supply-chain-provenance.yml) - SBOM, checksums, attestations, release assets.
