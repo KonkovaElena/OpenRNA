@@ -3,6 +3,7 @@ import test from "node:test";
 import request from "supertest";
 import { InMemoryReferenceBundleRegistry } from "../src/adapters/InMemoryReferenceBundleRegistry";
 import { createApp } from "../src/app";
+import { ApiError } from "../src/errors";
 import type { IWorkflowRunner, WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
 import { MemoryCaseStore } from "../src/store";
 import type { DerivedArtifactSemanticType, WorkflowRunRecord } from "../src/types";
@@ -1342,7 +1343,8 @@ test("WorkflowRunManifest Zod schema rejects a partial manifest", async () => {
   const { parseWorkflowRunManifest } = await import("../src/validation.js");
   assert.throws(
     () => parseWorkflowRunManifest({ manifestVersion: 1 }),
-    (err: any) => {
+    (err: unknown) => {
+      assert.ok(err instanceof ApiError);
       assert.equal(err.statusCode, 400);
       assert.equal(err.code, "invalid_input");
       return true;

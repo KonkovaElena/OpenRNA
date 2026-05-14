@@ -21,6 +21,7 @@ function createPgPool() {
     .replace(/BEGIN;/g, "")
     .replace(/COMMIT;/g, "");
 
+  // biome-ignore lint/suspicious/noExplicitAny: pg-mem internal adapter access
   const client = (db as any).adapters.createPg().Client;
   const c = new client();
   c.query(migrationSql);

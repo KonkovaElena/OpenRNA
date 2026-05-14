@@ -4,6 +4,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { newDb } from "pg-mem";
 import { PostgresWorkflowRunner } from "../src/adapters/PostgresWorkflowRunner";
+import { ApiError } from "../src/errors";
 import type { WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ function createPgPool() {
     .replace(/COMMIT;/g, "");
 
   // pg-mem requires synchronous execution via its internal adapter
+  // biome-ignore lint/suspicious/noExplicitAny: pg-mem internal adapter access
   const client = (db as any).adapters.createPg().Client;
   const c = new client();
   c.query(migrationSql);
@@ -115,7 +117,7 @@ test("PostgresWorkflowRunner: startRun replay mismatch throws 409", async () => 
   await runner.startRun(buildRequest());
   await assert.rejects(
     () => runner.startRun(buildRequest({ workflowName: "different-wf" })),
-    (err: any) => err.statusCode === 409,
+    (err: unknown) => err instanceof ApiError && err.statusCode === 409,
   );
 });
 
@@ -125,7 +127,7 @@ test("PostgresWorkflowRunner: getRun not found throws 404", async () => {
 
   await assert.rejects(
     () => runner.getRun("nonexistent"),
-    (err: any) => err.statusCode === 404,
+    (err: unknown) => err instanceof ApiError && err.statusCode === 404,
   );
 });
 

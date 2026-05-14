@@ -43,7 +43,7 @@ describe("5.A — Expanded Derived Artifact Semantic Types", () => {
         parseCompleteWorkflowRunInput({
           derivedArtifacts: [{ semanticType: "unknown-type", artifactHash: "sha256:abc", producingStep: "s" }],
         }),
-      (err: any) => err.message.includes("Unsupported derived artifact semantic type"),
+      (err: unknown) => err instanceof Error && err.message.includes("Unsupported derived artifact semantic type"),
     );
   });
 });
@@ -75,7 +75,7 @@ describe("5.B — QC Evidence Contract", () => {
         parseEvaluateQcGateInput({
           results: [{ metric: "cov", metricCategory: "unknown_metric", value: 30, threshold: 20, pass: true }],
         }),
-      (err: any) => err.message.includes("metricCategory must be a known QC metric"),
+      (err: unknown) => err instanceof Error && err.message.includes("metricCategory must be a known QC metric"),
     );
   });
 
@@ -136,21 +136,25 @@ describe("5.C — Workflow Output Manifest schema", () => {
 
   it("accepts manifest with storageUri on artifact", () => {
     const raw = validManifest();
-    (raw.derivedArtifacts as any[])[0].storageUri = "s3://bucket/key";
+    const artifacts = raw.derivedArtifacts as unknown as Array<Record<string, unknown>>;
+    artifacts[0].storageUri = "s3://bucket/key";
     const m = parseWorkflowOutputManifest(raw);
     assert.equal(m.derivedArtifacts[0].storageUri, "s3://bucket/key");
   });
 
   it("accepts manifest with pipelineRevision", () => {
     const raw = validManifest();
-    (raw.provenanceChain as any).pipelineRevision = "abc123";
+    const chain = raw.provenanceChain as unknown as Record<string, unknown>;
+    chain.pipelineRevision = "abc123";
     const m = parseWorkflowOutputManifest(raw);
     assert.equal(m.provenanceChain.pipelineRevision, "abc123");
   });
 
   it("accepts manifest with metricCategory in qcSummary result", () => {
     const raw = validManifest();
-    (raw.qcSummary as any).results[0].metricCategory = "callable_region_coverage";
+    const qc = raw.qcSummary as unknown as Record<string, unknown>;
+    const results = qc.results as unknown as Array<Record<string, unknown>>;
+    results[0].metricCategory = "callable_region_coverage";
     const m = parseWorkflowOutputManifest(raw);
     assert.equal(m.qcSummary.results[0].metricCategory, "callable_region_coverage");
   });
@@ -160,7 +164,7 @@ describe("5.C — Workflow Output Manifest schema", () => {
     delete raw.runId;
     assert.throws(
       () => parseWorkflowOutputManifest(raw),
-      (err: any) => err.message.includes("runId"),
+      (err: unknown) => err instanceof Error && err.message.includes("runId"),
     );
   });
 
@@ -169,25 +173,27 @@ describe("5.C — Workflow Output Manifest schema", () => {
     delete raw.caseId;
     assert.throws(
       () => parseWorkflowOutputManifest(raw),
-      (err: any) => err.message.includes("caseId"),
+      (err: unknown) => err instanceof Error && err.message.includes("caseId"),
     );
   });
 
   it("rejects manifest with invalid artifact semanticType", () => {
     const raw = validManifest();
-    (raw.derivedArtifacts as any[])[0].semanticType = "bad-type";
+    const badArtifacts = raw.derivedArtifacts as unknown as Array<Record<string, unknown>>;
+    badArtifacts[0].semanticType = "bad-type";
     assert.throws(
       () => parseWorkflowOutputManifest(raw),
-      (err: any) => err.message.includes("Unsupported derived artifact semantic type"),
+      (err: unknown) => err instanceof Error && err.message.includes("Unsupported derived artifact semantic type"),
     );
   });
 
   it("rejects manifest with invalid qcSummary outcome", () => {
     const raw = validManifest();
-    (raw.qcSummary as any).outcome = "MAYBE";
+    const badQc = raw.qcSummary as unknown as Record<string, unknown>;
+    badQc.outcome = "MAYBE";
     assert.throws(
       () => parseWorkflowOutputManifest(raw),
-      (err: any) => err.message.includes("outcome"),
+      (err: unknown) => err instanceof Error && err.message.includes("outcome"),
     );
   });
 
@@ -196,7 +202,7 @@ describe("5.C — Workflow Output Manifest schema", () => {
     raw.outputManifestVersion = 1.5;
     assert.throws(
       () => parseWorkflowOutputManifest(raw),
-      (err: any) => err.message.includes("int"),
+      (err: unknown) => err instanceof Error && err.message.includes("int"),
     );
   });
 
@@ -209,7 +215,7 @@ describe("5.C — Workflow Output Manifest schema", () => {
   it("rejects non-object body", () => {
     assert.throws(
       () => parseWorkflowOutputManifest("not-an-object"),
-      (err: any) => err.message.includes("must be an object"),
+      (err: unknown) => err instanceof Error && err.message.includes("must be an object"),
     );
   });
 });

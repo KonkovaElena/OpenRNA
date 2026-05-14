@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
 import { mapExitCodeToCategory, NextflowWorkflowRunner } from "../src/adapters/NextflowWorkflowRunner";
+import { ApiError } from "../src/errors";
 import type { INextflowClient } from "../src/ports/INextflowClient";
 import type { WorkflowRunRequest } from "../src/ports/IWorkflowRunner";
 import type { NextflowPollResult, NextflowTerminalMetadata, WorkflowRunManifest } from "../src/types";
@@ -87,7 +88,7 @@ describe("NextflowWorkflowRunner", () => {
     await runner.startRun(buildRequest());
     await assert.rejects(
       () => runner.startRun(buildRequest({ caseId: "different-case" })),
-      (err: any) => err.statusCode === 409,
+      (err: unknown) => err instanceof ApiError && err.statusCode === 409,
     );
   });
 
@@ -100,7 +101,7 @@ describe("NextflowWorkflowRunner", () => {
   it("getRun throws 404 for unknown runId", async () => {
     await assert.rejects(
       () => runner.getRun("nonexistent"),
-      (err: any) => err.statusCode === 404,
+      (err: unknown) => err instanceof ApiError && err.statusCode === 404,
     );
   });
 

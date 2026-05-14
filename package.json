@@ -27,7 +27,7 @@
     "test:oq-evidence": "npm test 2>&1 | tee docs/archive/OQ_TEST_REPORT_$(date +%F).txt",
     "lint": "biome check src/ tests/",
     "lint:fix": "biome check --write src/ tests/",
-    "format:check": "biome format --check src/ tests/",
+    "format:check": "biome format src/ tests/",
     "openapi": "tsx scripts/generate-openapi.ts",
     "ci": "npm run lint && npm run build && npm test && npm audit --omit=dev --audit-level=high"
   },
